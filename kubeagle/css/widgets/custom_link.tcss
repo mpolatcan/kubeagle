@@ -1,0 +1,88 @@
+/* CustomLink widget styles */
+CustomLink,
+.widget-custom-link {
+    height: auto;
+    width: auto;
+    padding: 0;
+    color: $accent;
+    text-style: underline;
+}
+
+CustomLink:hover,
+.widget-custom-link:hover {
+    color: $accent;
+    text-style: bold underline;
+}
+
+CustomLink:focus,
+.widget-custom-link:focus {
+    background: $accent 20%;
+    color: $text;
+    text-style: bold underline;
+}
+
+CustomLink.muted,
+.widget-custom-link.muted {
+    color: $text-muted;
+    text-style: none;
+}
+
+CustomLink.muted:hover,
+.widget-custom-link.muted:hover {
+    color: $text-muted;
+    text-style: none;
+}
+
+CustomLink.muted:focus,
+.widget-custom-link.muted:focus {
+    background: $surface-darken-1;
+    color: $text-muted;
+    text-style: none;
+}
+
+CustomLink.success,
+.widget-custom-link.success {
+    color: $success;
+}
+
+CustomLink.success:hover,
+.widget-custom-link.success:hover {
+    color: $success;
+    text-style: bold underline;
+}
+
+CustomLink.warning,
+.widget-custom-link.warning {
+    color: $warning;
+}
+
+CustomLink.warning:hover,
+.widget-custom-link.warning:hover {
+    color: $warning;
+    text-style: bold underline;
+}
+
+CustomLink.error,
+.widget-custom-link.error {
+    color: $error;
+}
+
+CustomLink.error:hover,
+.widget-custom-link.error:hover {
+    color: $error;
+    text-style: bold underline;
+}
+
+CustomLink.disabled,
+.widget-custom-link.disabled {
+    color: $text-muted;
+    text-style: none;
+    opacity: 0.6;
+}
+
+CustomLink:disabled,
+.widget-custom-link:disabled {
+    color: $text-muted;
+    text-style: none;
+    opacity: 0.6;
+}

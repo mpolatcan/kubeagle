@@ -1,0 +1,92 @@
+/* ProgressBar widget styles */
+
+ProgressBar {
+    height: auto;
+    width: 1fr;
+    min-width: 40;
+}
+
+.progress-container {
+    background: $surface-darken-1;
+    border: solid $surface-lighten-1;
+    padding: 1;
+}
+
+.progress-track {
+    height: 1;
+    background: $surface-lighten-2;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: $accent;
+    transition: width 0.3s ease;
+}
+
+.progress-fill.success {
+    background: $success;
+}
+
+.progress-fill.error {
+    background: $error;
+}
+
+.progress-fill.warning {
+    background: $warning;
+}
+
+.progress-info {
+    margin-top: 1;
+    color: $text-muted;
+}
+
+.progress-percentage {
+    color: $text;
+}
+
+.progress-status {
+    color: $text-muted;
+}
+
+.progress-time {
+    color: $text-muted;
+}
+
+.progress-indeterminate {
+    /* Indeterminate animation handled by Python code */
+}
+
+
+SegmentedProgressBar {
+    height: auto;
+    width: 1fr;
+}
+
+.segment-container {
+    background: $surface-darken-1;
+    overflow: hidden;
+}
+
+.segment-fill {
+    height: 4;
+    display: block;
+    float: left;
+}
+
+.segment-fill.active {
+    background: $accent;
+}
+
+.segment-fill.completed {
+    background: $success;
+}
+
+.segment-fill.pending {
+    background: $surface-lighten-2;
+}
+
+.segment-label {
+    margin-top: 1;
+    color: $text-muted;
+}

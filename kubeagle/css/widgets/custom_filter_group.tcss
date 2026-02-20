@@ -1,0 +1,46 @@
+/* CustomFilterGroup widget styles */
+/* NOTE: Self-targeting layout rules (layout, height, width on CustomFilterGroup)
+   are in DEFAULT_CSS on the Python class because SCOPED_CSS=True prevents
+   CSS_PATH from self-targeting the widget. */
+
+CustomFilterGroup,
+.widget-custom-filter-group {
+    height: auto;
+    width: auto;
+    layout: horizontal;
+    align: left middle;
+}
+
+.filter-group-label,
+.group-label,
+CustomFilterGroup > .group-label,
+.widget-custom-filter-group > .group-label {
+    width: auto;
+    margin-right: 1;
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 0;
+    text-wrap: nowrap;
+    content-align: left middle;
+}
+
+.filter-group-options,
+.chips-container,
+CustomFilterGroup > .chips-container,
+.widget-custom-filter-group > .chips-container {
+    width: auto;
+    height: auto;
+    margin-top: 0;
+    layout: horizontal;
+    align: left middle;
+}
+
+CustomFilterGroup:focus-within,
+.widget-custom-filter-group:focus-within {
+    background: $surface-darken-1 25%;
+}
+
+CustomFilterGroup:disabled,
+.widget-custom-filter-group:disabled {
+    opacity: 0.6;
+}

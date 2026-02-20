@@ -1,0 +1,41 @@
+/* CustomChartsTable widget styles */
+
+CustomChartsTable {
+    height: 1fr;
+    width: 1fr;
+    min-width: 0;
+    min-height: 3;
+    border: round $surface-lighten-1 40%;
+    background: $surface;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+CustomChartsTable:focus {
+    border: solid $accent;
+}
+
+CustomChartsTable:disabled {
+    opacity: 0.5;
+    background: $surface-darken-1;
+}
+
+/* Team badge styling */
+.team-badge {
+    background: $primary;
+    color: $background-darken-1;
+    padding: 0 1;
+}
+
+/* QoS styling */
+.qos-guaranteed {
+    color: $success;
+}
+
+.qos-burstable {
+    color: $warning;
+}
+
+.qos-besteffort {
+    color: $text-muted;
+}

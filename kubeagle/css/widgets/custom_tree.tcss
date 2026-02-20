@@ -1,0 +1,44 @@
+/* CustomTree widget styles */
+CustomTree {
+    height: auto;
+    width: 100%;
+    border: solid $surface-lighten-2;
+    background: $surface;
+}
+
+CustomTree:focus {
+    border: solid $accent;
+}
+
+CustomTree > Tree {
+    background: $surface;
+    color: $text;
+    padding: 0 1;
+}
+
+CustomTree > Tree .tree--selected {
+    background: $accent;
+    color: $primary-background-darken-3;
+}
+
+CustomTree > Tree .tree--cursor {
+    background: $accent-lighten-1;
+    color: $text;
+}
+
+CustomTree > Tree .tree--guide {
+    color: $text-muted;
+}
+
+CustomTree > Tree .tree--label {
+    color: $text;
+}
+
+CustomTree > Tree .tree--highlight {
+    background: $accent;
+    color: $primary-background-darken-3;
+}
+
+CustomTree:disabled {
+    opacity: 0.5;
+}

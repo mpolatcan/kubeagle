@@ -1,0 +1,62 @@
+/* CustomRadioSet widget styles */
+CustomRadioSet,
+.widget-custom-radio-set {
+    height: auto;
+    width: 1fr;
+    dock: top;
+    min-height: 3;
+}
+
+CustomRadioSet > RadioSet,
+.widget-custom-radio-set > RadioSet {
+    width: 1fr;
+    border: solid $control-border;
+    background: $control-background;
+    color: $control-foreground;
+    padding: 1;
+}
+
+CustomRadioSet > RadioSet:focus,
+.widget-custom-radio-set > RadioSet:focus {
+    border: solid $control-focus-border;
+    background: $control-focus-background;
+    color: $control-focus-foreground;
+}
+
+CustomRadioSet > RadioSet:disabled,
+.widget-custom-radio-set > RadioSet:disabled {
+    opacity: 0.6;
+    border: solid $control-disabled-border;
+    background: $control-disabled-background;
+    color: $control-disabled-foreground;
+}
+
+CustomRadioSet > RadioSet > RadioButton,
+.widget-custom-radio-set > RadioSet > RadioButton {
+    padding: 0 1;
+    margin-bottom: 0;
+    color: $control-foreground;
+}
+
+CustomRadioSet > RadioSet > RadioButton:hover,
+.widget-custom-radio-set > RadioSet > RadioButton:hover {
+    background: $control-hover-background;
+}
+
+CustomRadioSet > RadioSet > RadioButton:focus,
+.widget-custom-radio-set > RadioSet > RadioButton:focus {
+    border: tall $control-focus-border;
+    background: $control-focus-background;
+    color: $control-focus-foreground;
+}
+
+CustomRadioSet > RadioSet > RadioButton.-on,
+.widget-custom-radio-set > RadioSet > RadioButton.-on {
+    color: $control-selected-foreground;
+    text-style: bold;
+}
+
+CustomRadioSet.-compact > RadioSet,
+.widget-custom-radio-set.-compact > RadioSet {
+    padding: 0;
+}

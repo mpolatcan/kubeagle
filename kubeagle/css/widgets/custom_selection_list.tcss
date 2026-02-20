@@ -1,0 +1,74 @@
+/* CustomSelectionList widget styles */
+CustomSelectionList,
+.widget-custom-selection-list {
+    height: 1fr;
+    width: 1fr;
+    min-height: 0;
+}
+
+CustomSelectionList > SelectionList,
+.widget-custom-selection-list > SelectionList {
+    height: 1fr;
+    min-height: 0;
+    width: 1fr;
+    border: solid $control-border;
+    background: $control-background;
+    color: $control-foreground;
+    padding: 1;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+CustomSelectionList > SelectionList:focus,
+.widget-custom-selection-list > SelectionList:focus {
+    border: solid $control-focus-border;
+    background: $control-focus-background;
+    color: $control-focus-foreground;
+}
+
+CustomSelectionList > SelectionList:disabled,
+.widget-custom-selection-list > SelectionList:disabled {
+    opacity: 0.6;
+    border: solid $control-disabled-border;
+    background: $control-disabled-background;
+    color: $control-disabled-foreground;
+}
+
+CustomSelectionList > SelectionList > .selection-list--button,
+.widget-custom-selection-list > SelectionList > .selection-list--button {
+    padding: 0 1;
+    color: $control-foreground;
+    background: $control-background;
+    text-wrap: nowrap;
+}
+
+CustomSelectionList > SelectionList > .selection-list--button-highlighted,
+.widget-custom-selection-list > SelectionList > .selection-list--button-highlighted {
+    color: $control-foreground;
+    background: $control-highlight-background;
+    text-style: bold;
+}
+
+CustomSelectionList > SelectionList > .selection-list--button:hover,
+.widget-custom-selection-list > SelectionList > .selection-list--button:hover {
+    background: $control-hover-background;
+}
+
+CustomSelectionList > SelectionList > .selection-list--button-selected,
+.widget-custom-selection-list > SelectionList > .selection-list--button-selected {
+    color: $control-selected-foreground;
+    background: $control-background;
+    text-style: bold;
+}
+
+CustomSelectionList > SelectionList > .selection-list--button-selected-highlighted,
+.widget-custom-selection-list > SelectionList > .selection-list--button-selected-highlighted {
+    color: $control-selected-foreground;
+    background: $control-selected-background;
+    text-style: bold;
+}
+
+CustomSelectionList.-compact > SelectionList,
+.widget-custom-selection-list.-compact > SelectionList {
+    padding: 0;
+}

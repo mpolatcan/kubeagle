@@ -1,0 +1,30 @@
+/* CustomMarkdownViewer widget styles */
+CustomMarkdownViewer,
+.widget-custom-markdown-viewer {
+    height: 1fr;
+    width: 1fr;
+    border: round $surface-lighten-1 40%;
+    color: $text;
+    background: $surface-darken-2;
+}
+
+CustomMarkdownViewer:focus-within,
+.widget-custom-markdown-viewer:focus-within {
+    border: solid $accent;
+}
+
+CustomMarkdownViewer > MarkdownTableOfContents,
+.widget-custom-markdown-viewer > MarkdownTableOfContents {
+    width: 26;
+    min-width: 20;
+    max-width: 34;
+    padding: 0 1;
+    border-right: solid $surface-lighten-1 45%;
+    background: $surface-darken-1;
+}
+
+CustomMarkdownViewer > MarkdownTableOfContents > Tree,
+.widget-custom-markdown-viewer > MarkdownTableOfContents > Tree {
+    background: transparent;
+    color: $text;
+}

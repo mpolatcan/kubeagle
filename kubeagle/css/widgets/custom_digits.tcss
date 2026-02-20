@@ -1,0 +1,59 @@
+/* CustomDigits widget styles */
+CustomDigits {
+    height: auto;
+    width: auto;
+    padding: 0;
+    color: $text;
+    background: transparent;
+    font-size: 5em;
+}
+
+CustomDigits.align-left {
+    text-align: left;
+    content-align: left middle;
+}
+
+CustomDigits.align-center {
+    text-align: center;
+    content-align: center middle;
+}
+
+CustomDigits.align-right {
+    text-align: right;
+    content-align: right middle;
+}
+
+CustomDigits.muted {
+    color: $text;
+}
+
+CustomDigits.accent {
+    color: $text;
+}
+
+CustomDigits.success {
+    color: $success;
+}
+
+CustomDigits.warning {
+    color: $warning;
+}
+
+CustomDigits.error {
+    color: $error;
+}
+
+CustomDigits.highlight {
+    background: $accent 30%;
+    color: $text;
+}
+
+CustomDigits.inverse {
+    background: $accent;
+    color: $primary-background-darken-3;
+}
+
+CustomDigits.value-updated {
+    background: $text 25%;
+    color: $text;
+}

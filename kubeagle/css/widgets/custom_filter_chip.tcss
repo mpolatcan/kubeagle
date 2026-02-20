@@ -1,0 +1,50 @@
+/* CustomFilterChip widget styles */
+/* NOTE: Self-targeting layout rules (layout, height, width on CustomFilterChip)
+   are in DEFAULT_CSS on the Python class because SCOPED_CSS=True prevents
+   CSS_PATH from self-targeting the widget. */
+
+.widget-custom-filter-chip {
+    padding: 0 1;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-2;
+    color: $text;
+}
+
+.widget-custom-filter-chip:hover {
+    border: solid $accent;
+    background: $surface-darken-2;
+}
+
+.widget-custom-filter-chip:focus {
+    border: solid $accent;
+    background: $surface-darken-2;
+}
+
+.widget-custom-filter-chip.active {
+    border: solid $accent;
+    background: $accent 15%;
+    color: $text;
+}
+
+.chip-label,
+.filter-chip-label {
+    color: $text;
+}
+
+.chip-indicator,
+.filter-chip-icon {
+    margin-left: 1;
+    color: $text-muted;
+}
+
+.widget-custom-filter-chip.active .chip-indicator,
+.widget-custom-filter-chip.active .filter-chip-icon {
+    color: $accent;
+}
+
+.widget-custom-filter-chip:disabled {
+    opacity: 0.6;
+    border: round $surface-darken-2;
+    background: $surface-darken-3;
+    color: $text-muted;
+}

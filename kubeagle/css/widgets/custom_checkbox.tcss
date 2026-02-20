@@ -1,0 +1,79 @@
+/* CustomCheckbox widget styles */
+CustomCheckbox,
+.widget-custom-checkbox {
+    height: auto;
+    width: auto;
+    dock: top;
+    align: center left;
+    min-height: 3;
+}
+
+CustomCheckbox > Horizontal,
+.widget-custom-checkbox > Horizontal {
+    height: auto;
+    width: auto;
+    align: left middle;
+}
+
+CustomCheckbox > Horizontal > Checkbox,
+.widget-custom-checkbox > Horizontal > Checkbox {
+    border: tall $control-border;
+    background: $control-background;
+    color: $control-foreground;
+    text-style: none;
+}
+
+CustomCheckbox > Horizontal > Checkbox:hover,
+.widget-custom-checkbox > Horizontal > Checkbox:hover {
+    background: $control-hover-background;
+}
+
+CustomCheckbox > Horizontal > Checkbox > .toggle--button,
+.widget-custom-checkbox > Horizontal > Checkbox > .toggle--button {
+    color: $toggle-indicator-off-foreground;
+    background: $control-hover-background;
+}
+
+CustomCheckbox > Horizontal > Checkbox > .toggle--label,
+.widget-custom-checkbox > Horizontal > Checkbox > .toggle--label {
+    color: $control-foreground;
+}
+
+CustomCheckbox > Horizontal > Checkbox:focus,
+.widget-custom-checkbox > Horizontal > Checkbox:focus {
+    border: tall $control-focus-border;
+    background: $control-focus-background;
+    color: $control-focus-foreground;
+}
+
+CustomCheckbox > Horizontal > Checkbox:disabled,
+.widget-custom-checkbox > Horizontal > Checkbox:disabled {
+    opacity: 0.6;
+    border: tall $control-disabled-border;
+    background: $control-disabled-background;
+    color: $control-disabled-foreground;
+}
+
+CustomCheckbox > Horizontal > Checkbox:disabled > .toggle--button,
+.widget-custom-checkbox > Horizontal > Checkbox:disabled > .toggle--button,
+CustomCheckbox > Horizontal > Checkbox:disabled > .toggle--label,
+.widget-custom-checkbox > Horizontal > Checkbox:disabled > .toggle--label {
+    color: $control-disabled-foreground;
+}
+
+CustomCheckbox > Horizontal > Checkbox.-on > .toggle--button,
+.widget-custom-checkbox > Horizontal > Checkbox.-on > .toggle--button {
+    color: $toggle-indicator-on-foreground;
+}
+
+CustomCheckbox > Horizontal > Checkbox.-off > .toggle--button,
+.widget-custom-checkbox > Horizontal > Checkbox.-off > .toggle--button {
+    color: $toggle-indicator-off-foreground;
+}
+
+CustomCheckbox > Horizontal > .checkbox-label,
+.widget-custom-checkbox > Horizontal > .checkbox-label {
+    color: $control-foreground;
+    padding-left: 1;
+    content-align: left middle;
+}

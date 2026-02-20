@@ -1,0 +1,54 @@
+/* CustomSearchBar widget styles */
+
+CustomSearchBar {
+    height: 3;
+    width: 1fr;
+    layout: horizontal;
+    align: left middle;
+}
+
+.widget-custom-search-bar {
+    height: 3;
+    width: 1fr;
+    layout: horizontal;
+    align: left middle;
+}
+
+.widget-custom-search-bar > #search-input {
+    width: 1fr;
+    min-width: 16;
+    margin-right: 1;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-2;
+    color: $text;
+    padding: 0 1;
+}
+
+.widget-custom-search-bar > #search-input:focus {
+    border: solid $accent;
+    background: $accent 20%;
+}
+
+.widget-custom-search-bar > #search-input:disabled {
+    opacity: 0.6;
+    border: round $surface-darken-2;
+    background: $surface-darken-3;
+    color: $text-muted;
+}
+
+/* Keep both selectors to support previous/new class names. */
+.widget-custom-search-bar > .clear-btn,
+.widget-custom-search-bar > .search-clear-btn {
+    width: 3;
+    min-width: 3;
+    height: 3;
+    text-align: center;
+    content-align: center middle;
+    text-style: none;
+}
+
+/* Placeholder styling */
+.widget-custom-search-bar > #search-input::placeholder {
+    color: $text-muted;
+    text-style: italic;
+}

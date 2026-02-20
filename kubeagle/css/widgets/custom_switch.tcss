@@ -1,0 +1,70 @@
+/* CustomSwitch widget styles */
+CustomSwitch,
+.widget-custom-switch {
+    height: auto;
+    width: auto;
+    dock: top;
+    align: center left;
+    min-height: 3;
+}
+
+CustomSwitch > Horizontal,
+.widget-custom-switch > Horizontal {
+    height: auto;
+    width: auto;
+    align: left middle;
+}
+
+CustomSwitch > Horizontal > Switch,
+.widget-custom-switch > Horizontal > Switch {
+    border: tall $control-border;
+    background: $control-background;
+    color: $control-foreground;
+    text-style: none;
+}
+
+CustomSwitch > Horizontal > Switch:focus,
+.widget-custom-switch > Horizontal > Switch:focus {
+    border: tall $control-focus-border;
+    background: $control-focus-background;
+    color: $control-focus-foreground;
+}
+
+CustomSwitch > Horizontal > Switch:disabled,
+.widget-custom-switch > Horizontal > Switch:disabled {
+    opacity: 0.6;
+    border: tall $control-disabled-border;
+    background: $control-disabled-background;
+    color: $control-disabled-foreground;
+}
+
+CustomSwitch > Horizontal > Switch.-on,
+.widget-custom-switch > Horizontal > Switch.-on {
+    border: tall $toggle-track-on-border;
+    background: $toggle-track-on-background;
+    color: $control-focus-foreground;
+}
+
+CustomSwitch > Horizontal > Switch.-off,
+.widget-custom-switch > Horizontal > Switch.-off {
+    color: $control-foreground;
+}
+
+CustomSwitch > Horizontal > Switch > .switch--slider,
+.widget-custom-switch > Horizontal > Switch > .switch--slider {
+    color: $toggle-slider-off-foreground;
+    background: $toggle-slider-off-background;
+}
+
+CustomSwitch > Horizontal > Switch.-on > .switch--slider,
+.widget-custom-switch > Horizontal > Switch.-on > .switch--slider {
+    color: $toggle-slider-on-background;
+    background: $toggle-slider-off-background;
+}
+
+CustomSwitch > Horizontal > .switch-label,
+.widget-custom-switch > Horizontal > .switch-label {
+    color: $control-foreground;
+    padding-left: 1;
+    content-align: left middle;
+}

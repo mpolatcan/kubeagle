@@ -1,0 +1,35 @@
+/* CustomEventsTable widget styles */
+
+CustomEventsTable {
+    height: 1fr;
+    width: 1fr;
+    min-width: 0;
+    min-height: 3;
+    border: round $surface-lighten-1 40%;
+    background: $surface;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+CustomEventsTable:focus {
+    border: solid $accent;
+}
+
+CustomEventsTable:disabled {
+    opacity: 0.5;
+    background: $surface-darken-1;
+}
+
+/* Event type styling */
+.event-type-warning {
+    color: $warning;
+}
+
+.event-type-normal {
+    color: $secondary;
+}
+
+.event-type-error {
+    color: $error;
+    text-style: bold;
+}

@@ -1,0 +1,21 @@
+# Ruff configuration
+# https://docs.astral.sh/ruff/configuration/
+
+[lint]
+select = [
+    "F",     # Pyflakes (unused imports, undefined names, etc.)
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "I",     # isort (import sorting)
+    "B",     # flake8-bugbear (common bugs)
+    "C4",    # flake8-comprehensions
+    "SIM",   # flake8-simplify
+    "UP",    # pyupgrade (modern Python syntax)
+]
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+]
+
+[lint.isort]
+force-single-line = false
+combine-as-imports = true

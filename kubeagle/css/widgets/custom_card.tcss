@@ -1,0 +1,35 @@
+/* CustomCard widget styles */
+CustomCard,
+.widget-custom-card {
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1;
+    padding: 1;
+    height: auto;
+    width: 1fr;
+    min-height: 3;
+}
+
+CustomCard:focus-within,
+.widget-custom-card:focus-within {
+    border: solid $accent;
+}
+
+CustomCard > .card-title,
+.widget-custom-card > .card-title {
+    width: 1fr;
+    min-width: 0;
+    color: $text;
+    text-style: bold;
+    text-align: center;
+    content-align: center middle;
+    padding: 0 1;
+    background: $surface-darken-2;
+    border-left: heavy $primary;
+    border-bottom: none;
+    margin-bottom: 1;
+}
+
+CustomCard > .card-content,
+.widget-custom-card > .card-content {
+    color: $text;
+}

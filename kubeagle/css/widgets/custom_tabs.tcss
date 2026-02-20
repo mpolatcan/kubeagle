@@ -1,0 +1,103 @@
+/* CustomTab widget styles */
+CustomTab {
+    height: auto;
+    width: auto;
+    min-width: 10;
+    max-width: 20;
+    padding: 0 2;
+    border: solid $surface-lighten-1 42%;
+    border-bottom: none;
+    background: $surface-darken-1;
+    color: $text-muted;
+    align: center middle;
+}
+
+.widget-custom-tab {
+    height: auto;
+    width: auto;
+    min-width: 10;
+    max-width: 20;
+    padding: 0 2;
+    border: solid $surface-lighten-1 42%;
+    border-bottom: none;
+    background: $surface-darken-1;
+    color: $text-muted;
+    align: center middle;
+}
+
+CustomTab:hover,
+.widget-custom-tab:hover {
+    background: $surface-darken-1;
+    color: $text;
+}
+
+CustomTab.active,
+CustomTab.-active,
+.widget-custom-tab.active,
+.widget-custom-tab.-active {
+    border: solid $accent;
+    border-bottom: none;
+    background: $accent 14%;
+    color: $text;
+    text-style: bold;
+}
+
+CustomTab:disabled,
+.widget-custom-tab:disabled {
+    opacity: 0.6;
+    color: $text-muted;
+}
+
+/* CustomTabs widget styles */
+CustomTabs {
+    height: auto;
+    min-height: 3;
+    width: 1fr;
+    color: $text;
+    background: transparent;
+}
+
+.widget-custom-tabs {
+    height: auto;
+    min-height: 3;
+    width: 1fr;
+    color: $text;
+    background: transparent;
+}
+
+CustomTabs > Tab,
+.widget-custom-tabs > Tab {
+    height: auto;
+    width: auto;
+    min-width: 10;
+    max-width: 20;
+    padding: 0 2;
+    border: solid $surface-lighten-1 42%;
+    border-bottom: none;
+    background: $surface-darken-1;
+    color: $text-muted;
+    align: center middle;
+}
+
+CustomTabs > Tab:hover,
+.widget-custom-tabs > Tab:hover {
+    background: $surface-darken-1;
+    color: $text;
+}
+
+CustomTabs > Tab.active,
+CustomTabs > Tab.-active,
+.widget-custom-tabs > Tab.active,
+.widget-custom-tabs > Tab.-active {
+    border: solid $accent;
+    border-bottom: none;
+    background: $accent 14%;
+    color: $text;
+    text-style: bold;
+}
+
+CustomTabs > Tab:disabled,
+.widget-custom-tabs > Tab:disabled {
+    opacity: 0.6;
+    color: $text-muted;
+}

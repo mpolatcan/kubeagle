@@ -1,0 +1,29 @@
+/* CustomDataTable widget styles */
+
+CustomDataTable {
+    height: 1fr;
+    width: 1fr;
+    min-width: 0;
+    min-height: 3;
+    background: $surface;
+    border: round $surface-lighten-1 42%;
+}
+
+CustomDataTable:focus-within {
+    border: solid $accent;
+}
+
+CustomDataTable > DataTable {
+    height: 1fr;
+    width: 1fr;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+CustomDataTable > DataTable:disabled {
+    opacity: 0.5;
+    background: $surface-darken-1;
+}

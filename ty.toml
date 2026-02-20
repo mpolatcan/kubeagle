@@ -1,0 +1,5 @@
+# Ty type checker configuration
+# https://docs.astral.sh/ty/config/
+
+[environment]
+python-version = "3.10"

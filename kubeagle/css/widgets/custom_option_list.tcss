@@ -1,0 +1,65 @@
+/* CustomOptionList widget styles */
+CustomOptionList,
+.widget-custom-option-list {
+    height: auto;
+    width: 1fr;
+    dock: top;
+    min-height: 3;
+}
+
+CustomOptionList > OptionList,
+.widget-custom-option-list > OptionList {
+    width: 1fr;
+    border: solid $control-border;
+    background: $control-background;
+    color: $control-foreground;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+CustomOptionList > OptionList:focus,
+.widget-custom-option-list > OptionList:focus {
+    border: solid $control-focus-border;
+    background: $control-focus-background;
+    color: $control-focus-foreground;
+}
+
+CustomOptionList > OptionList > .option-list--option,
+.widget-custom-option-list > OptionList > .option-list--option {
+    padding: 0 1;
+    text-wrap: nowrap;
+}
+
+CustomOptionList > OptionList > .option-list--option-highlighted,
+CustomOptionList > OptionList > .option-list--option.highlighted,
+.widget-custom-option-list > OptionList > .option-list--option-highlighted,
+.widget-custom-option-list > OptionList > .option-list--option.highlighted {
+    background: $control-highlight-background;
+    color: $control-foreground;
+    text-style: bold;
+}
+
+CustomOptionList > OptionList > .option-list--option.disabled,
+.widget-custom-option-list > OptionList > .option-list--option.disabled {
+    color: $control-disabled-foreground;
+    opacity: 0.5;
+}
+
+CustomOptionList > OptionList > .option-list--separator,
+.widget-custom-option-list > OptionList > .option-list--separator {
+    color: $control-separator-foreground;
+}
+
+CustomOptionList > OptionList > .option-list--prompt,
+.widget-custom-option-list > OptionList > .option-list--prompt {
+    color: $control-disabled-foreground;
+    text-style: italic;
+}
+
+CustomOptionList > OptionList:disabled,
+.widget-custom-option-list > OptionList:disabled {
+    opacity: 0.6;
+    border: solid $control-disabled-border;
+    background: $control-disabled-background;
+    color: $control-disabled-foreground;
+}

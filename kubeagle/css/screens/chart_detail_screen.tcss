@@ -1,0 +1,144 @@
+/* Chart Detail Screen - Screen-specific CSS for detailed chart analysis */
+
+ChartDetailScreen {
+    padding: 1 2;
+    background: $background;
+    color: $text;
+}
+
+/* Loading overlay — aligned with BaseScreen pattern (display toggle) */
+#loading-overlay {
+    align: center middle;
+    width: 1fr;
+    height: 1fr;
+    padding: 0 2;
+    background: $surface-darken-1 75%;
+    display: none;
+}
+
+/* Chart title styling */
+.chart-title {
+    width: 1fr;
+    min-width: 0;
+    text-style: bold;
+    color: $text;
+    padding: 0 1;
+    background: $surface-darken-2;
+    border-left: heavy $primary;
+    text-align: center;
+    content-align: center middle;
+    margin-bottom: 1;
+}
+
+/* Status legend */
+#status-legend {
+    color: $text;
+    margin-bottom: 1;
+}
+
+/* Section headers inside containers */
+.section-header {
+    width: 1fr;
+    min-width: 0;
+    text-style: bold;
+    color: $text;
+    padding: 0 1;
+    background: $surface-darken-2;
+    border-left: heavy $primary;
+    text-align: center;
+    content-align: center middle;
+    margin-bottom: 1;
+}
+
+/* Detail content - scrollable for small terminals */
+#detail-content {
+    height: 1fr;
+    padding: 0 0 1 0;
+    overflow-y: auto;
+}
+
+/* Detail grid layout - 2x2 arrangement */
+#detail-grid {
+    layout: grid;
+    grid-size: 2;
+    grid-columns: 1fr 1fr;
+    grid-rows: 1fr 1fr;
+    width: 1fr;
+    height: 1fr;
+}
+
+/* Section containers */
+.section-container {
+    border: solid $border;
+    background: $surface-darken-1;
+    padding: 1 2;
+    margin-bottom: 1;
+    min-height: 9;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+
+/* Resource section styling */
+#resources-section {
+    margin-right: 1;
+}
+
+/* Probes section styling */
+#probes-section {
+    margin-left: 1;
+}
+
+#availability-section {
+    margin-right: 1;
+    margin-bottom: 0;
+}
+
+#configuration-section {
+    margin-left: 1;
+    margin-bottom: 0;
+    overflow-y: auto;
+}
+
+/* Detail panel */
+#detail-panel {
+    border-left: solid $secondary;
+    padding-left: 1;
+}
+
+/* Detail text */
+.detail-label {
+    color: $secondary;
+    margin-right: 1;
+}
+
+.detail-value {
+    color: $text;
+}
+
+/* Status styling */
+.status-ok {
+    color: $success;
+}
+
+.status-warning {
+    color: $warning;
+}
+
+.status-error {
+    color: $error;
+}
+
+.status-info {
+    color: $text;
+}
+
+#resources-section CustomStatic,
+#probes-section CustomStatic,
+#availability-section CustomStatic,
+#configuration-section CustomStatic {
+    width: 1fr;
+}
+
+#conf-values {
+    width: 1fr;
+}

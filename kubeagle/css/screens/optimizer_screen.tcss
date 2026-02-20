@@ -1,0 +1,2479 @@
+/* Optimizer Screen - Unified screen for violations and recommendations */
+
+OptimizerScreen {
+    layout: vertical;
+    background: $background;
+    color: $text;
+}
+
+/* --- View bar — Select dropdown to switch between violations/recommendations --- */
+#view-bar {
+    display: none;
+}
+
+#view-bar.stacked #view-help {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    margin-top: 1;
+    content-align: left middle;
+}
+
+/* --- Violations View --- */
+#violations-view {
+    height: 1fr;
+    min-height: 0;
+    layout: vertical;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* --- Error banner — hidden by default, compact inline --- */
+#error-banner {
+    height: auto;
+    padding: 0 1;
+    background: $error 10%;
+    display: none;
+}
+
+#error-banner.visible {
+    display: block;
+    layout: horizontal;
+}
+
+#error-text {
+    color: $error;
+    width: 1fr;
+}
+
+#retry-btn {
+    margin-left: 1;
+}
+
+/* --- Summary bar — compact row below violations table --- */
+#summary-bar {
+    height: auto;
+    padding: 0 1;
+    margin: 0;
+    offset: 0 0;
+    background: $surface;
+    border-top: none;
+    border-bottom: none;
+}
+
+/* --- Filter bar — Select dropdowns --- */
+#filter-bar {
+    layout: vertical;
+    height: auto;
+    padding: 0 1;
+    margin: 0;
+    background: $surface;
+    border-top: none;
+    border-bottom: solid $surface-lighten-2;
+}
+
+#filter-row {
+    width: 1fr;
+    height: auto;
+    min-height: 6;
+    layout: grid;
+    grid-size: 3 1;
+    grid-columns: 48fr 40fr 33fr;
+    grid-gutter: 1 0;
+    content-align: left top;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    padding: 0;
+}
+
+#filter-row .optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    min-height: 6;
+    margin-right: 0;
+    padding: 0 1;
+}
+
+#filter-row .optimizer-filter-group:last-child {
+    margin-right: 0;
+}
+
+#filter-row .optimizer-filter-group .optimizer-filter-group-title {
+    width: 1fr;
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    content-align: center middle;
+    text-align: center;
+}
+
+#filter-row .optimizer-filter-group .optimizer-filter-group-body {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    min-height: 3;
+    content-align: left top;
+    padding: 0;
+}
+
+#view-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#search-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#filter-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#sort-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#filter-row .filter-control {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    min-height: 3;
+    margin-right: 0;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+#filter-spacer {
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+    height: 1;
+    min-height: 1;
+    margin-right: 0;
+    display: none;
+}
+
+#filter-group .optimizer-filter-group-body,
+#filter-selection-row {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#filter-row #filter-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#filter-row #view-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#filter-row #search-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#filter-row #filter-group .optimizer-filter-group-body,
+#filter-row #filter-selection-row {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#filter-row #view-group .optimizer-filter-group-body,
+#filter-row #search-group .optimizer-filter-group-body {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#filter-selection-row {
+    layout: grid;
+    grid-size: 1 1;
+    grid-columns: 1fr;
+    grid-gutter: 1 0;
+    height: 3;
+    min-height: 3;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    content-align: left middle;
+    padding: 0;
+}
+
+#filter-selection-row > .filter-control {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    margin-right: 0;
+}
+
+#filter-selection-row > .filter-control:last-child {
+    margin-right: 0;
+}
+
+#filter-row #sort-control.filter-control {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    margin-right: 0;
+}
+
+#filter-row .filter-control > Select.filter-select {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    margin-right: 0;
+}
+
+#filter-row .filter-control > .filter-picker-btn {
+    width: 1fr;
+    min-width: 4;
+    max-width: 100%;
+    height: 3;
+    margin-right: 0;
+}
+
+#filter-row .filter-control > .filter-picker-btn {
+    width: 1fr;
+    content-align: center middle;
+    text-align: center;
+}
+
+#filter-row #search-control.filter-control {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#filter-bar #view-select > SelectCurrent {
+    content-align: center middle;
+    text-align: center;
+}
+
+#filter-bar Select.filter-select > SelectCurrent {
+    content-align: center middle;
+    text-align: center;
+}
+
+#view-control #view-mode-label {
+    width: 1fr;
+    height: 3;
+    min-height: 3;
+    content-align: center middle;
+    text-align: center;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1;
+    color: $text-muted;
+    padding: 0 1;
+}
+
+#filter-bar Select.filter-select > SelectOverlay {
+    width: auto;
+    min-width: 24;
+    max-width: 120;
+}
+
+#view-bar Select.filter-select > SelectOverlay {
+    width: auto;
+    min-width: 20;
+    max-width: 40;
+}
+
+#filter-bar Select.filter-select > SelectOverlay > .option-list--option {
+    text-wrap: nowrap;
+    text-align: center;
+}
+
+#sort-control-row {
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 8fr 3fr;
+    grid-gutter: 1 0;
+    height: 3;
+    min-height: 3;
+    width: 1fr;
+    content-align: right middle;
+}
+
+#sort-control-row > #sort-select {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    margin-right: 0;
+}
+
+#sort-control-row > #sort-order-select {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* --- Breakpoints: violations filter controls --- */
+#filter-bar.ultra #filter-row {
+    layout: grid;
+    grid-size: 3 1;
+    grid-columns: 50fr 38fr 34fr;
+    grid-gutter: 2 0;
+    min-height: 6;
+}
+
+#filter-bar.ultra #filter-row .optimizer-filter-group {
+    width: 1fr;
+}
+
+#filter-bar.ultra #filter-row #filter-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#filter-bar.ultra #filter-selection-row > .filter-control {
+    margin-right: 0;
+}
+
+#filter-bar.wide #filter-row {
+    layout: grid;
+    grid-size: 3 1;
+    grid-columns: 48fr 40fr 33fr;
+    grid-gutter: 1 0;
+    min-height: 6;
+}
+
+#filter-bar.wide #filter-row .optimizer-filter-group {
+    width: 1fr;
+}
+
+#filter-bar.wide #filter-row #filter-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#filter-bar.wide #filter-selection-row > .filter-control {
+    margin-right: 0;
+}
+
+#filter-bar.wide #filter-selection-row {
+    grid-columns: 1fr;
+}
+
+#filter-bar.wide #filter-row .optimizer-filter-group {
+    padding: 0;
+}
+
+#filter-bar.wide #search-row {
+    grid-columns: 8fr 3fr 3fr;
+}
+
+#filter-bar.wide #search-row #search-btn,
+#filter-bar.wide #search-row #clear-search-btn {
+    padding: 0;
+}
+
+#filter-bar.wide #sort-control-row {
+    grid-columns: 9fr 4fr;
+}
+
+#filter-bar.medium #filter-row {
+    layout: grid;
+    grid-size: 3 1;
+    grid-columns: 1fr 1fr 1fr;
+    grid-gutter: 1 0;
+    min-height: 6;
+    overflow-x: hidden;
+}
+
+#filter-bar.medium #filter-row .optimizer-filter-group {
+    height: auto;
+    min-height: 6;
+    padding: 0;
+}
+
+#filter-bar.medium #filter-group.optimizer-filter-group {
+    height: auto;
+    min-height: 10;
+}
+
+#filter-bar.medium #filter-group .optimizer-filter-group-body {
+    height: auto;
+    min-height: 7;
+    padding: 0 1;
+}
+
+#filter-bar.medium #filter-row #filter-group.optimizer-filter-group,
+#filter-bar.medium #filter-row #search-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#filter-bar.medium #filter-row #filter-group .optimizer-filter-group-body,
+#filter-bar.medium #filter-row #search-group .optimizer-filter-group-body,
+#filter-bar.medium #filter-row #filter-selection-row {
+    width: 1fr;
+    min-width: 0;
+}
+
+#filter-bar.medium #filter-selection-row {
+    layout: grid;
+    grid-size: 1 1;
+    grid-columns: 1fr;
+    grid-gutter: 1 0;
+    height: auto;
+    min-height: 3;
+    padding: 0;
+}
+
+#filter-bar.medium #filter-selection-row > .filter-control {
+    width: 1fr;
+    min-height: 3;
+    margin-right: 0;
+    margin-bottom: 0;
+}
+
+#filter-bar.medium #filter-row .filter-control {
+    height: 3;
+    min-height: 3;
+    max-width: 100%;
+    margin-right: 0;
+}
+
+#filter-bar.medium #filter-row #sort-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#filter-bar.medium #search-row #search-input {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#filter-bar.narrow #filter-row {
+    layout: vertical;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+#filter-bar.narrow #filter-row .optimizer-filter-group {
+    width: 1fr;
+    height: auto;
+    min-height: 4;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+#filter-bar.narrow #filter-row .optimizer-filter-group:last-child {
+    margin-bottom: 0;
+}
+
+#filter-bar.narrow #filter-group.optimizer-filter-group {
+    height: auto;
+    min-height: 8;
+}
+
+#filter-bar.narrow #filter-group .optimizer-filter-group-body {
+    height: auto;
+    min-height: 6;
+    padding: 0 1;
+}
+
+#filter-bar.narrow #filter-row #filter-group.optimizer-filter-group,
+#filter-bar.narrow #filter-row #search-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#filter-bar.narrow #filter-row #filter-group .optimizer-filter-group-body,
+#filter-bar.narrow #filter-row #search-group .optimizer-filter-group-body,
+#filter-bar.narrow #filter-row #filter-selection-row {
+    width: 1fr;
+    min-width: 0;
+}
+
+#filter-bar.narrow #filter-selection-row {
+    layout: grid;
+    grid-size: 1 1;
+    grid-columns: 1fr;
+    grid-gutter: 1 0;
+    height: auto;
+    min-height: 3;
+    padding: 0;
+}
+
+#filter-bar.narrow #filter-selection-row > .filter-control {
+    width: 1fr;
+    min-height: 3;
+    margin-right: 0;
+    margin-bottom: 0;
+}
+
+#filter-bar.narrow #filter-row .filter-control {
+    height: 3;
+    min-height: 3;
+    max-width: 100%;
+    margin-right: 0;
+    margin-bottom: 0;
+}
+
+#filter-bar.narrow #search-control.filter-control {
+    height: 3;
+    min-height: 3;
+}
+
+#filter-bar.narrow #filter-row #sort-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#filter-bar.narrow #search-row #search-input {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#filter-bar.narrow #search-row {
+    grid-size: 2 1;
+    grid-columns: 7fr 3fr;
+    grid-gutter: 1 0;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+}
+
+#filter-bar.narrow #search-row #search-btn {
+    display: none;
+}
+
+/* --- Search bar --- */
+#search-row {
+    layout: grid;
+    grid-size: 3 1;
+    grid-columns: 8fr 3fr 3fr;
+    grid-gutter: 1 0;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    width: 1fr;
+    padding: 0;
+    background: transparent;
+    border: none;
+    content-align: left middle;
+}
+
+#search-row #search-input {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    min-height: 3;
+    margin-right: 0;
+    dock: none;
+}
+
+#search-row #search-input > Input {
+    height: 3;
+    min-height: 3;
+}
+
+#search-row #search-btn,
+#search-row #clear-search-btn {
+    height: 3;
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    content-align: center middle;
+    text-align: center;
+    text-wrap: nowrap;
+    padding: 0;
+}
+
+#search-row #search-btn {
+    margin-right: 1;
+}
+
+/* --- Violations filter selection modal --- */
+.viol-filter-modal-shell {
+    max-width: 92;
+    height: auto;
+}
+
+.viol-filters-modal-shell {
+    max-width: 176;
+    height: 1fr;
+}
+
+.viol-filters-modal-title {
+    margin-bottom: 1;
+}
+
+.viol-filters-modal-lists-row {
+    layout: grid;
+    grid-size: 4 1;
+    grid-columns: 1fr 1fr 1fr 1fr;
+    grid-gutter: 1 0;
+    width: 1fr;
+    height: 1fr;
+    min-height: 10;
+    margin-bottom: 1;
+}
+
+.viol-filters-modal-list-column {
+    width: 1fr;
+    min-width: 0;
+    height: 1fr;
+    min-height: 0;
+}
+
+.viol-filters-modal-list {
+    width: 1fr;
+    height: 1fr;
+    min-height: 8;
+    margin-bottom: 1;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 22%;
+}
+
+.viol-filters-modal-list-actions {
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 1fr 1fr;
+    grid-gutter: 2 0;
+    padding: 0 1;
+    width: 1fr;
+}
+
+.viol-filters-modal-list-actions > CustomButton {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    margin-right: 1;
+}
+
+.viol-filters-modal-list-actions > CustomButton:last-child {
+    margin-right: 0;
+}
+
+.viol-filters-modal-actions {
+    margin-top: 0;
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 1fr 1fr;
+    grid-gutter: 3 0;
+    padding: 0 1;
+}
+
+.viol-filters-modal-actions > CustomButton {
+    margin-right: 1;
+}
+
+.viol-filters-modal-actions > CustomButton:last-child {
+    margin-right: 0;
+}
+
+/* --- Shared fix/details modal --- */
+.fix-details-modal-shell {
+    max-width: 160;
+    height: 1fr;
+}
+
+.fix-details-modal-title {
+    margin-bottom: 0;
+}
+
+.fix-details-modal-subtitle {
+    width: 1fr;
+    min-width: 0;
+    color: $text;
+    text-style: bold;
+    padding: 0 1;
+    background: $surface-darken-2;
+    border-left: heavy $primary;
+    text-align: center;
+    content-align: center middle;
+    margin-bottom: 1;
+}
+
+#fix-details-modal-markdown-wrap {
+    width: 1fr;
+    height: 1fr;
+    min-height: 12;
+    margin-bottom: 1;
+}
+
+#fix-details-modal-markdown {
+    width: 1fr;
+    height: 1fr;
+    min-height: 12;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 22%;
+    padding: 0 1;
+}
+
+#fix-details-modal-diff-log {
+    width: 1fr;
+    height: 1fr;
+    min-height: 12;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 22%;
+    padding: 0 1;
+}
+
+#fix-details-modal-diff-log > RichLog {
+    width: 1fr;
+    height: 1fr;
+    min-height: 12;
+    background: transparent;
+}
+
+/* --- Apply-all fixes preview modal --- */
+.apply-fixes-modal-shell {
+    max-width: 184;
+    height: 1fr;
+}
+
+#apply-fixes-modal-override-fix-open {
+    width: auto;
+    min-width: 18;
+}
+
+#apply-fixes-modal-show-diff-open {
+    width: auto;
+    min-width: 16;
+}
+
+#apply-fixes-modal-default-fixes-open {
+    width: auto;
+    min-width: 18;
+}
+
+#apply-fixes-modal-preview-toolbar {
+    width: 1fr;
+    min-height: 3;
+    margin-bottom: 1;
+    content-align: left middle;
+}
+
+#apply-fixes-modal-preview-toolbar > CustomButton {
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    margin-right: 1;
+}
+
+#apply-fixes-global-settings-defaults-pane {
+    dock: top;
+    width: 1fr;
+    height: auto;
+    min-height: 0;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 18%;
+    padding: 0 1;
+    margin-bottom: 0;
+}
+
+#apply-fixes-global-settings-defaults-row-1,
+#apply-fixes-global-settings-defaults-row-2,
+#apply-fixes-global-settings-defaults-row-3 {
+    layout: grid;
+    grid-size: 2 2;
+    grid-columns: 1fr 1fr;
+    grid-rows: auto auto;
+    grid-gutter: 1 0;
+    width: 1fr;
+    height: auto;
+}
+
+#apply-fixes-global-settings-defaults-row-4 {
+    layout: grid;
+    grid-size: 1 1;
+    grid-columns: 1fr;
+    width: 1fr;
+    height: auto;
+}
+
+#apply-fixes-modal-global-settings-summary,
+.apply-fixes-modal-config-summary {
+    width: 1fr;
+    color: $text-muted;
+    text-align: left;
+    content-align: left middle;
+    padding: 0 1;
+    margin-bottom: 1;
+}
+
+.apply-fixes-modal-strategy-control {
+    width: 1fr;
+    min-width: 0;
+}
+
+.apply-fixes-modal-strategy-title {
+    width: 1fr;
+    min-width: 0;
+    text-style: bold;
+    color: $text;
+    padding: 0 1;
+    background: $surface-darken-2;
+    border-left: heavy $primary;
+    text-align: center;
+    content-align: center middle;
+    margin-bottom: 0;
+}
+
+#apply-fixes-global-settings-ratio-strategy,
+#apply-fixes-global-settings-ratio-target {
+    width: 1fr;
+    min-width: 0;
+}
+
+#apply-fixes-modal-content {
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 0.95fr 1.05fr;
+    grid-gutter: 1 0;
+    width: 1fr;
+    height: 1fr;
+    min-height: 14;
+}
+
+.apply-fixes-modal-panels {
+    width: 1fr;
+    min-height: 0;
+}
+
+.apply-fixes-modal-panel {
+    width: 1fr;
+    min-width: 34;
+    height: 1fr;
+    min-height: 0;
+}
+
+.apply-fixes-modal-panel-title {
+    width: 1fr;
+    min-width: 0;
+    text-style: bold;
+    color: $text;
+    padding: 0 1;
+    background: $surface-darken-2;
+    border-left: heavy $primary;
+    text-align: center;
+    content-align: center middle;
+    margin-bottom: 0;
+}
+
+#apply-fixes-modal-list-pane,
+#apply-fixes-modal-preview-pane,
+.apply-fixes-modal-pane-layout {
+    width: 1fr;
+}
+
+#apply-fixes-modal-list-pane,
+#apply-fixes-modal-preview-pane {
+    height: 1fr;
+    min-height: 0;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 18%;
+    padding: 1 1 0 1;
+}
+
+#apply-fixes-modal-list-pane {
+    overflow-y: hidden;
+    overflow-x: hidden;
+}
+
+#apply-fixes-modal-preview-pane {
+    overflow-y: hidden;
+    overflow-x: auto;
+}
+
+.apply-fixes-global-settings-shell {
+    max-width: 128;
+    height: auto;
+    min-height: 0;
+    overflow-y: hidden;
+    overflow-x: hidden;
+}
+
+#apply-fixes-global-settings-content,
+#apply-fixes-override-settings-content {
+    width: 1fr;
+    height: auto;
+    min-height: 0;
+}
+
+#apply-fixes-global-settings-scroll,
+#apply-fixes-override-settings-scroll {
+    width: 1fr;
+    height: auto;
+    min-height: 0;
+    margin-top: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 1;
+}
+
+#apply-fixes-global-settings-ratio-pane,
+#apply-fixes-global-settings-probe-pane,
+#apply-fixes-override-settings-ratio-pane,
+#apply-fixes-override-settings-probe-pane {
+    dock: top;
+    width: 1fr;
+    height: auto;
+    min-height: 0;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 18%;
+    padding: 0 1;
+    margin-bottom: 0;
+}
+
+#apply-fixes-global-settings-ratio-row,
+#apply-fixes-override-settings-ratio-row {
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 1fr 1fr;
+    grid-gutter: 1 0;
+    width: 1fr;
+    height: auto;
+}
+
+#apply-fixes-global-settings-probe-row-main,
+#apply-fixes-override-settings-probe-row-main {
+    layout: grid;
+    grid-size: 2 2;
+    grid-columns: 1fr 1fr;
+    grid-rows: auto auto;
+    grid-gutter: 1 0;
+    width: 1fr;
+    height: auto;
+}
+
+#apply-fixes-global-settings-probe-row-advanced,
+#apply-fixes-override-settings-probe-row-advanced {
+    layout: grid;
+    grid-size: 2 2;
+    grid-columns: 1fr 1fr;
+    grid-rows: auto auto;
+    grid-gutter: 1 0;
+    width: 1fr;
+    height: auto;
+}
+
+#apply-fixes-global-settings-probe-row-extra,
+#apply-fixes-override-settings-probe-row-extra {
+    layout: grid;
+    grid-size: 2 2;
+    grid-columns: 1fr 1fr;
+    grid-rows: auto auto;
+    grid-gutter: 1 0;
+    width: 1fr;
+    height: auto;
+}
+
+#apply-fixes-global-settings-probe-path,
+#apply-fixes-global-settings-probe-port,
+#apply-fixes-global-settings-probe-scheme,
+#apply-fixes-global-settings-probe-host,
+#apply-fixes-global-settings-probe-initial-delay,
+#apply-fixes-global-settings-probe-timeout,
+#apply-fixes-global-settings-probe-period,
+#apply-fixes-global-settings-probe-success-threshold,
+#apply-fixes-global-settings-probe-failure-threshold,
+#apply-fixes-global-settings-probe-grace-period,
+#apply-fixes-global-settings-probe-header,
+#apply-fixes-override-settings-probe-path,
+#apply-fixes-override-settings-probe-port,
+#apply-fixes-override-settings-probe-scheme,
+#apply-fixes-override-settings-probe-host,
+#apply-fixes-override-settings-probe-initial-delay,
+#apply-fixes-override-settings-probe-timeout,
+#apply-fixes-override-settings-probe-period,
+#apply-fixes-override-settings-probe-success-threshold,
+#apply-fixes-override-settings-probe-failure-threshold,
+#apply-fixes-override-settings-probe-grace-period,
+#apply-fixes-override-settings-probe-header {
+    width: 1fr;
+    min-width: 0;
+}
+
+.apply-fixes-global-settings-actions {
+    layout: horizontal;
+    align: center middle;
+    content-align: center middle;
+    width: 1fr;
+    min-height: 3;
+    grid-gutter: 0 0;
+}
+
+.apply-fixes-global-settings-actions > CustomButton {
+    width: 14;
+    min-width: 12;
+    max-width: 16;
+    margin-right: 1;
+}
+
+.apply-fixes-global-settings-actions > CustomButton:last-child {
+    margin-right: 0;
+}
+
+.apply-fixes-modal-pane-wrap {
+    width: 1fr;
+    height: 1fr;
+    min-height: 0;
+}
+
+#apply-fixes-modal-list-wrap {
+    overflow-y: hidden;
+    overflow-x: hidden;
+}
+
+#apply-fixes-modal-preview-wrap {
+    overflow-y: hidden;
+    overflow-x: auto;
+}
+
+#apply-fixes-modal-tree {
+    width: 1fr;
+    height: 1fr;
+    min-height: 0;
+}
+
+#apply-fixes-modal-preview {
+    width: 1fr;
+    height: 1fr;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+#apply-fixes-modal-preview > Markdown {
+    width: 1fr;
+}
+
+.apply-fixes-modal-actions {
+    layout: horizontal;
+    align: center middle;
+    width: 1fr;
+    min-height: 3;
+    grid-gutter: 0 0;
+}
+
+.apply-fixes-modal-actions > CustomButton {
+    width: auto;
+    min-width: 18;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    text-wrap: nowrap;
+    padding: 0 1;
+    margin-right: 1;
+}
+
+.apply-fixes-modal-actions > CustomButton:last-child {
+    margin-right: 0;
+}
+
+#ai-full-fix-status {
+    width: 1fr;
+    padding: 0 1;
+    margin-bottom: 0;
+    height: auto;
+    min-height: 5;
+    max-height: 9;
+    overflow-y: auto;
+}
+
+.ai-full-fix-status-block {
+    border: round $surface-lighten-1 30%;
+    background: $surface-darken-1 22%;
+    color: $text;
+    margin-bottom: 1;
+}
+
+#ai-full-fix-bulk-progress-row {
+    width: 1fr;
+    min-height: 1;
+    height: 1;
+    layout: grid;
+    grid-size: 3 1;
+    grid-columns: 24 1fr 16;
+    grid-gutter: 1 0;
+    align: left middle;
+    content-align: left middle;
+    margin: 0 0 1 0;
+}
+
+#ai-full-fix-bulk-progress-counter {
+    width: auto;
+    min-width: 0;
+    color: $text-muted;
+    text-style: bold;
+    content-align: left middle;
+    text-wrap: nowrap;
+}
+
+#ai-full-fix-bulk-progress-bar {
+    width: 1fr;
+    min-width: 0;
+    height: 1;
+    margin: 0;
+}
+
+#ai-full-fix-bulk-progress-elapsed {
+    width: auto;
+    min-width: 0;
+    color: $text-muted;
+    text-style: bold;
+    content-align: right middle;
+    text-align: right;
+    text-wrap: nowrap;
+}
+
+.ai-full-fix-modal-shell,
+.ai-full-fix-bulk-modal-shell,
+.bundle-diff-modal-shell {
+    max-width: 196;
+    height: 1fr;
+}
+
+#ai-full-fix-editors,
+#ai-full-fix-bulk-content,
+#ai-full-fix-bulk-editors,
+#bundle-diff-editors {
+    width: 1fr;
+    height: 1fr;
+    min-height: 0;
+    grid-gutter: 1 0;
+}
+
+#ai-full-fix-editors,
+#ai-full-fix-bulk-editors,
+#bundle-diff-editors {
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 1fr 1fr;
+}
+
+#ai-full-fix-bulk-content {
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 0.35fr 0.65fr;
+}
+
+#ai-full-fix-bulk-values-wrap,
+#ai-full-fix-bulk-diff-wrap {
+    layers: editor-body editor-overlay;
+    width: 1fr;
+    height: 1fr;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#ai-full-fix-bulk-values-editor,
+#ai-full-fix-bulk-template-files-list {
+    layer: editor-body;
+}
+
+#ai-full-fix-bulk-values-loading-overlay,
+#ai-full-fix-bulk-diff-loading-overlay {
+    layer: editor-overlay;
+    position: absolute;
+    offset: 0 0;
+    width: 1fr;
+    height: 1fr;
+    layout: vertical;
+    align: center middle;
+    content-align: center middle;
+    padding: 0;
+    background: $surface-darken-1 72%;
+    border: none;
+}
+
+#ai-full-fix-bulk-values-loading-overlay.hidden,
+#ai-full-fix-bulk-diff-loading-overlay.hidden {
+    display: none;
+}
+
+#ai-full-fix-bulk-values-loading-indicator,
+#ai-full-fix-bulk-diff-loading-indicator {
+    width: 1fr;
+    min-width: 5;
+    height: 3;
+    content-align: center middle;
+}
+
+#ai-full-fix-bulk-values-loading-indicator > LoadingIndicator,
+#ai-full-fix-bulk-diff-loading-indicator > LoadingIndicator {
+    width: 1fr;
+    min-width: 5;
+    height: 3;
+    align: center middle;
+    color: $accent;
+}
+
+#ai-full-fix-bulk-values-loading-label,
+#ai-full-fix-bulk-diff-loading-label {
+    width: 1fr;
+    min-width: 5;
+    color: $accent;
+    text-style: bold;
+    text-align: center;
+    content-align: center middle;
+    margin-top: 1;
+}
+
+.ai-full-fix-editor-pane,
+#ai-full-fix-bulk-chart-list-pane,
+#ai-full-fix-bulk-editor-pane {
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 18%;
+    padding: 0 1;
+    min-height: 0;
+    height: 1fr;
+}
+
+#ai-full-fix-bulk-chart-list-pane {
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+#ai-full-fix-bulk-chart-list-pane > .apply-fixes-modal-panel-title,
+#ai-full-fix-bulk-values-pane > .apply-fixes-modal-panel-title,
+#ai-full-fix-bulk-diff-pane > .apply-fixes-modal-panel-title,
+.ai-full-fix-editor-pane > .apply-fixes-modal-panel-title {
+    width: 1fr;
+    margin-bottom: 1;
+}
+
+#ai-full-fix-values-editor,
+#ai-full-fix-diff-editor,
+#ai-full-fix-bulk-values-editor,
+#ai-full-fix-bulk-template-files-list,
+#bundle-diff-values-editor,
+#bundle-diff-template-files-list {
+    width: 1fr;
+    height: 1fr;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+#ai-full-fix-bulk-template-files-list,
+#bundle-diff-template-files-list {
+    layout: vertical;
+    padding: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#ai-full-fix-bulk-template-empty {
+    width: 1fr;
+    color: $text-muted;
+    content-align: center middle;
+    text-align: center;
+    height: 1fr;
+}
+
+.ai-full-fix-template-collapsible {
+    width: 1fr;
+    min-height: 3;
+    height: auto;
+}
+
+.ai-full-fix-template-collapsible > Contents {
+    width: 1fr;
+    min-height: 0;
+}
+
+.bundle-diff-template-collapsible {
+    width: 1fr;
+    min-height: 3;
+    height: auto;
+}
+
+.bundle-diff-template-collapsible > Contents {
+    width: 1fr;
+    min-height: 0;
+}
+
+.ai-full-fix-template-file-editor {
+    width: 1fr;
+    height: 14;
+    min-height: 8;
+    max-height: 24;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+.bundle-diff-template-editor {
+    width: 1fr;
+    height: 14;
+    min-height: 8;
+    max-height: 24;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+#ai-full-fix-bulk-violations-tree {
+    width: 1fr;
+    height: 1fr;
+    min-height: 0;
+}
+
+#ai-full-fix-bulk-violations-tree > Tree {
+    width: 1fr;
+    height: 1fr;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
+    text-wrap: nowrap;
+    padding: 0 1;
+}
+
+#ai-full-fix-bulk-violations-tree > Tree .tree--selected {
+    background: $accent 25%;
+    color: $text;
+}
+
+.ai-full-fix-actions {
+    layout: horizontal;
+    align: center middle;
+    content-align: center middle;
+    width: 1fr;
+    min-height: 3;
+    grid-gutter: 0 0;
+    margin-top: 1;
+}
+
+.ai-full-fix-actions > CustomButton {
+    min-width: 12;
+    width: auto;
+    max-width: 24;
+    margin-right: 1;
+}
+
+.ai-full-fix-actions > CustomButton:last-child {
+    margin-right: 0;
+}
+
+#search-row #clear-search-btn {
+    margin-left: 0;
+}
+
+/* --- Main content: violations table + preview panel --- */
+#optimizer-combined-content {
+    height: 1fr;
+    min-height: 0;
+    layout: horizontal;
+    overflow-y: hidden;
+    overflow-x: hidden;
+}
+
+#violations-left-pane {
+    width: 62fr;
+    min-width: 0;
+    height: 1fr;
+    min-height: 0;
+    layout: vertical;
+    overflow-y: hidden;
+    overflow-x: hidden;
+}
+
+#main-content {
+    layout: horizontal;
+    height: 1fr;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#main-content.wide {
+    layout: horizontal;
+    height: 1fr;
+    min-height: 0;
+}
+
+#main-content.ultra {
+    layout: horizontal;
+    height: 1fr;
+    min-height: 0;
+}
+
+#main-content.medium {
+    layout: horizontal;
+    height: 1fr;
+    min-height: 0;
+}
+
+#main-content.narrow {
+    layout: vertical;
+    height: 1fr;
+    min-height: 0;
+}
+
+#main-content.stacked {
+    layout: vertical;
+}
+
+#optimizer-combined-content > #recommendations-view {
+    width: 38fr;
+    height: 1fr;
+    min-width: 0;
+    min-height: 0;
+    border-left: solid $surface-lighten-2;
+    overflow-y: hidden;
+    overflow-x: hidden;
+}
+
+#violations-view.narrow #optimizer-combined-content {
+    layout: vertical;
+}
+
+#violations-view.narrow #violations-left-pane,
+#violations-view.narrow #optimizer-combined-content > #recommendations-view {
+    width: 1fr;
+    height: 1fr;
+}
+
+#violations-view.narrow #optimizer-combined-content > #recommendations-view {
+    border-left: none;
+    border-top: solid $surface-lighten-2;
+}
+
+#optimizer-combined-content #recommendations-view.embedded #rec-filter-bar {
+    display: none;
+}
+
+#optimizer-combined-content #recommendations-view.embedded {
+    height: 1fr;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    overflow-y: hidden;
+    overflow-x: hidden;
+}
+
+#optimizer-combined-content #recommendations-view.embedded #rec-container {
+    width: 62fr;
+    height: 1fr;
+    min-height: 0;
+    border-right: none;
+    overflow-y: hidden;
+    overflow-x: hidden;
+}
+
+#optimizer-combined-content #recommendations-view.embedded #rec-list-body {
+    height: 1fr;
+    min-height: 0;
+    overflow-y: hidden;
+    overflow-x: hidden;
+}
+
+#optimizer-combined-content #recommendations-view.embedded #rec-details-scroll {
+    width: 38fr;
+    border-left: solid $surface-lighten-1 45%;
+    overflow-y: hidden;
+    padding: 0;
+}
+
+#violations-panel {
+    width: 62fr;
+    height: 1fr;
+    min-height: 0;
+}
+
+#main-content.medium #violations-panel {
+    width: 62fr;
+    min-height: 10;
+}
+
+#main-content.ultra #violations-panel {
+    width: 62fr;
+    min-height: 10;
+}
+
+#main-content.narrow #violations-panel,
+#main-content.stacked #violations-panel {
+    width: 1fr;
+    min-width: 0;
+    height: 12;
+    min-height: 8;
+}
+
+#violations-header {
+    text-style: bold;
+    color: $primary;
+    height: 1;
+    margin: 0;
+    padding: 0 1;
+    background: $surface-darken-1;
+    border-bottom: solid $surface-lighten-2;
+}
+
+#violations-table-container {
+    height: 1fr;
+    min-height: 5;
+    position: relative;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+#main-content.narrow #violations-table-container,
+#main-content.stacked #violations-table-container {
+    height: 8;
+    min-height: 6;
+}
+
+/* Override global CustomDataTable defaults — fill all available space */
+#violations-table {
+    height: 1fr;
+    min-height: 5;
+    border: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* Ensure inner DataTable scrollbar is visible when rows exceed viewport */
+#violations-table > DataTable {
+    height: 1fr;
+    width: 1fr;
+    min-width: 100%;
+    overflow-x: scroll;
+    overflow-y: auto;
+    scrollbar-size-horizontal: 1;
+    scrollbar-size-vertical: 2;
+}
+
+#viol-loading-overlay {
+    layer: viol-loading;
+    position: absolute;
+    offset: 0 0;
+    width: 1fr;
+    height: 1fr;
+    align: center middle;
+    content-align: center middle;
+    padding: 0;
+    background: $surface-darken-1 68%;
+    display: none;
+}
+
+/* Preview panel - side-by-side with violations */
+#preview-panel {
+    width: 38fr;
+    min-width: 30;
+    height: 1fr;
+    min-height: 0;
+    border-left: solid $secondary;
+}
+
+#main-content.medium #preview-panel {
+    width: 38fr;
+    min-width: 28;
+    height: 1fr;
+    min-height: 10;
+}
+
+#main-content.ultra #preview-panel {
+    width: 38fr;
+    min-width: 32;
+    height: 1fr;
+    min-height: 10;
+}
+
+#main-content.narrow #preview-panel,
+#main-content.stacked #preview-panel {
+    width: 1fr;
+    min-width: 0;
+    height: 10;
+    min-height: 8;
+    max-height: 100%;
+    border-left: none;
+    border-top: solid $secondary;
+}
+
+#main-content.medium #preview-content {
+    min-height: 10;
+}
+
+#main-content.ultra #preview-content {
+    min-height: 10;
+}
+
+#main-content.narrow #preview-content,
+#main-content.stacked #preview-content {
+    min-height: 6;
+}
+
+#preview-title {
+    text-style: bold;
+    color: $text;
+    height: 1;
+    margin: 0 0 1 0;
+    padding: 0 1;
+    background: $surface-darken-2;
+    border: round $surface-lighten-1 40%;
+    border-left: heavy $primary;
+    text-align: center;
+    content-align: center middle;
+}
+
+/* Preview content — fill remaining space, RichLog handles its own scrolling */
+#preview-content {
+    padding: 0 1;
+    height: 1fr;
+    min-height: 12;
+    border: none;
+}
+
+#preview-content > RichLog {
+    height: 100%;
+}
+
+/* Preview actions bar */
+#preview-actions {
+    height: auto;
+    padding: 0 1;
+    dock: bottom;
+    border-top: solid $surface-lighten-1 45%;
+    display: none;
+}
+
+#preview-actions CustomButton {
+    margin-right: 1;
+    height: 3;
+    min-width: 12;
+}
+
+/* --- Action bar — bottom buttons --- */
+#action-bar {
+    dock: none;
+    layout: horizontal;
+    height: auto;
+    min-height: 5;
+    padding: 0 1;
+    margin: 0 0 1 0;
+    background: $surface-darken-1;
+    border-top: solid $surface-lighten-2;
+    border-bottom: none;
+    content-align: center middle;
+}
+
+#action-bar-left-spacer,
+#action-bar-right-spacer {
+    width: 1fr;
+    min-width: 0;
+}
+
+#action-bar CustomButton {
+    height: 3;
+    min-width: 8;
+    margin-right: 1;
+}
+
+#action-bar CustomButton:last-child {
+    margin-right: 0;
+}
+
+#action-bar.stacked {
+    height: auto;
+    min-height: 0;
+    layout: vertical;
+    content-align: left top;
+    padding: 0 1 1 1;
+}
+
+#action-bar.stacked #action-bar-left-spacer,
+#action-bar.stacked #action-bar-right-spacer {
+    display: none;
+}
+
+#action-bar.stacked CustomButton {
+    width: 1fr;
+    min-width: 0;
+    margin-right: 0;
+    margin-top: 1;
+}
+
+/* --- Severity styling --- */
+.error-severity {
+    color: $error;
+    text-style: bold;
+}
+
+.warning-severity {
+    color: $warning;
+}
+
+.info-severity {
+    color: $secondary;
+}
+
+/* Group separator rows */
+.group-separator {
+    text-style: bold;
+    color: $primary;
+    background: $surface;
+}
+
+.help-text {
+    color: $secondary;
+    text-style: italic;
+}
+
+/* ==================================================================
+   Recommendations View (prefixed with rec-)
+   ================================================================== */
+
+#recommendations-view {
+    height: 1fr;
+    min-height: 0;
+}
+
+#rec-main-container {
+    height: 1fr;
+    min-height: 0;
+}
+
+/* KPI summary row (bottom of recommendations list, like optimizer summary bar) */
+#rec-kpi-row {
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0 1;
+    background: $surface;
+    border-top: solid $surface-lighten-1 45%;
+    border-bottom: none;
+}
+
+/* Unified filter bar (search + filters + sort) */
+#rec-filter-bar {
+    layout: vertical;
+    height: auto;
+    padding: 0 1;
+    margin: 0;
+    background: $surface;
+    border-top: none;
+    border-bottom: solid $surface-lighten-2;
+}
+
+#rec-filter-row {
+    width: 1fr;
+    height: auto;
+    min-height: 6;
+    layout: grid;
+    grid-size: 4 1;
+    grid-columns: 1fr 1fr 1fr 1fr;
+    grid-gutter: 1 0;
+    content-align: left top;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    padding: 0;
+}
+
+#rec-filter-row .optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    min-height: 6;
+    margin-right: 0;
+    padding: 0 1;
+}
+
+#rec-filter-row .optimizer-filter-group:last-child {
+    margin-right: 0;
+}
+
+#rec-filter-row .optimizer-filter-group .optimizer-filter-group-title {
+    width: 1fr;
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    content-align: center middle;
+    text-align: center;
+}
+
+#rec-filter-row .optimizer-filter-group .optimizer-filter-group-body {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    min-height: 3;
+    content-align: left top;
+    padding: 0;
+}
+
+#rec-view-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-search-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-filter-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-sort-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-filter-row .filter-control {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    min-height: 3;
+    margin-right: 0;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+#rec-filter-row #rec-sort-control.filter-control {
+    margin-right: 0;
+}
+
+#rec-filter-row .filter-control > Select.filter-select {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    margin-right: 0;
+}
+
+#rec-filter-row .filter-control > .filter-picker-btn {
+    width: 1fr;
+    min-width: 4;
+    max-width: 100%;
+    height: 3;
+    margin-right: 0;
+}
+
+#rec-filter-row .filter-control > .filter-picker-btn {
+    width: 1fr;
+    content-align: center middle;
+    text-align: center;
+}
+
+#rec-filter-row #rec-search-control.filter-control {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-filter-row #rec-view-control.filter-control {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-filter-spacer {
+    width: 0;
+    min-width: 0;
+    max-width: 0;
+    height: 1;
+    min-height: 1;
+    margin-right: 0;
+    display: none;
+}
+
+#rec-filter-group .optimizer-filter-group-body,
+#rec-filter-selection-row {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-filter-row #rec-view-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#rec-filter-row #rec-search-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#rec-filter-row #rec-view-group .optimizer-filter-group-body,
+#rec-filter-row #rec-search-group .optimizer-filter-group-body {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-filter-selection-row {
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 1fr 1fr;
+    grid-gutter: 1 0;
+    height: 3;
+    min-height: 3;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    content-align: left middle;
+    padding: 0;
+}
+
+#rec-filter-selection-row > .filter-control {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    margin-right: 0;
+}
+
+#rec-filter-selection-row > .filter-control:last-child {
+    margin-right: 0;
+}
+
+#rec-filter-row #rec-sort-control.filter-control {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-filter-bar Select.filter-select > SelectOverlay {
+    width: auto;
+    min-width: 20;
+    max-width: 80;
+}
+
+#rec-filter-bar Select.filter-select > SelectCurrent {
+    content-align: center middle;
+    text-align: center;
+}
+
+#rec-filter-bar Select.filter-select > SelectOverlay > .option-list--option {
+    text-wrap: nowrap;
+    text-align: center;
+}
+
+#rec-sort-control-row {
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 8fr 3fr;
+    grid-gutter: 1 0;
+    height: 3;
+    min-height: 3;
+    width: 1fr;
+    content-align: right middle;
+}
+
+#rec-sort-control-row > #rec-sort-select {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    margin-right: 0;
+}
+
+#rec-sort-control-row > #rec-order-select {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* --- Breakpoints: recommendations filter controls --- */
+#rec-filter-bar.ultra #rec-filter-row {
+    layout: grid;
+    grid-size: 4 1;
+    grid-columns: 34fr 46fr 66fr 35fr;
+    grid-gutter: 2 0;
+    min-height: 6;
+}
+
+#rec-filter-bar.ultra #rec-filter-row .optimizer-filter-group {
+    width: 1fr;
+}
+
+#rec-filter-bar.ultra #rec-filter-row #rec-filter-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-filter-bar.ultra #rec-filter-selection-row > .filter-control {
+    margin-right: 0;
+}
+
+#rec-filter-bar.wide #rec-filter-row {
+    layout: grid;
+    grid-size: 4 1;
+    grid-columns: 30fr 49fr 62fr 34fr;
+    grid-gutter: 1 0;
+    min-height: 6;
+}
+
+#rec-filter-bar.wide #rec-filter-row .optimizer-filter-group {
+    width: 1fr;
+}
+
+#rec-filter-bar.wide #rec-filter-row #rec-filter-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-filter-bar.wide #rec-filter-selection-row > .filter-control {
+    margin-right: 0;
+}
+
+#rec-filter-bar.wide #rec-filter-row .optimizer-filter-group {
+    padding: 0;
+}
+
+#rec-filter-bar.wide #rec-search-row {
+    grid-columns: 6fr 4fr 4fr;
+}
+
+#rec-filter-bar.wide #rec-search-row #rec-search-btn,
+#rec-filter-bar.wide #rec-search-row #rec-clear-search-btn {
+    padding: 0;
+}
+
+#rec-filter-bar.wide #rec-sort-control-row {
+    grid-columns: 9fr 4fr;
+}
+
+#rec-filter-bar.medium #rec-filter-row {
+    layout: grid;
+    grid-size: 2 2;
+    grid-columns: 1fr 1fr;
+    grid-gutter: 1 0;
+    min-height: 13;
+    overflow-x: hidden;
+}
+
+#rec-filter-bar.medium #rec-filter-row .optimizer-filter-group {
+    height: auto;
+    min-height: 6;
+    padding: 0;
+}
+
+#rec-filter-bar.medium #rec-filter-row #rec-view-group.optimizer-filter-group,
+#rec-filter-bar.medium #rec-filter-row #rec-search-group.optimizer-filter-group,
+#rec-filter-bar.medium #rec-filter-row #rec-filter-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#rec-filter-bar.medium #rec-filter-row #rec-view-group .optimizer-filter-group-body,
+#rec-filter-bar.medium #rec-filter-row #rec-search-group .optimizer-filter-group-body,
+#rec-filter-bar.medium #rec-filter-row #rec-filter-group .optimizer-filter-group-body,
+#rec-filter-bar.medium #rec-filter-row #rec-filter-selection-row {
+    width: 1fr;
+    min-width: 0;
+}
+
+#rec-filter-bar.medium #rec-filter-selection-row {
+    layout: grid;
+    grid-size: 2;
+    grid-columns: 1fr 1fr;
+    grid-gutter: 1 1;
+    height: auto;
+    min-height: 3;
+    padding: 0;
+}
+
+#rec-filter-bar.medium #rec-filter-selection-row > .filter-control {
+    width: 1fr;
+    min-height: 3;
+    margin-right: 0;
+    margin-bottom: 0;
+}
+
+#rec-filter-bar.medium #rec-filter-row .filter-control {
+    height: 3;
+    min-height: 3;
+    max-width: 100%;
+    margin-right: 0;
+}
+
+#rec-filter-bar.medium #rec-filter-row #rec-sort-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#rec-filter-bar.medium #rec-search-row #rec-search-input {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-filter-bar.narrow #rec-filter-row {
+    layout: vertical;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+#rec-filter-bar.narrow #rec-filter-row .optimizer-filter-group {
+    width: 1fr;
+    height: auto;
+    min-height: 4;
+    margin-bottom: 0;
+    padding: 0;
+}
+
+#rec-filter-bar.narrow #rec-filter-row .optimizer-filter-group:last-child {
+    margin-bottom: 0;
+}
+
+#rec-filter-bar.narrow #rec-filter-selection-row {
+    layout: grid;
+    grid-size: 2;
+    grid-columns: 1fr 1fr;
+    grid-gutter: 1 1;
+    height: auto;
+    min-height: 3;
+    padding: 0;
+}
+
+#rec-filter-bar.narrow #rec-filter-selection-row > .filter-control {
+    width: 1fr;
+    min-height: 3;
+    margin-right: 0;
+    margin-bottom: 0;
+}
+
+#rec-filter-bar.narrow #rec-filter-row #rec-view-group.optimizer-filter-group,
+#rec-filter-bar.narrow #rec-filter-row #rec-search-group.optimizer-filter-group,
+#rec-filter-bar.narrow #rec-filter-row #rec-filter-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#rec-filter-bar.narrow #rec-filter-row #rec-view-group .optimizer-filter-group-body,
+#rec-filter-bar.narrow #rec-filter-row #rec-search-group .optimizer-filter-group-body,
+#rec-filter-bar.narrow #rec-filter-row #rec-filter-group .optimizer-filter-group-body,
+#rec-filter-bar.narrow #rec-filter-row #rec-filter-selection-row {
+    width: 1fr;
+    min-width: 0;
+}
+
+#rec-filter-bar.narrow #rec-filter-row .filter-control {
+    height: 3;
+    min-height: 3;
+    max-width: 100%;
+    margin-right: 0;
+    margin-bottom: 0;
+}
+
+#rec-filter-bar.narrow #rec-search-control.filter-control {
+    height: 3;
+    min-height: 3;
+}
+
+#rec-filter-bar.narrow #rec-filter-row #rec-sort-group.optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+}
+
+#rec-filter-bar.narrow #rec-search-row #rec-search-input {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-filter-bar.narrow #rec-search-row {
+    grid-size: 2 1;
+    grid-columns: 7fr 3fr;
+    grid-gutter: 1 0;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+}
+
+#rec-filter-bar.narrow #rec-search-row #rec-search-btn {
+    display: none;
+}
+
+#rec-filter-bar.narrow #rec-view-group {
+    display: none;
+}
+
+/* Cluster-tab style parity for optimizer filter/sort controls */
+.cluster-tab-filters-row {
+    width: 1fr;
+    max-width: 100%;
+    min-width: 0;
+    height: 3;
+    min-height: 3;
+    margin-bottom: 0;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    content-align: left middle;
+}
+
+.cluster-tab-filters-row > .filter-control:last-child {
+    margin-right: 0;
+}
+
+.cluster-tab-sort-controls {
+    width: auto;
+    height: 3;
+    min-height: 3;
+    content-align: right middle;
+}
+
+CustomButton.cluster-tab-filter-trigger {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 1fr;
+    min-height: 0;
+    margin-right: 0;
+    padding: 0;
+}
+
+#filter-bar.medium CustomButton.cluster-tab-filter-trigger,
+#rec-filter-bar.medium CustomButton.cluster-tab-filter-trigger {
+    padding: 0 1;
+}
+
+#filter-bar.wide CustomButton.cluster-tab-filter-trigger,
+#rec-filter-bar.wide CustomButton.cluster-tab-filter-trigger {
+    padding: 0;
+}
+
+#filter-bar.narrow CustomButton.cluster-tab-filter-trigger,
+#rec-filter-bar.narrow CustomButton.cluster-tab-filter-trigger {
+    padding: 0;
+}
+
+Select.cluster-tab-control-select {
+    width: 1fr;
+    min-width: 0;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    margin-right: 0;
+}
+
+Select.cluster-tab-control-select > SelectCurrent {
+    content-align: center middle;
+    text-align: center;
+}
+
+Select.cluster-tab-control-select > SelectOverlay {
+    width: auto;
+    min-width: 0;
+}
+
+Select.cluster-tab-control-select > SelectOverlay > .option-list--option {
+    text-wrap: nowrap;
+    text-align: center;
+}
+
+Select.cluster-tab-sort {
+    min-width: 0;
+    max-width: 100%;
+}
+
+Select.cluster-tab-order {
+    min-width: 0;
+    max-width: 100%;
+}
+
+#rec-search-row {
+    layout: grid;
+    grid-size: 3 1;
+    grid-columns: 1fr auto auto;
+    grid-gutter: 1 0;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    width: 1fr;
+    padding: 0;
+    background: transparent;
+    border: none;
+    content-align: left middle;
+}
+
+#rec-search-row #rec-search-input {
+    width: 1fr;
+    min-width: 0;
+    max-width: 50%;
+    height: 3;
+    min-height: 3;
+    margin-right: 0;
+    dock: none;
+}
+
+#rec-search-row #rec-search-input > Input {
+    height: 3;
+    min-height: 3;
+}
+
+#rec-search-row #rec-search-btn,
+#rec-search-row #rec-clear-search-btn {
+    height: 3;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    text-wrap: nowrap;
+    padding: 0;
+}
+
+#rec-search-row #rec-search-btn {
+    margin-right: 1;
+}
+
+#rec-search-row #rec-clear-search-btn {
+    margin-left: 0;
+}
+
+/* Recommendations tree */
+#rec-split-row {
+    layout: horizontal;
+    height: 1fr;
+    min-height: 0;
+    width: 1fr;
+    min-width: 0;
+}
+
+#rec-recommendations-tree {
+    height: 1fr;
+    width: 1fr;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+
+#rec-recommendations-tree > Tree {
+    height: 1fr;
+    width: 1fr;
+    min-width: 100%;
+    overflow-x: scroll;
+    overflow-y: auto;
+    text-wrap: nowrap;
+}
+
+.rec-container {
+    height: 1fr;
+}
+
+#rec-container {
+    layout: vertical;
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 1fr;
+    min-height: 10;
+    border-right: solid $surface-lighten-1 45%;
+}
+
+#rec-list-body {
+    height: 1fr;
+    min-height: 10;
+    position: relative;
+}
+
+#rec-loading-overlay {
+    layer: rec-loading;
+    position: absolute;
+    offset: 0 0;
+    width: 1fr;
+    height: 1fr;
+    align: center middle;
+    content-align: center middle;
+    padding: 0;
+    background: $surface-darken-1 68%;
+    display: none;
+}
+
+/* Details panel - scrollable */
+#rec-details-scroll {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 1fr;
+    min-height: 0;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0 1;
+}
+
+/* --- Breakpoints: recommendations content split --- */
+#rec-main-container.ultra #rec-container {
+    width: 62fr;
+}
+
+#rec-main-container.ultra #rec-details-scroll {
+    width: 38fr;
+}
+
+#rec-main-container.medium #rec-container {
+    width: 62fr;
+}
+
+#rec-main-container.medium #rec-details-scroll {
+    width: 38fr;
+}
+
+#rec-main-container.narrow #rec-split-row {
+    layout: vertical;
+}
+
+#rec-main-container.narrow #rec-container {
+    width: 1fr;
+    min-width: 0;
+    border-right: none;
+    border-bottom: solid $surface-lighten-1 45%;
+}
+
+#rec-main-container.narrow #rec-details-scroll {
+    width: 1fr;
+    min-width: 0;
+    height: 10;
+    min-height: 8;
+    max-height: 18;
+}
+
+#rec-details {
+    height: 1fr;
+    min-height: 0;
+    padding: 1;
+}
+
+.rec-selected {
+    border: solid $accent;
+}
+
+/* Empty state */
+.empty-state {
+    height: auto;
+    padding: 2 4;
+    text-align: center;
+    color: $text-muted;
+    background: $surface;
+    border: dashed $surface-lighten-2;
+    margin: 1;
+}

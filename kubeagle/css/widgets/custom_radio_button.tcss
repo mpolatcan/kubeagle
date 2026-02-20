@@ -1,0 +1,47 @@
+/* CustomRadioButton widget styles */
+CustomRadioButton,
+.widget-custom-radio-button {
+    height: auto;
+    width: 1fr;
+    dock: top;
+    min-height: 3;
+}
+
+CustomRadioButton > RadioButton,
+.widget-custom-radio-button > RadioButton {
+    width: 1fr;
+    padding: 0 1;
+    margin-bottom: 0;
+    border: tall $control-border;
+    background: $control-background;
+    color: $control-foreground;
+    text-style: none;
+}
+
+CustomRadioButton > RadioButton:hover,
+.widget-custom-radio-button > RadioButton:hover {
+    background: $control-focus-background;
+    border: tall $control-focus-border;
+    color: $control-focus-foreground;
+}
+
+CustomRadioButton > RadioButton:focus,
+.widget-custom-radio-button > RadioButton:focus {
+    border: tall $control-focus-border;
+    background: $control-focus-background;
+    color: $control-focus-foreground;
+}
+
+CustomRadioButton > RadioButton:disabled,
+.widget-custom-radio-button > RadioButton:disabled {
+    opacity: 0.6;
+    border: tall $control-disabled-border;
+    background: $control-disabled-background;
+    color: $control-disabled-foreground;
+}
+
+CustomRadioButton > RadioButton.-on,
+.widget-custom-radio-button > RadioButton.-on {
+    color: $control-foreground;
+    text-style: none;
+}

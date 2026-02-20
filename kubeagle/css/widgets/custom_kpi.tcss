@@ -1,0 +1,113 @@
+/* CustomKPI widget styles */
+
+CustomKPI {
+    height: auto;
+    width: 1fr;
+    padding: 0 1;
+    border: solid $surface-lighten-1 45%;
+    background: $surface;
+    content-align: center middle;
+}
+
+CustomKPI:focus {
+    border: solid $surface-lighten-1 45%;
+}
+
+CustomKPI > .kpi-title {
+    text-style: bold;
+    color: $text;
+    padding: 0 1;
+    background: $surface-darken-2;
+    border-left: heavy $primary;
+    text-align: center;
+    content-align: center middle;
+    width: 100%;
+    margin-bottom: 1;
+}
+
+CustomKPI > .kpi-value {
+    text-style: bold;
+    color: $text;
+    text-align: center;
+    width: 100%;
+    font-size: $font-size-lg;
+}
+
+CustomKPI.success > .kpi-value {
+    color: $success;
+}
+
+CustomKPI.warning > .kpi-value {
+    color: $warning;
+}
+
+CustomKPI.error > .kpi-value {
+    color: $error;
+}
+
+CustomKPI.info > .kpi-value {
+    color: $text;
+}
+
+/* Inline loading spinner */
+CustomKPI > .kpi-spinner {
+    text-style: bold;
+    color: $text;
+    text-align: center;
+    width: 100%;
+    display: none;
+}
+
+CustomKPI.kpi-inline {
+    padding: 0;
+    margin: 0;
+    border: none;
+    height: auto;
+    min-height: 0;
+    layout: horizontal;
+    content-align: left middle;
+}
+
+CustomKPI.kpi-inline > .kpi-title {
+    color: $text;
+    text-style: bold;
+    background: $surface-darken-2;
+    border-left: heavy $primary;
+    padding: 0 1;
+    text-align: center;
+    content-align: center middle;
+    width: auto;
+    margin-right: 1;
+    margin-bottom: 0;
+}
+
+CustomKPI.kpi-inline > .kpi-value {
+    width: auto;
+    text-style: bold;
+}
+
+CustomKPI.kpi-inline > .kpi-spinner {
+    width: auto;
+}
+
+CustomKPI .kpi-status {
+    text-align: center;
+    margin-top: 0;
+}
+
+/* Status variants */
+CustomKPI .kpi-status.success {
+    color: $success;
+}
+
+CustomKPI .kpi-status.warning {
+    color: $warning;
+}
+
+CustomKPI .kpi-status.error {
+    color: $error;
+}
+
+CustomKPI .kpi-status.info {
+    color: $text;
+}

@@ -1,0 +1,146 @@
+/* CustomStatic widget styles */
+CustomStatic,
+.widget-custom-static {
+    height: auto;
+    width: auto;
+    padding: 0;
+    color: $text;
+    text-style: none;
+}
+
+CustomStatic.align-left,
+.widget-custom-static.align-left {
+    text-align: left;
+    content-align: left middle;
+}
+
+CustomStatic.align-center,
+.widget-custom-static.align-center {
+    text-align: center;
+    content-align: center middle;
+}
+
+CustomStatic.align-right,
+.widget-custom-static.align-right {
+    text-align: right;
+    content-align: right middle;
+}
+
+CustomStatic.align-justify,
+.widget-custom-static.align-justify {
+    text-align: justify;
+    content-align: justify middle;
+}
+
+CustomStatic.muted,
+.widget-custom-static.muted {
+    color: $text-muted;
+}
+
+CustomStatic.accent,
+.widget-custom-static.accent {
+    color: $accent;
+}
+
+CustomStatic.success,
+.widget-custom-static.success {
+    color: $success;
+}
+
+CustomStatic.warning,
+.widget-custom-static.warning {
+    color: $warning;
+}
+
+CustomStatic.error,
+.widget-custom-static.error {
+    color: $error;
+}
+
+CustomStatic.bold,
+.widget-custom-static.bold {
+    text-style: bold;
+}
+
+CustomStatic.italic,
+.widget-custom-static.italic {
+    text-style: italic;
+}
+
+CustomStatic.underline,
+.widget-custom-static.underline {
+    text-style: underline;
+}
+
+CustomStatic.highlight,
+.widget-custom-static.highlight {
+    background: $accent 30%;
+    color: $text;
+}
+
+CustomStatic.code,
+.widget-custom-static.code {
+    background: $surface-darken-2;
+    color: $accent;
+    padding: 0 1;
+}
+
+/* Semantic aliases for screen-level static text classes */
+CustomStatic.status-success,
+.widget-custom-static.status-success {
+    color: $success;
+}
+
+CustomStatic.status-error,
+.widget-custom-static.status-error {
+    color: $error;
+}
+
+CustomStatic.status-warning,
+.widget-custom-static.status-warning {
+    color: $warning;
+}
+
+CustomStatic.status-info,
+.widget-custom-static.status-info {
+    color: $text;
+}
+
+CustomStatic.status-loading,
+.widget-custom-static.status-loading {
+    color: $text;
+    text-style: italic;
+}
+
+CustomStatic.status-connected,
+.widget-custom-static.status-connected {
+    color: $success;
+}
+
+CustomStatic.status-disconnected,
+.widget-custom-static.status-disconnected {
+    color: $warning;
+}
+
+CustomStatic.error-msg,
+.widget-custom-static.error-msg,
+CustomStatic.error-message,
+.widget-custom-static.error-message {
+    color: $error;
+}
+
+CustomStatic.empty-state-message,
+.widget-custom-static.empty-state-message {
+    color: $text-muted;
+    text-style: italic;
+}
+
+CustomStatic.status-label,
+.widget-custom-static.status-label {
+    color: $text-muted;
+}
+
+CustomStatic.status-value,
+.widget-custom-static.status-value {
+    color: $text;
+}

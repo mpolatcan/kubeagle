@@ -1,0 +1,1 @@
+"""Charts controller tests package."""

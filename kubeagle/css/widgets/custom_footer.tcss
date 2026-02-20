@@ -1,0 +1,7 @@
+/* CustomFooter self-targeting styles live in DEFAULT_CSS (custom_footer.py).
+   Textual SCOPED_CSS prevents CSS_PATH rules from self-targeting.
+   Descendant rules below apply within the scoped subtree. */
+
+CustomFooter > FooterKey {
+    color: $footer-foreground;
+}

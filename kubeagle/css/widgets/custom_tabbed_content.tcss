@@ -1,0 +1,68 @@
+/* CustomTabbedContent widget styles */
+/* CustomTabbedContent now directly inherits from TabbedContent,
+   so selectors target CustomTabbedContent itself (not a child TabbedContent). */
+
+CustomTabbedContent {
+    height: 1fr;
+    width: 1fr;
+    background: transparent;
+    color: $text;
+}
+
+.widget-custom-tabbed-content {
+    height: 1fr;
+    width: 1fr;
+    background: transparent;
+    color: $text;
+}
+
+CustomTabbedContent > ContentTabs,
+.widget-custom-tabbed-content > ContentTabs {
+    height: auto;
+    min-height: 3;
+    width: 1fr;
+    background: $surface-darken-1;
+}
+
+CustomTabbedContent > ContentTabs > Tab,
+.widget-custom-tabbed-content > ContentTabs > Tab {
+    height: auto;
+    width: auto;
+    min-width: 10;
+    max-width: 20;
+    padding: 0 2;
+    border: solid $surface-lighten-1 42%;
+    border-bottom: none;
+    background: $surface-darken-1;
+    color: $text-muted;
+    align: center middle;
+}
+
+CustomTabbedContent > ContentTabs > Tab:hover,
+.widget-custom-tabbed-content > ContentTabs > Tab:hover {
+    background: $surface-darken-1;
+    color: $text;
+}
+
+CustomTabbedContent > ContentTabs > Tab.active,
+CustomTabbedContent > ContentTabs > Tab.-active,
+.widget-custom-tabbed-content > ContentTabs > Tab.active,
+.widget-custom-tabbed-content > ContentTabs > Tab.-active {
+    border: solid $accent;
+    border-bottom: none;
+    background: $accent 14%;
+    color: $text;
+    text-style: bold;
+}
+
+CustomTabbedContent > ContentTabs > Tab:disabled,
+.widget-custom-tabbed-content > ContentTabs > Tab:disabled {
+    opacity: 0.6;
+    color: $text-muted;
+}
+
+CustomTabbedContent > ContentSwitcher,
+.widget-custom-tabbed-content > ContentSwitcher {
+    height: 1fr;
+    width: 1fr;
+}

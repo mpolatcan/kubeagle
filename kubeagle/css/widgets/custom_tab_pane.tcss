@@ -1,0 +1,32 @@
+/* CustomTabPane widget styles */
+CustomTabPane {
+    height: 1fr;
+    width: 1fr;
+    padding: 0;
+    background: transparent;
+    color: $text;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.widget-custom-tab-pane {
+    height: 1fr;
+    width: 1fr;
+    padding: 0;
+    background: transparent;
+    color: $text;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+CustomTabPane:disabled {
+    opacity: 0.6;
+    background: $surface-darken-3;
+    color: $text-muted;
+}
+
+.widget-custom-tab-pane:disabled {
+    opacity: 0.6;
+    background: $surface-darken-3;
+    color: $text-muted;
+}

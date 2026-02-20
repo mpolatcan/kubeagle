@@ -1,0 +1,13 @@
+/* CustomTable (deprecated mixin) styles */
+
+CustomTableMixin {
+    height: auto;
+    width: 100%;
+    border: solid $border;
+    background: $surface;
+    color: $text;
+}
+
+CustomTableMixin:focus {
+    border: solid $accent;
+}

@@ -1,0 +1,49 @@
+/* LoadingIndicator widget styles */
+
+LoadingIndicator {
+    height: auto;
+    width: 1fr;
+    align: center middle;
+    color: $accent;
+}
+
+.loading-container {
+    padding: 1 2;
+    background: $surface;
+    border: solid $accent;
+}
+
+.loading-spinner {
+    content-align: center middle;
+    width: 3;
+}
+
+.loading-message {
+    margin-left: 1;
+    color: $accent;
+}
+
+.loading-message.success {
+    color: $success;
+}
+
+.loading-message.error {
+    color: $error;
+}
+
+.loading-progress {
+    margin-top: 1;
+    color: $accent;
+}
+
+.loading-progress.success {
+    color: $success;
+}
+
+.loading-progress.error {
+    color: $error;
+}
+
+.loading-dots {
+    /* Spinner animation handled by advance_frame() method */
+}

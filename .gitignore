@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+venv/
+.env
+.venv
+*.env
+
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Linter caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Generated reports and files
+EKS_UNIFIED_HELM_REPORT_V2.md
+not-found-charts.txt
+
+# OS
+.DS_Store
+build
+dist

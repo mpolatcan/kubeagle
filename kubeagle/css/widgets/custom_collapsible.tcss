@@ -1,0 +1,52 @@
+/* CustomCollapsible widget styles */
+
+CustomCollapsible,
+.widget-custom-collapsible {
+    height: auto;
+    margin-bottom: 1;
+    padding: 0;
+    background: $surface;
+    border: solid $surface-lighten-1 45%;
+}
+
+CustomCollapsible.-collapsed,
+.widget-custom-collapsible.-collapsed {
+    height: auto;
+    min-height: 0;
+    padding: 0;
+}
+
+/* Override Textual Contents default padding that shifts children right. */
+CustomCollapsible Contents,
+.widget-custom-collapsible Contents {
+    padding: 0;
+    position: relative;
+}
+
+/* Normalize title states and remove default blue highlight. */
+CustomCollapsible CollapsibleTitle,
+.widget-custom-collapsible CollapsibleTitle {
+    text-style: bold;
+    color: $primary;
+    background: transparent;
+    padding: 0 1;
+}
+
+CustomCollapsible CollapsibleTitle:hover,
+.widget-custom-collapsible CollapsibleTitle:hover {
+    background: $surface-lighten-1;
+    color: $primary;
+}
+
+CustomCollapsible CollapsibleTitle:focus,
+.widget-custom-collapsible CollapsibleTitle:focus {
+    background: $surface-lighten-1;
+    color: $primary;
+    text-style: bold;
+}
+
+CustomCollapsible CollapsibleTitle.-collapsed,
+.widget-custom-collapsible CollapsibleTitle.-collapsed {
+    background: transparent;
+    color: $primary;
+}

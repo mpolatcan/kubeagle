@@ -1,0 +1,52 @@
+/* CustomProgressBar widget styles */
+CustomProgressBar,
+.widget-custom-progress-bar {
+    width: auto;
+    min-width: 0;
+    height: 1;
+    layout: horizontal;
+    color: $text;
+}
+
+/* Main bar track container */
+CustomProgressBar > #bar,
+.widget-custom-progress-bar > #bar {
+    width: 1fr;
+    min-width: 0;
+    height: 1;
+}
+
+/* In-progress state */
+CustomProgressBar > #bar > .bar--bar,
+.widget-custom-progress-bar > #bar > .bar--bar {
+    color: $accent;
+    background: $surface-darken-1;
+}
+
+/* Indeterminate animation state */
+CustomProgressBar > #bar > .bar--indeterminate,
+.widget-custom-progress-bar > #bar > .bar--indeterminate {
+    color: $accent;
+    background: $surface-darken-1;
+}
+
+/* Completed state */
+CustomProgressBar > #bar > .bar--complete,
+.widget-custom-progress-bar > #bar > .bar--complete {
+    color: $success;
+    background: $surface-darken-1;
+}
+
+/* Optional status labels when enabled on a screen */
+CustomProgressBar > #percentage,
+CustomProgressBar > #eta,
+.widget-custom-progress-bar > #percentage,
+.widget-custom-progress-bar > #eta {
+    color: $text-muted;
+    text-style: bold;
+}
+
+CustomProgressBar:disabled,
+.widget-custom-progress-bar:disabled {
+    opacity: 0.6;
+}

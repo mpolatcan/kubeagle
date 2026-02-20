@@ -1,0 +1,52 @@
+/* CustomHeader – child-targeting rules MUST live in CSS_PATH (not DEFAULT_CSS)
+   because CSS_PATH has higher priority than the child widget's own DEFAULT_CSS.
+   Without this, Textual's built-in Header { dock: top; } wins over our
+   CustomHeader > Header { dock: none; } rule.
+   Self-targeting rules live in DEFAULT_CSS (custom_header.py) because
+   SCOPED_CSS prevents CSS_PATH from self-targeting. */
+
+CustomHeader > Header {
+    dock: none;
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    background: $surface-darken-1;
+    color: $text;
+    border-bottom: solid $accent;
+}
+
+CustomHeader > Header > HeaderTitle {
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    padding: 0 1;
+    color: $text;
+    background: $surface-darken-2;
+    border-left: heavy $primary;
+    text-style: bold;
+    text-align: center;
+    content-align: center middle;
+}
+
+CustomHeader > Header > Clock {
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    padding: 0 1;
+    color: $text-muted;
+}
+
+CustomHeader #terminal-size-badge,
+.widget-custom-header #terminal-size-badge {
+    dock: right;
+    width: auto;
+    min-width: 10;
+    height: 1;
+    padding: 0 1;
+    margin: 0;
+    background: transparent;
+    color: $warning;
+    text-style: bold;
+    text-align: right;
+    content-align: right middle;
+}

@@ -1,0 +1,33 @@
+/* CustomRichLog widget styles */
+CustomRichLog,
+.widget-custom-rich-log {
+    height: auto;
+    width: 1fr;
+    min-height: 3;
+    border: solid $surface-lighten-1 45%;
+    background: $surface-darken-2;
+    color: $text;
+}
+
+CustomRichLog:focus-within,
+.widget-custom-rich-log:focus-within {
+    border: solid $accent;
+}
+
+CustomRichLog > RichLog,
+.widget-custom-rich-log > RichLog {
+    height: 1fr;
+    width: 1fr;
+    border: none;
+    background: transparent;
+    color: $text;
+    padding: 0 1;
+}
+
+CustomRichLog:disabled,
+.widget-custom-rich-log:disabled {
+    opacity: 0.6;
+    border: solid $surface-darken-2;
+    background: $surface-darken-3;
+    color: $text-muted;
+}

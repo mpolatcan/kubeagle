@@ -1,0 +1,109 @@
+/* CustomSelect widget styles */
+
+:host {
+    height: 3;
+    min-height: 3;
+}
+
+SelectCurrent {
+    height: 3;
+    padding: 0 1;
+    content-align: center middle;
+    text-align: center;
+    color: $control-foreground;
+    border: solid $control-border;
+    background: $control-background;
+}
+
+:host:hover > SelectCurrent,
+:host:focus > SelectCurrent {
+    border: solid $control-focus-border;
+    background: $control-focus-background;
+    color: $control-focus-foreground;
+}
+
+SelectOverlay {
+    border: solid $control-focus-border;
+    background: $control-hover-background;
+    width: auto;
+    min-width: 16;
+    max-width: 42;
+}
+
+SelectOverlay > .option-list--option {
+    color: $control-foreground;
+    text-wrap: nowrap;
+}
+
+SelectOverlay > .option-list--option-highlighted,
+SelectOverlay > .option-list--option.highlighted {
+    background: $control-highlight-background;
+    color: $control-foreground;
+    text-style: bold;
+}
+
+SelectOverlay > .option-list--option.disabled {
+    color: $control-disabled-foreground;
+    opacity: 0.5;
+}
+
+SelectOverlay > .option-list--separator {
+    color: $control-separator-foreground;
+}
+
+SelectOverlay > .option-list--prompt {
+    color: $control-disabled-foreground;
+    text-style: italic;
+}
+
+/* Hide Unicode chevrons to avoid missing-glyph boxes in limited fonts. */
+SelectCurrent .arrow {
+    display: none;
+}
+
+/* Shared filter-select variant used by filter bars across screens */
+:host.filter-select > SelectCurrent {
+    padding: 0 1;
+    content-align: center middle;
+    text-align: center;
+    color: $control-foreground;
+    border: round $control-border;
+    background: $control-background;
+}
+
+:host.filter-select:hover > SelectCurrent,
+:host.filter-select:focus > SelectCurrent {
+    border: solid $control-focus-border;
+    background: $control-focus-background;
+    color: $control-focus-foreground;
+}
+
+:host.filter-select > SelectOverlay {
+    border: solid $control-focus-border;
+    background: $control-hover-background;
+}
+
+:host.filter-select > SelectOverlay > .option-list--option {
+    color: $control-foreground;
+}
+
+:host.filter-select > SelectOverlay > .option-list--option-highlighted,
+:host.filter-select > SelectOverlay > .option-list--option.highlighted {
+    background: $control-highlight-background;
+    color: $control-foreground;
+    text-style: bold;
+}
+
+:host.filter-select > SelectOverlay > .option-list--option.disabled {
+    color: $control-disabled-foreground;
+    opacity: 0.5;
+}
+
+:host.filter-select > SelectOverlay > .option-list--separator {
+    color: $control-separator-foreground;
+}
+
+:host.filter-select > SelectOverlay > .option-list--prompt {
+    color: $control-disabled-foreground;
+    text-style: italic;
+}

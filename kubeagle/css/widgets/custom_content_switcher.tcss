@@ -1,0 +1,30 @@
+/* CustomContentSwitcher widget styles */
+CustomContentSwitcher,
+.widget-custom-content-switcher {
+    width: 100%;
+    height: auto;
+    dock: top;
+    color: $text;
+}
+
+CustomContentSwitcher > ContentSwitcher,
+.widget-custom-content-switcher > ContentSwitcher {
+    width: 100%;
+    height: auto;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-2;
+    color: $text;
+    padding: 1;
+}
+
+CustomContentSwitcher > ContentSwitcher:focus,
+.widget-custom-content-switcher > ContentSwitcher:focus {
+    border: solid $accent;
+    background: $accent 12%;
+    color: $text;
+}
+
+CustomContentSwitcher > ContentSwitcher > *,
+.widget-custom-content-switcher > ContentSwitcher > * {
+    margin-bottom: 0;
+}

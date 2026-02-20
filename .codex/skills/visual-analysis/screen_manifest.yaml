@@ -1,0 +1,402 @@
+# Screen Manifest for TUI Visual Analysis
+# Defines expected elements and data checks per screen
+# Used by prompt_generator.py to create contextual AI analysis prompts
+
+version: "1.0"
+description: "Expected screen elements and data checks for TUI visual analysis"
+
+# Default settings
+defaults:
+  delays:
+    quick: [5.0]
+    standard: [10.0]
+    freeze: [30.0, 60.0, 90.0]
+  analysis_type: "standard"
+
+# Common elements shared across all screens
+common:
+  header:
+    elements:
+      - app_title: "Application title/name"
+      - clock: "Current time display (optional)"
+    checks:
+      - "Header is visible at top of screen"
+
+  footer:
+    elements:
+      - keybindings: "Available keyboard shortcuts"
+    checks:
+      - "Footer shows navigation hints"
+
+  loading:
+    elements:
+      - indicator: "Spinner or loading text"
+    checks:
+      - "Loading indicator appears during data fetch"
+      - "Loading indicator disappears when data loads"
+      - "No perpetual loading states (stuck spinners)"
+
+# Per-screen definitions
+screens:
+  home:
+    description: "Dashboard with cluster overview and KPIs"
+    nav_key: "h"
+    cli_correlation: "Maps to EKS_UNIFIED_HELM_REPORT.md Executive Summary section"
+
+    layout:
+      - quick_stats: "Row of stat cards at top"
+      - kpi_grid: "Grid of key performance indicators"
+      - status_indicators: "Cluster connection and health status"
+
+    widgets:
+      stat_cards:
+        - id: "stat-total-charts"
+          label: "Total Charts"
+          type: "number"
+          expect: ">= 0"
+        - id: "stat-violations"
+          label: "Violations"
+          type: "number"
+          expect: ">= 0"
+        - id: "stat-critical"
+          label: "Critical Events"
+          type: "number"
+          expect: ">= 0"
+        - id: "stat-single-replica"
+          label: "Single Replica"
+          type: "number"
+          expect: ">= 0"
+
+      kpi_values:
+        - id: "cluster-status"
+          label: "Cluster Status"
+          type: "status"
+          valid_values: ["Connected", "Disconnected", "Unknown"]
+        - id: "node-count"
+          label: "Nodes"
+          type: "number"
+        - id: "node-groups-count"
+          label: "Node Groups"
+          type: "number"
+        - id: "chart-count"
+          label: "Charts"
+          type: "number"
+
+    data_checks:
+      - check: "Stats show numbers, not 'Loading...' or '0' when data exists"
+        severity: HIGH
+      - check: "KPI values are populated with actual data"
+        severity: HIGH
+      - check: "Cluster status shows connection state"
+        severity: MEDIUM
+      - check: "No blank or empty stat cards"
+        severity: HIGH
+
+  charts:
+    description: "Helm charts browser with search and filter capabilities"
+    nav_key: "C"
+    cli_correlation: "Maps to Helm Chart Overview section in EKS_UNIFIED_HELM_REPORT.md"
+
+    layout:
+      - header: "Title 'Charts Browser' and clock"
+      - filter_bar: "Mode indicator and filter statistics"
+      - search_bar: "Search input with filter/clear/mode buttons"
+      - loading_overlay: "Loading indicator (should hide when loaded)"
+      - tabbed_content: "Tabs with different chart views"
+      - data_table: "Charts list in active tab"
+
+    widgets:
+      tabs:
+        - id: "all"
+          label: "All"
+          description: "All charts"
+        - id: "team"
+          label: "By Team"
+          description: "Charts grouped by team"
+        - id: "pdb"
+          label: "Without PDB"
+          description: "Charts missing PodDisruptionBudget"
+        - id: "ratios"
+          label: "Extreme Ratios"
+          description: "Charts with extreme limit/request ratios"
+        - id: "qos"
+          label: "QoS Analysis"
+          description: "Quality of Service analysis"
+
+      search:
+        - id: "search-input"
+          placeholder: "Search charts..."
+          type: "input"
+
+      buttons:
+        - id: "mode-btn"
+          labels: ["Mode: Local", "Mode: Cluster"]
+          description: "Toggle between local and cluster mode"
+        - id: "active-btn"
+          labels: ["Active: Off", "Active: On"]
+          description: "Toggle active charts filter"
+        - id: "filter-btn"
+          label: "Filter"
+        - id: "clear-btn"
+          label: "Clear"
+
+      data_table:
+        id: "charts-table"
+        columns_by_tab:
+          all: ["Name", "Version", "Team", "Status"]
+          team: ["Team", "Chart Count", "Active"]
+          pdb: ["Name", "Team", "PDB Status"]
+          ratios: ["Name", "CPU Ratio", "Memory Ratio"]
+          qos: ["Name", "QoS Class", "Details"]
+
+    data_checks:
+      - check: "Charts table has data rows when charts exist"
+        severity: HIGH
+      - check: "Tab content updates when switching tabs"
+        severity: HIGH
+      - check: "Search input is functional"
+        severity: MEDIUM
+      - check: "Loading overlay hidden after data loads"
+        severity: HIGH
+      - check: "Mode indicator shows current mode"
+        severity: LOW
+      - check: "Filter stats show accurate counts"
+        severity: MEDIUM
+
+  cluster:
+    description: "EKS cluster analysis with nodes, events, PDBs, and health"
+    nav_key: "c"
+    cli_correlation: "Maps to EKS Cluster Analysis section in EKS_UNIFIED_HELM_REPORT.md"
+
+    layout:
+      - header: "Title with cluster name"
+      - search_bar: "Search input for filtering"
+      - tabbed_content: "Multiple analysis tabs"
+      - data_content: "Tab-specific tables and content"
+
+    widgets:
+      tabs:
+        - id: "overview"
+          label: "Overview"
+          description: "Cluster summary metrics"
+        - id: "nodes"
+          label: "Nodes"
+          description: "Node list with resources"
+        - id: "pods"
+          label: "Pods"
+          description: "Pod distribution"
+        - id: "events"
+          label: "Events"
+          description: "Recent cluster events"
+        - id: "pdbs"
+          label: "PDBs"
+          description: "PodDisruptionBudgets"
+        - id: "single-replica"
+          label: "Single Replica"
+          description: "Workloads with single replica"
+        - id: "health"
+          label: "Health"
+          description: "Node health analysis"
+        - id: "node-dist"
+          label: "Distribution"
+          description: "Pod distribution across nodes"
+        - id: "groups"
+          label: "Groups"
+          description: "Node groups analysis"
+        - id: "stats"
+          label: "Stats"
+          description: "Resource statistics"
+
+      tables:
+        nodes:
+          columns: ["Node", "Node Group", "Status", "CPU Alloc%", "Memory Alloc%", "Pods"]
+        events:
+          columns: ["Event Type", "Count", "Status"]
+        pdbs:
+          columns: ["Name", "Min Available", "Max Unavailable", "Disruptions Allowed"]
+
+    data_checks:
+      - check: "Cluster name displayed (not 'Unknown' when connected)"
+        severity: HIGH
+      - check: "Node count matches actual cluster"
+        severity: HIGH
+      - check: "Each tab loads its specific content"
+        severity: HIGH
+      - check: "No tab shows permanent loading state"
+        severity: HIGH
+      - check: "Events table shows recent events"
+        severity: MEDIUM
+      - check: "PDB data matches cluster state"
+        severity: MEDIUM
+
+  optimizer:
+    description: "Optimization recommendations for Helm charts"
+    nav_key: "o"
+    cli_correlation: "Maps to optimization rules applied to charts"
+
+    layout:
+      - header: "Title"
+      - category_filter: "Category selection/filter"
+      - recommendations_list: "List of optimization recommendations"
+      - detail_panel: "Selected recommendation details"
+
+    widgets:
+      recommendations:
+        type: "list"
+        item_structure:
+          - severity_badge: "CRITICAL|HIGH|MEDIUM|LOW with color coding"
+          - title: "Recommendation title"
+          - category: "Category label"
+          - affected_charts: "Count of affected charts"
+
+    data_checks:
+      - check: "Recommendations are categorized correctly"
+        severity: MEDIUM
+      - check: "Severity badges show correct colors (red=critical, orange=high, yellow=medium, blue=low)"
+        severity: LOW
+      - check: "Detail panel updates when selecting recommendation"
+        severity: MEDIUM
+      - check: "Affected charts count is accurate"
+        severity: MEDIUM
+
+  teams:
+    description: "Team browser showing chart ownership"
+    nav_key: "t"
+    cli_correlation: "Maps to Teams Identified in Helm Chart Overview"
+
+    layout:
+      - header: "Title"
+      - team_list: "List of teams"
+      - team_details: "Selected team's charts"
+
+    widgets:
+      team_list:
+        type: "list"
+        shows: ["Team name", "Chart count"]
+
+    data_checks:
+      - check: "Team list is populated"
+        severity: HIGH
+      - check: "Team names match chart ownership"
+        severity: MEDIUM
+      - check: "Chart counts are accurate"
+        severity: MEDIUM
+
+  team_stats:
+    description: "Team statistics and metrics"
+    nav_key: "T"
+    cli_correlation: "Aggregated team metrics from charts"
+
+    layout:
+      - header: "Title"
+      - stats_grid: "Team statistics"
+      - charts_table: "Team's charts"
+
+    data_checks:
+      - check: "Statistics are calculated and displayed"
+        severity: HIGH
+      - check: "Metrics are accurate"
+        severity: MEDIUM
+
+  recommendations:
+    description: "All recommendations list"
+    nav_key: "r"
+    cli_correlation: "Aggregated optimization recommendations"
+
+    layout:
+      - header: "Title"
+      - filter_bar: "Category and severity filters"
+      - recommendations_table: "List of all recommendations"
+
+    data_checks:
+      - check: "Recommendations are listed"
+        severity: HIGH
+      - check: "Filtering works correctly"
+        severity: MEDIUM
+      - check: "Priority/severity is clearly indicated"
+        severity: MEDIUM
+
+  export:
+    description: "Report export functionality"
+    nav_key: "e"
+    cli_correlation: "Export to formats matching CLI output"
+
+    layout:
+      - header: "Title"
+      - format_options: "Export format selection"
+      - preview: "Export preview"
+      - export_button: "Export action button"
+
+    widgets:
+      formats:
+        - "Markdown"
+        - "JSON"
+        - "CSV"
+
+    data_checks:
+      - check: "Export options are visible and selectable"
+        severity: MEDIUM
+      - check: "Export button is functional"
+        severity: HIGH
+
+  settings:
+    description: "Application settings and configuration"
+    nav_key: "ctrl+s"
+
+    layout:
+      - header: "Title"
+      - settings_form: "Configuration options"
+
+    data_checks:
+      - check: "Settings are editable"
+        severity: MEDIUM
+      - check: "Current values are displayed"
+        severity: LOW
+
+  chart_detail:
+    description: "Detailed view of a single chart"
+    nav_key: null  # Accessed via selection
+    cli_correlation: "Detailed chart analysis from CLI"
+
+    layout:
+      - header: "Chart name"
+      - metadata: "Chart metadata (version, team, etc.)"
+      - resources: "Resource requests/limits"
+      - recommendations: "Chart-specific recommendations"
+
+    data_checks:
+      - check: "Chart metadata is complete"
+        severity: HIGH
+      - check: "Resource values are formatted correctly"
+        severity: MEDIUM
+      - check: "Recommendations are relevant to this chart"
+        severity: MEDIUM
+
+# Analysis prompt templates
+prompts:
+  quick: |
+    Is this TUI screen rendering correctly?
+    Check: Data loaded, no loading indicators visible, no visual corruption.
+    Answer: OK or list specific issues.
+
+  data_check: |
+    Check data loading status in this TUI screenshot:
+    1. Are tables/lists populated with data rows?
+    2. Are statistics showing numbers (not placeholders)?
+    3. Is loading indicator hidden?
+    Answer: LOADED | LOADING | EMPTY
+
+  freeze_check: |
+    Compare this screenshot with the previous delay:
+    1. Is a loading indicator STILL visible?
+    2. Has the content changed from before?
+    3. Are data tables STILL empty?
+    Answer: NORMAL | FROZEN | STUCK
+
+  visual_check: |
+    Check visual quality of this TUI screenshot:
+    1. Is layout properly structured (header/content/footer)?
+    2. Are elements aligned correctly?
+    3. Is text readable (good contrast)?
+    4. Any visual issues (overlap, truncation, artifacts)?
+    Answer: PASS | list issues with locations

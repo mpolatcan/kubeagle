@@ -1,0 +1,11 @@
+/* CustomTableBuilder widget styles */
+
+CustomTableBuilder {
+    height: auto;
+    width: 100%;
+    color: $text;
+}
+
+CustomTableBuilder:focus {
+    outline: solid $accent;
+}

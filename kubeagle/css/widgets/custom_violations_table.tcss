@@ -1,0 +1,35 @@
+/* CustomViolationsTable widget styles */
+
+CustomViolationsTable {
+    height: 1fr;
+    width: 1fr;
+    min-width: 0;
+    min-height: 3;
+    border: round $surface-lighten-1 40%;
+    background: $surface;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+CustomViolationsTable:focus {
+    border: solid $accent;
+}
+
+CustomViolationsTable:disabled {
+    opacity: 0.5;
+    background: $surface-darken-1;
+}
+
+/* Severity styling */
+.violation-error {
+    color: $error;
+    text-style: bold;
+}
+
+.violation-warning {
+    color: $warning;
+}
+
+.violation-info {
+    color: $secondary;
+}

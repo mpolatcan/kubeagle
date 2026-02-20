@@ -1,0 +1,124 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kubeagle"
+version = "2.0.0"
+description = "KubEagle - Analyze EKS clusters and Helm charts with CLI and interactive TUI"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "KubEagle Maintainers" }]
+keywords = [
+    "eks",
+    "kubernetes",
+    "helm",
+    "tui",
+    "terminal",
+    "textual",
+    "devops",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "pyyaml>=6.0",
+    "typer>=0.9.0",
+    "textual>=0.50.0",
+    "textual-plotext>=1.0.1",
+    "rich>=13.0.0",
+    "pydantic>=2.0.0",
+    "loguru>=0.7.0",
+    "orjson>=3.9.0",
+    "ujson>=5.8.0",
+    "claude-agent-sdk>=0.1.37",
+]
+
+[project.optional-dependencies]
+dev = [
+    "textual-dev>=1.0.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-timeout>=2.2.0",
+    "pytest-textual-snapshot>=0.2.0",
+    "pytest-xdist>=3.5.0",
+    "ruff>=0.8.0",
+    "ty>=0.0.14",
+    "cairosvg>=2.7.0",
+    "orjson>=3.9.0",
+    "ujson>=5.8.0",
+    "claude-agent-sdk>=0.1.37",
+]
+
+[project.scripts]
+kubeagle = "kubeagle.main:app"
+# capture-tui CLI moved to .claude/skills/visual-analysis/tui_screenshot_capture/
+# To use: python -m tui_screenshot_capture (from that directory) or install separately
+
+[project.urls]
+Homepage = "https://github.com/mpolatcan/kubeagle"
+Documentation = "https://github.com/mpolatcan/kubeagle#readme"
+Repository = "https://github.com/mpolatcan/kubeagle"
+
+[tool.hatch.build.targets.wheel]
+packages = ["kubeagle"]
+include = [
+    "kubeagle/css/**/*",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+    "E402",  # module level import not at top of file
+]
+ignore = [
+    "E501",
+    "B008",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["eks_helm_reporter", "kubeagle"]
+
+[tool.pytest.ini_options]
+# Default: run tests sequentially (safer for snapshot tests with syrupy/pytest-textual-snapshot)
+# Use -n auto for parallel execution of unit tests only
+addopts = "-m \"not slow\""
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "ignore::DeprecationWarning:pytest_asyncio.*:",
+    # Textual DataTable timing issues during test execution (framework bug)
+    # These occur when workers populate DataTables during idle events
+    "ignore:Row index.*is not valid:",
+    "ignore:None in row locations dictionary:",
+]
+markers = [
+    "smoke: marks smoke tests - fast runtime verification that all screens load without errors (INFRASTRUCTURE)",
+    "visual: marks visual regression tests using pytest-textual-snapshot (MUST run sequentially)",
+    "slow: marks tests as slow (>100ms, deselect with '-m \"not slow\"')",
+    "snapshot: marks snapshot tests using pytest-textual-snapshot (MUST run sequentially)",
+    "fast: marks unit tests that complete in <100ms (default run with '-m \"fast\"')",
+    "unit: marks unit tests for models, controllers, optimizer rules",
+]

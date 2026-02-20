@@ -1,0 +1,53 @@
+/* CustomTextArea widget styles */
+CustomTextArea,
+.widget-custom-text-area {
+    height: auto;
+    width: 1fr;
+    border: solid $surface-lighten-1 45%;
+    background: $surface-darken-2;
+}
+
+CustomTextArea:focus-within,
+.widget-custom-text-area:focus-within {
+    border: solid $accent;
+}
+
+CustomTextArea > TextArea,
+.widget-custom-text-area > TextArea {
+    background: $surface-darken-2;
+    color: $text;
+    padding: 1;
+    cursor-line: true;
+}
+
+CustomTextArea > TextArea:focus,
+.widget-custom-text-area > TextArea:focus {
+    background: $accent 20%;
+    color: $text;
+}
+
+CustomTextArea > TextArea:disabled,
+.widget-custom-text-area > TextArea:disabled {
+    opacity: 0.6;
+    background: $surface-darken-3;
+    color: $text-muted;
+}
+
+CustomTextArea > TextArea.-invalid,
+.widget-custom-text-area > TextArea.-invalid {
+    border: solid $error;
+}
+
+/* Line numbers styling */
+CustomTextArea > TextArea .text-area--line-numbers,
+.widget-custom-text-area > TextArea .text-area--line-numbers {
+    background: $surface-darken-1;
+    color: $text-muted;
+    text-align: right;
+}
+
+/* Code editor variant */
+CustomTextArea.code-editor,
+.widget-custom-text-area.code-editor {
+    border: solid $accent;
+}

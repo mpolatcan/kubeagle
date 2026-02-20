@@ -1,0 +1,20 @@
+/* CustomLoadingIndicator widget styles */
+CustomLoadingIndicator {
+    height: 3;
+    width: 1fr;
+    min-width: 5;
+    dock: none;
+    content-align: center middle;
+}
+
+CustomLoadingIndicator > LoadingIndicator {
+    width: 1fr;
+    min-width: 5;
+    height: 3;
+    align: center middle;
+    color: $accent;
+}
+
+CustomLoadingIndicator > LoadingIndicator:disabled {
+    opacity: 0.7;
+}

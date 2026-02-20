@@ -1,0 +1,85 @@
+/* CustomStatusIndicator widget styles */
+CustomStatusIndicator,
+.widget-custom-status-indicator {
+    width: auto;
+    height: auto;
+    align: center middle;
+}
+
+CustomStatusIndicator > .status-dot,
+.widget-custom-status-indicator > .status-dot {
+    color: $success;
+    font-size: 1.2em;
+    margin-right: 1;
+}
+
+CustomStatusIndicator > .status-dot.warning,
+.widget-custom-status-indicator > .status-dot.warning {
+    color: $warning;
+}
+
+CustomStatusIndicator > .status-dot.error,
+.widget-custom-status-indicator > .status-dot.error {
+    color: $error;
+}
+
+CustomStatusIndicator > .status-dot.info,
+.widget-custom-status-indicator > .status-dot.info {
+    color: $text;
+}
+
+CustomStatusIndicator > .status-label,
+.widget-custom-status-indicator > .status-label {
+    color: $text;
+}
+
+/* CustomErrorRetryWidget styles */
+CustomErrorRetryWidget,
+.widget-custom-error-retry {
+    width: 100%;
+    height: auto;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-2;
+    padding: 1;
+}
+
+CustomErrorRetryWidget > .error-retry-container,
+.widget-custom-error-retry > .error-retry-container {
+    align: center middle;
+    spacing: 1;
+}
+
+CustomErrorRetryWidget > .error-retry-container > .error-icon,
+.widget-custom-error-retry > .error-retry-container > .error-icon {
+    color: $error;
+    text-style: bold;
+}
+
+CustomErrorRetryWidget > .error-retry-container > .error-message,
+.widget-custom-error-retry > .error-retry-container > .error-message {
+    color: $text;
+    text-align: center;
+}
+
+CustomErrorRetryWidget > .error-retry-container > .error-retry-btn,
+.widget-custom-error-retry > .error-retry-container > .error-retry-btn {
+    margin-top: 1;
+    width: auto;
+    min-width: 10;
+    height: 3;
+    min-height: 3;
+    padding: 0 1;
+}
+
+/* CustomLastUpdatedWidget styles */
+CustomLastUpdatedWidget,
+.widget-custom-last-updated {
+    width: auto;
+    height: auto;
+}
+
+CustomLastUpdatedWidget > .last-updated-text,
+.widget-custom-last-updated > .last-updated-text {
+    color: $text-muted;
+    font-size: 0.9em;
+}

@@ -1,0 +1,48 @@
+/* CustomContainer widget styles */
+CustomContainer {
+    height: auto;
+    width: 100%;
+    background: transparent;
+    color: $text;
+}
+
+.widget-custom-container {
+    height: auto;
+    width: 100%;
+    background: transparent;
+    color: $text;
+}
+
+/* CustomHorizontal widget styles */
+CustomHorizontal {
+    height: auto;
+    width: 100%;
+    layout: horizontal;
+    background: transparent;
+    color: $text;
+}
+
+.widget-custom-horizontal {
+    height: auto;
+    width: 100%;
+    layout: horizontal;
+    background: transparent;
+    color: $text;
+}
+
+/* CustomVertical widget styles */
+CustomVertical {
+    height: auto;
+    width: 100%;
+    layout: vertical;
+    background: transparent;
+    color: $text;
+}
+
+.widget-custom-vertical {
+    height: auto;
+    width: 100%;
+    layout: vertical;
+    background: transparent;
+    color: $text;
+}

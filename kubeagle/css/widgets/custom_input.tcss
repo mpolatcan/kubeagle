@@ -1,0 +1,63 @@
+/* CustomInput widget styles */
+CustomInput,
+.widget-custom-input {
+    height: auto;
+    width: 1fr;
+    dock: top;
+    min-height: 3;
+}
+
+CustomInput > Input,
+.widget-custom-input > Input {
+    width: 1fr;
+    height: 3;
+    min-height: 3;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-2;
+    color: $text;
+    padding: 0 1;
+    margin-bottom: 0;
+}
+
+CustomInput > Input:hover,
+.widget-custom-input > Input:hover {
+    background: $surface-darken-1;
+}
+
+CustomInput > Input:focus,
+.widget-custom-input > Input:focus {
+    border: solid $accent;
+    background: $accent 20%;
+    color: $text;
+    text-style: none;
+}
+
+CustomInput > Input:disabled,
+.widget-custom-input > Input:disabled {
+    opacity: 0.6;
+    border: round $surface-darken-2;
+    background: $surface-darken-3;
+    color: $text-muted;
+}
+
+CustomInput > Input:disabled::placeholder,
+.widget-custom-input > Input:disabled::placeholder {
+    color: $text-muted;
+}
+
+CustomInput > Input.-valid,
+.widget-custom-input > Input.-valid {
+    border: solid $success;
+}
+
+CustomInput > Input.-invalid,
+.widget-custom-input > Input.-invalid {
+    border: solid $error;
+}
+
+/* Placeholder styling */
+CustomInput > Input::placeholder,
+.widget-custom-input > Input::placeholder {
+    color: $text-muted;
+    text-style: italic;
+}

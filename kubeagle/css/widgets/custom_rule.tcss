@@ -1,0 +1,56 @@
+/* CustomRule widget styles */
+CustomRule,
+.widget-custom-rule {
+    height: auto;
+    width: 1fr;
+    padding: 1 0;
+}
+
+CustomRule > Rule,
+.widget-custom-rule > Rule {
+    height: 1;
+    width: 1fr;
+    color: $surface-lighten-1;
+}
+
+CustomRule > Rule.-vertical,
+.widget-custom-rule > Rule.-vertical {
+    height: 1fr;
+    width: 1;
+}
+
+CustomRule > Rule:disabled,
+.widget-custom-rule > Rule:disabled {
+    opacity: 0.6;
+    color: $text-muted;
+}
+
+CustomRule.-compact,
+.widget-custom-rule.-compact {
+    padding: 0;
+}
+
+CustomRule.-thick > Rule,
+.widget-custom-rule.-thick > Rule {
+    height: 2;
+}
+
+CustomRule.-accent > Rule,
+.widget-custom-rule.-accent > Rule {
+    color: $accent;
+}
+
+CustomRule.-success > Rule,
+.widget-custom-rule.-success > Rule {
+    color: $success;
+}
+
+CustomRule.-warning > Rule,
+.widget-custom-rule.-warning > Rule {
+    color: $warning;
+}
+
+CustomRule.-error > Rule,
+.widget-custom-rule.-error > Rule {
+    color: $error;
+}

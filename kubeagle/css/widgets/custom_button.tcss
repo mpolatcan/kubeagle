@@ -1,0 +1,3 @@
+/* CustomButton styles live in DEFAULT_CSS (custom_button.py).
+   Textual does not support :host selectors — self-targeting rules
+   must use DEFAULT_CSS instead of CSS_PATH with SCOPED_CSS=True. */

@@ -1,0 +1,1709 @@
+/* Cluster Screen - Screen-specific CSS for EKS cluster overview */
+
+ClusterScreen {
+    background: $background;
+    color: $text;
+}
+
+#header {
+    height: auto;
+    max-height: 4;
+}
+
+/* Top control bar */
+#cluster-search-bar {
+    height: 5;
+    min-height: 5;
+    max-height: 5;
+    padding: 0 1;
+    background: $surface;
+    border-bottom: solid $surface-lighten-2;
+    align: left middle;
+}
+
+#cluster-top-controls-left {
+    width: 3fr;
+    min-width: 0;
+    height: 5;
+    min-height: 5;
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 4fr 2fr;
+    grid-gutter: 1 0;
+    align: left middle;
+    content-align: left middle;
+    margin-right: 1;
+}
+
+#refresh-btn {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    padding: 0 1;
+    margin-top: 1;
+    margin-bottom: 1;
+    content-align: center middle;
+    text-align: center;
+}
+
+.cluster-event-window-select {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    margin-top: 1;
+    margin-bottom: 1;
+    margin-left: 0;
+    margin-right: 1;
+}
+
+.cluster-event-window-select > SelectCurrent {
+    content-align: center middle;
+    text-align: center;
+}
+
+/* Global loading bar */
+#cluster-loading-bar {
+    width: 4fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 5;
+    min-height: 5;
+    margin-left: 0;
+    margin-right: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    layout: horizontal;
+    align: right middle;
+    content-align: right middle;
+}
+
+#cluster-loading-spacer {
+    width: 2fr;
+    min-width: 0;
+}
+
+#cluster-progress-container {
+    width: 2fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 1;
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 4fr 6fr;
+    grid-gutter: 1 0;
+    align: right middle;
+    content-align: right middle;
+}
+
+#cluster-progress-bar {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 1;
+    margin: 0;
+}
+
+#loading-text {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    color: $accent;
+    text-style: italic;
+    text-align: right;
+    content-align: right middle;
+    text-wrap: nowrap;
+    margin: 0;
+}
+
+/* Tab area (Charts-aligned tab row + content switcher) */
+#cluster-view-tabs-row {
+    layout: horizontal;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    width: 1fr;
+    padding: 0;
+    background: transparent;
+    border-bottom: solid $surface-lighten-1 45%;
+    content-align: left middle;
+}
+
+#cluster-view-tabs-row #cluster-view-tabs {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    min-height: 3;
+}
+
+#cluster-inner-switcher {
+    height: 1fr;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+}
+
+#cluster-inner-switcher > #tab-events,
+#cluster-inner-switcher > #tab-nodes,
+#cluster-inner-switcher > #tab-pods {
+    height: 1fr;
+    min-height: 0;
+    padding: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.cluster-tab-pane {
+    position: relative;
+    padding: 0 1 1 1;
+    overflow-x: hidden;
+    overflow-y: auto;
+    layers: tab-content tab-loading;
+}
+
+.cluster-filter-bar {
+    layout: vertical;
+    width: 1fr;
+    height: auto;
+    min-height: 3;
+    margin-bottom: 0;
+    padding: 0 1;
+    background: $surface;
+    border-bottom: solid $surface-lighten-2;
+}
+
+.cluster-tab-controls-row {
+    width: 1fr;
+    height: auto;
+    min-height: 6;
+    layout: grid;
+    grid-size: 3 1;
+    grid-columns: 48fr 34fr 30fr;
+    grid-gutter: 1 0;
+    content-align: left top;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+
+.cluster-tab-controls-row.xwide {
+    grid-columns: 50fr 34fr 30fr;
+}
+
+.cluster-tab-controls-row.wide {
+    grid-columns: 48fr 34fr 30fr;
+}
+
+.cluster-tab-controls-row.medium {
+    grid-columns: 1fr 1fr 1fr;
+}
+
+.cluster-tab-controls-row.narrow {
+    grid-size: 1 3;
+    grid-columns: 1fr;
+    grid-gutter: 0 1;
+}
+
+.cluster-tab-controls-row.compact {
+    grid-size: 1 3;
+    grid-columns: 1fr;
+    grid-gutter: 0 0;
+    min-height: 4;
+}
+
+.cluster-tab-controls-row .optimizer-filter-group {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    min-height: 5;
+    padding: 0 1;
+}
+
+.cluster-tab-controls-row .optimizer-filter-group .optimizer-filter-group-title {
+    width: 1fr;
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    text-style: bold;
+    content-align: center middle;
+    text-align: center;
+}
+
+.cluster-tab-controls-row .optimizer-filter-group .optimizer-filter-group-body {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    min-height: 3;
+    content-align: left top;
+    padding: 0;
+}
+
+.cluster-tab-controls-row.compact .optimizer-filter-group {
+    min-height: 4;
+    padding: 0;
+}
+
+.cluster-tab-controls-row.compact .optimizer-filter-group .optimizer-filter-group-body {
+    min-height: 2;
+}
+
+.cluster-tab-search-row {
+    layout: grid;
+    grid-size: 3 1;
+    grid-columns: 8fr 3fr 3fr;
+    grid-gutter: 1 0;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    width: 1fr;
+    padding: 0;
+    content-align: left middle;
+}
+
+.cluster-tab-search-input {
+    dock: none;
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+}
+
+.cluster-tab-search-input > Input {
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    padding: 0 1;
+}
+
+.cluster-tab-search-btn,
+.cluster-tab-clear-btn {
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    content-align: center middle;
+    text-align: center;
+}
+
+.cluster-tab-search-btn {
+    margin-right: 1;
+}
+
+.cluster-tab-controls-row.narrow .cluster-tab-search-row,
+.cluster-tab-controls-row.compact .cluster-tab-search-row {
+    grid-columns: 7fr 3fr 3fr;
+}
+
+.cluster-tab-filters-btn {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    margin-right: 0;
+    text-align: center;
+    content-align: center middle;
+}
+
+.cluster-tab-sort-controls {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    min-height: 3;
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 8fr 3fr;
+    grid-gutter: 1 0;
+    content-align: right middle;
+}
+
+.cluster-tab-controls-row.narrow .cluster-tab-sort-controls {
+    grid-columns: 1fr 1fr;
+}
+
+.cluster-tab-controls-row.compact .cluster-tab-sort-controls {
+    grid-columns: 1fr 1fr;
+}
+
+Select.cluster-tab-control-select {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    margin-right: 0;
+}
+
+Select.cluster-tab-control-select > SelectCurrent {
+    content-align: center middle;
+    text-align: center;
+}
+
+Select.cluster-tab-control-select > SelectOverlay {
+    width: auto;
+}
+
+Select.cluster-tab-control-select > SelectOverlay > .option-list--option {
+    text-wrap: nowrap;
+}
+
+Select.cluster-tab-filter-column > SelectCurrent {
+    content-align: left middle;
+    text-align: left;
+}
+
+Select.cluster-tab-filter-column {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+Select.cluster-tab-sort {
+    min-width: 0;
+    max-width: 100%;
+}
+
+Select.cluster-tab-order {
+    min-width: 0;
+    max-width: 100%;
+}
+
+#cluster-search-bar.medium #refresh-btn,
+#cluster-search-bar.xwide #refresh-btn,
+#cluster-search-bar.narrow #refresh-btn,
+#cluster-search-bar.compact #refresh-btn {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#cluster-search-bar.medium .cluster-event-window-select,
+#cluster-search-bar.xwide .cluster-event-window-select,
+#cluster-search-bar.narrow .cluster-event-window-select,
+#cluster-search-bar.compact .cluster-event-window-select {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+}
+
+#cluster-loading-bar.medium {
+    min-width: 0;
+    max-width: 100%;
+}
+
+#cluster-search-bar.narrow #cluster-top-controls-left,
+#cluster-search-bar.compact #cluster-top-controls-left {
+    margin-right: 0;
+}
+
+#cluster-loading-bar.xwide {
+    min-width: 0;
+    max-width: 100%;
+}
+
+#cluster-loading-bar.medium #cluster-progress-bar {
+    width: 1fr;
+}
+
+#cluster-loading-bar.wide #cluster-progress-bar {
+    width: 1fr;
+}
+
+#cluster-loading-bar.xwide #cluster-progress-bar {
+    width: 1fr;
+}
+
+#cluster-loading-bar.narrow {
+    min-width: 0;
+    max-width: 100%;
+}
+
+#cluster-loading-bar.narrow #cluster-progress-bar {
+    width: 1fr;
+}
+
+#cluster-loading-bar.narrow #loading-text {
+    text-align: left;
+    content-align: left middle;
+}
+
+#cluster-loading-bar.compact {
+    min-width: 0;
+    max-width: 100%;
+}
+
+#cluster-loading-bar.compact #cluster-progress-bar {
+    width: 1fr;
+}
+
+#cluster-loading-bar.compact #loading-text {
+    text-align: left;
+    content-align: left middle;
+}
+
+.cluster-tab-pane > CustomDataTable {
+    width: 1fr;
+    min-width: 0;
+    height: auto;
+    min-height: 4;
+    margin-bottom: 1;
+}
+
+.cluster-table-surface {
+    position: relative;
+    width: 1fr;
+    min-width: 0;
+    min-height: 3;
+    margin-bottom: 1;
+    layers: table-content table-overlay;
+}
+
+.cluster-table-surface > CustomDataTable {
+    width: 1fr;
+    min-width: 0;
+    height: auto;
+    min-height: 4;
+    margin-bottom: 0;
+    layer: table-content;
+}
+
+#health-container {
+    height: auto;
+    overflow-y: auto;
+    margin-bottom: 1;
+}
+
+.overview-content {
+    padding: 0 1 1 1;
+}
+
+.section-title {
+    height: auto;
+    width: 1fr;
+    min-width: 0;
+    margin-top: 0;
+    margin-bottom: 1;
+    padding: 0 1;
+    color: $text;
+    text-style: bold;
+    text-align: center;
+    content-align: center middle;
+    background: $surface-darken-2;
+    border-left: heavy $primary;
+}
+
+.pod-stats-units-row {
+    layout: horizontal;
+    width: 1fr;
+    min-width: 0;
+    height: auto;
+    min-height: 3;
+    margin-top: 1;
+    margin-bottom: 1;
+    content-align: left middle;
+}
+
+.pod-stats-units-select {
+    width: 24;
+    min-width: 24;
+    max-width: 24;
+    height: 3;
+    min-height: 3;
+    margin: 0;
+}
+
+.pod-stats-units-select > SelectCurrent {
+    content-align: left middle;
+    text-align: left;
+    text-wrap: nowrap;
+}
+
+.pod-stats-units-select > SelectOverlay {
+    width: 24;
+    min-width: 24;
+}
+
+.pod-stats-units-select > SelectOverlay > .option-list--option {
+    text-wrap: nowrap;
+}
+
+.summary-grid {
+    width: 1fr;
+    height: auto;
+    margin-bottom: 0;
+    layout: grid;
+    grid-gutter: 1 0;
+    overflow: hidden;
+}
+
+.summary-grid-3 {
+    grid-size: 3 1;
+    grid-columns: 1fr 1fr 1fr;
+}
+
+.summary-grid-2 {
+    grid-size: 2 1;
+    grid-columns: 1fr 1fr;
+}
+
+.summary-grid-1 {
+    grid-size: 1 1;
+    grid-columns: 1fr;
+}
+
+.summary-panel {
+    width: 1fr;
+    min-width: 0;
+    height: auto;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 35%;
+    padding: 0 1 1 1;
+    overflow: hidden;
+}
+
+.summary-metrics-panel {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    padding: 0 1 0 1;
+}
+
+.summary-kpi-list {
+    layout: vertical;
+    width: 1fr;
+    min-width: 0;
+    height: auto;
+    min-height: 2;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.summary-cluster-name {
+    width: 1fr;
+    height: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    color: $accent;
+    display: none;
+}
+
+.summary-digits-grid {
+    layout: grid;
+    grid-size: 3;
+    grid-columns: 1fr 1fr 1fr;
+    grid-gutter: 1 0;
+    width: 1fr;
+    height: auto;
+    overflow-x: hidden;
+}
+
+.summary-digits-grid-4 {
+    grid-size: 3;
+    grid-columns: 1fr 1fr 1fr;
+}
+
+.summary-digits-grid-3 {
+    grid-size: 3;
+    grid-columns: 1fr 1fr 1fr;
+}
+
+.summary-digits-grid-tight {
+    min-height: 0;
+}
+
+.cluster-tab-pane.narrow .summary-digits-grid,
+.cluster-tab-pane.narrow .summary-digits-grid-3,
+.cluster-tab-pane.narrow .summary-digits-grid-4 {
+    grid-size: 2;
+    grid-columns: 1fr 1fr;
+}
+
+.cluster-tab-pane.compact .summary-digits-grid,
+.cluster-tab-pane.compact .summary-digits-grid-3,
+.cluster-tab-pane.compact .summary-digits-grid-4 {
+    grid-size: 1;
+    grid-columns: 1fr;
+}
+
+.summary-digit-item {
+    width: 1fr;
+    min-width: 0;
+    height: 7;
+    min-height: 7;
+    max-height: 7;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 18%;
+    layout: vertical;
+    padding: 0 1;
+    content-align: center top;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+
+.summary-digit-item-compact {
+    height: 7;
+    min-height: 7;
+    max-height: 7;
+}
+
+.summary-digit-item-pair {
+    height: auto;
+    min-height: 7;
+    max-height: 8;
+}
+
+.summary-digit-item.status-success,
+.summary-digit-item-compact.status-success {
+    border: round $success;
+}
+
+.summary-digit-item.status-warning,
+.summary-digit-item-compact.status-warning {
+    border: round $warning;
+}
+
+.summary-digit-item.status-error,
+.summary-digit-item-compact.status-error {
+    border: round $error;
+}
+
+.summary-digit-item.status-accent,
+.summary-digit-item-compact.status-accent {
+    border: round $accent;
+}
+
+.summary-digit-item.status-muted,
+.summary-digit-item-compact.status-muted {
+    border: round $surface-lighten-2;
+}
+
+.summary-digit-header {
+    layout: horizontal;
+    width: 1fr;
+    min-width: 0;
+    height: auto;
+    min-height: 2;
+    content-align: center top;
+}
+
+.summary-digit-indicator-spacer {
+    width: 1;
+    min-width: 1;
+    height: 1;
+    min-height: 1;
+}
+
+.summary-digit-label {
+    width: 1fr;
+    height: auto;
+    min-height: 2;
+    text-style: bold;
+    text-align: center;
+    color: $text-muted;
+    text-wrap: wrap;
+    padding: 0;
+    content-align: center top;
+}
+
+.summary-digit-indicator {
+    width: 1;
+    min-width: 1;
+    height: 1;
+    min-height: 1;
+    color: $surface-lighten-2;
+    text-style: bold;
+    text-align: center;
+    content-align: center middle;
+}
+
+.summary-digit-indicator.status-success {
+    color: $success;
+}
+
+.summary-digit-indicator.status-warning {
+    color: $warning;
+}
+
+.summary-digit-indicator.status-error {
+    color: $error;
+}
+
+.summary-digit-indicator.status-accent {
+    color: $text;
+}
+
+.summary-digit-indicator.status-muted {
+    color: $text;
+}
+
+.summary-digit-value {
+    width: 1fr;
+    height: auto;
+    min-height: 3;
+    text-align: center;
+    content-align: center middle;
+    text-style: bold;
+}
+
+.summary-digit-text-value {
+    height: 1;
+    min-height: 1;
+    text-style: bold;
+}
+
+.summary-digit-pair-values {
+    layout: horizontal;
+    width: 1fr;
+    min-width: 0;
+    height: auto;
+    min-height: 0;
+    content-align: center top;
+}
+
+.summary-digit-pair-block {
+    layout: vertical;
+    width: 1fr;
+    min-width: 0;
+    height: auto;
+    min-height: 0;
+    content-align: center top;
+}
+
+.summary-digit-pair-label {
+    width: 1fr;
+    height: 1;
+    min-height: 1;
+    text-align: center;
+    text-style: bold;
+    color: $text-muted;
+    text-wrap: nowrap;
+}
+
+.summary-digit-pair-value {
+    min-height: 3;
+}
+
+.summary-kpi-block {
+    width: 1fr;
+    min-width: 0;
+    height: auto;
+    min-height: 2;
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+    content-align: left top;
+}
+
+.summary-section-title {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+#tab-events.cluster-tab-pane {
+    layout: grid;
+    grid-size: 1 2;
+    grid-columns: 1fr;
+    grid-rows: auto 1fr;
+    grid-gutter: 0 0;
+    padding-bottom: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#tab-events .cluster-filter-bar {
+    min-height: 2;
+    padding: 0;
+}
+
+#tab-events .cluster-tab-controls-row {
+    min-height: 4;
+}
+
+#tab-events .summary-panel {
+    padding: 0 1 0 1;
+}
+
+#summary-overview-grid > .summary-panel {
+    padding-top: 0;
+}
+
+#tab-events .summary-digit-item,
+#tab-events .summary-digit-item-compact {
+    height: auto;
+    min-height: 6;
+}
+
+#tab-events .summary-digit-value {
+    min-height: 3;
+}
+
+#tab-events .cluster-table-surface {
+    margin-bottom: 0;
+    height: auto;
+    min-height: 4;
+}
+
+#overview-digits-grid,
+#events-summary-digits-grid,
+#workloads-footprint-grid,
+#overview-pod-stats-grid,
+#overview-cpu-alloc-grid,
+#overview-mem-alloc-grid {
+    height: auto;
+}
+
+#overview-pod-stats-grid,
+#events-summary-digits-grid {
+    grid-size: 4;
+    grid-columns: 1fr 1fr 1fr 1fr;
+    grid-rows: auto auto;
+}
+
+#events-summary-digits-grid {
+    grid-size: 4 2;
+    height: auto;
+    min-height: 16;
+    grid-rows: auto auto;
+    grid-gutter: 0 0;
+    margin-bottom: 0;
+}
+
+#events-panel-summary .summary-digit-item,
+#events-panel-summary .summary-digit-item-compact {
+    height: 7;
+    min-height: 7;
+    max-height: 7;
+    padding: 0 1;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+#events-panel-summary .summary-digit-value {
+    min-height: 3;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+#workloads-footprint-grid,
+#overview-cpu-alloc-grid,
+#overview-mem-alloc-grid {
+    grid-rows: auto auto;
+}
+
+#tab-events.narrow #events-summary-digits-grid,
+#tab-pods.narrow #overview-pod-stats-grid {
+    grid-size: 2;
+    grid-columns: 1fr 1fr;
+}
+
+#tab-events.compact #events-summary-digits-grid,
+#tab-pods.compact #overview-pod-stats-grid {
+    grid-size: 1;
+    grid-columns: 1fr;
+}
+
+#tab-events .summary-detail-panel > .cluster-table-surface {
+    height: 1fr;
+    min-height: 4;
+    overflow-y: auto;
+}
+
+#tab-events .summary-detail-panel > .cluster-table-surface > CustomDataTable {
+    height: auto;
+    min-height: 4;
+}
+
+#summary-analysis-grid {
+    layout: vertical;
+    width: 1fr;
+    height: auto;
+    margin-bottom: 0;
+}
+
+#summary-analysis-grid .summary-panel {
+    height: auto;
+}
+
+#summary-analysis-row-top,
+#summary-analysis-row-bottom {
+    width: 1fr;
+    margin-bottom: 0;
+}
+
+#summary-analysis-grid > .summary-analysis-row-gap {
+    height: 0;
+    min-height: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    padding: 0;
+}
+
+#summary-analysis-grid #overview-pod-stats-grid,
+#summary-analysis-grid #events-summary-digits-grid,
+#summary-analysis-grid #overview-cpu-alloc-grid,
+#summary-analysis-grid #overview-mem-alloc-grid {
+    height: auto;
+}
+
+#summary-analysis-grid .summary-digit-item {
+    min-height: 6;
+}
+
+#events-main-grid {
+    width: 1fr;
+    height: auto;
+    min-height: 0;
+    margin-bottom: 0;
+    grid-size: 1 2;
+    grid-columns: 1fr;
+    grid-rows: auto auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#events-main-grid > .summary-panel,
+#events-main-grid > .cluster-data-panel {
+    height: 17;
+    min-height: 17;
+    max-height: 17;
+    margin-bottom: 0;
+}
+
+#events-panel-summary {
+    height: 17;
+    min-height: 17;
+    max-height: 17;
+}
+
+#events-detail-table-panel {
+    height: 17;
+    min-height: 17;
+    max-height: 17;
+}
+
+#events-detail-table-panel > .cluster-table-surface {
+    height: auto;
+    min-height: 8;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+#events-detail-table-panel > .cluster-table-surface > CustomDataTable {
+    height: auto;
+    min-height: 8;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+#tab-events.narrow #events-main-grid,
+#tab-events.compact #events-main-grid {
+    height: auto;
+    min-height: 0;
+    grid-rows: auto auto;
+    overflow-y: auto;
+}
+
+#tab-events.narrow #events-main-grid > .summary-panel,
+#tab-events.narrow #events-main-grid > .cluster-data-panel,
+#tab-events.compact #events-main-grid > .summary-panel,
+#tab-events.compact #events-main-grid > .cluster-data-panel {
+    height: auto;
+    min-height: 13;
+}
+
+#events-detail-table-panel > .cluster-table-surface > CustomDataTable > DataTable,
+#events-detail-table > DataTable {
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+#tab-nodes.cluster-tab-pane {
+    layout: vertical;
+    padding-bottom: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#tab-nodes .cluster-filter-bar {
+    min-height: 2;
+    padding: 0;
+}
+
+#tab-nodes .cluster-tab-controls-row {
+    min-height: 4;
+}
+
+#nodes-main-grid {
+    width: 1fr;
+    height: 1fr;
+    min-height: 56;
+    margin-bottom: 0;
+    layout: grid;
+    grid-size: 2 3;
+    grid-columns: 1fr 1fr;
+    grid-rows: auto auto 1fr;
+    grid-gutter: 1 1;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+
+#nodes-main-grid > .summary-panel {
+    width: 1fr;
+    min-height: 13;
+    margin-bottom: 0;
+    padding: 0 1 0 1;
+}
+
+#nodes-main-grid > .cluster-data-panel {
+    width: 1fr;
+    height: auto;
+    min-height: 0;
+    margin-bottom: 0;
+    padding: 0 1 0 1;
+    overflow-x: hidden;
+    overflow-y: hidden;
+}
+
+#nodes-panel-health-summary,
+#nodes-panel-distribution-summary,
+#nodes-panel-cpu-alloc,
+#nodes-panel-mem-alloc {
+    min-height: 18;
+}
+
+#nodes-panel-health-summary,
+#nodes-panel-distribution-summary {
+    min-height: 22;
+}
+
+#nodes-panel-distribution-summary .pod-stats-units-row {
+    min-height: 3;
+    margin-top: 1;
+    margin-bottom: 0;
+}
+
+#nodes-panel-health-summary,
+#nodes-panel-distribution-summary,
+#nodes-panel-cpu-alloc,
+#nodes-panel-mem-alloc {
+    height: auto;
+    min-height: 18;
+}
+
+#nodes-panel-health-summary,
+#nodes-panel-distribution-summary {
+    height: 21;
+    min-height: 21;
+    max-height: 21;
+}
+
+#nodes-panel-distribution-summary {
+    height: 22;
+    min-height: 22;
+    max-height: 22;
+}
+
+#nodes-panel-health-summary {
+    height: 22;
+    min-height: 22;
+    max-height: 22;
+}
+
+#nodes-table-panel,
+#node-groups-table-panel {
+    height: 1fr;
+    min-height: 18;
+}
+
+#nodes-health-digits-grid {
+    grid-size: 3 2;
+    grid-columns: 1fr 1fr 1fr;
+    grid-rows: 1fr 1fr;
+    height: 1fr;
+    min-height: 0;
+}
+
+#nodes-distribution-digits-grid {
+    grid-size: 3 2;
+    grid-columns: 1fr 1fr 1fr;
+    grid-rows: 1fr 1fr;
+    height: 1fr;
+    min-height: 0;
+    margin-top: 0;
+}
+
+#nodes-main-grid .summary-digit-item,
+#nodes-main-grid .summary-digit-item-compact {
+    height: auto;
+    min-height: 6;
+}
+
+#nodes-panel-health-summary .summary-digit-item,
+#nodes-panel-health-summary .summary-digit-item-compact {
+    height: 1fr;
+    min-height: 7;
+    max-height: 1fr;
+}
+
+#nodes-panel-health-summary .summary-digit-header {
+    height: auto;
+    min-height: 0;
+}
+
+#nodes-panel-health-summary .summary-digit-label {
+    height: auto;
+    min-height: 1;
+    content-align: center middle;
+}
+
+#nodes-main-grid .summary-digit-value {
+    min-height: 3;
+}
+
+#nodes-panel-health-summary .summary-digit-value {
+    height: auto;
+    min-height: 3;
+    margin-top: 1;
+    padding: 0;
+    content-align: center middle;
+}
+
+
+#nodes-main-grid .cluster-table-surface {
+    height: auto;
+    min-height: 3;
+}
+
+#nodes-main-grid .cluster-table-surface > CustomDataTable {
+    height: auto;
+    min-height: 3;
+}
+
+#nodes-main-grid .cluster-table-surface > CustomDataTable > DataTable {
+    height: auto;
+    min-height: 3;
+}
+
+#nodes-table-panel,
+#node-groups-table-panel {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 18;
+}
+
+#nodes-table-panel > .cluster-table-surface,
+#node-groups-table-panel > .cluster-table-surface {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 1fr;
+    min-height: 0;
+    max-height: 1fr;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+#nodes-table-panel .widget-custom-data-table,
+#node-groups-table-panel .widget-custom-data-table {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 1fr;
+    min-height: 0;
+    max-height: 1fr;
+}
+
+#nodes-table-panel .widget-custom-data-table > DataTable,
+#node-groups-table-panel .widget-custom-data-table > DataTable {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 1fr;
+    min-height: 0;
+    max-height: 1fr;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+#tab-nodes.narrow #nodes-main-grid,
+#tab-nodes.compact #nodes-main-grid {
+    height: auto;
+    grid-size: 1 6;
+    grid-columns: 1fr;
+    grid-rows: auto auto auto auto auto auto;
+}
+
+#tab-nodes.narrow #nodes-main-grid > .summary-panel,
+#tab-nodes.narrow #nodes-main-grid > .cluster-data-panel,
+#tab-nodes.compact #nodes-main-grid > .summary-panel,
+#tab-nodes.compact #nodes-main-grid > .cluster-data-panel {
+    height: auto;
+}
+
+#tab-nodes.narrow #nodes-panel-cpu-alloc,
+#tab-nodes.narrow #nodes-panel-mem-alloc,
+#tab-nodes.narrow #nodes-panel-health-summary,
+#tab-nodes.narrow #nodes-panel-distribution-summary,
+#tab-nodes.narrow #nodes-table-panel,
+#tab-nodes.narrow #node-groups-table-panel,
+#tab-nodes.compact #nodes-panel-cpu-alloc,
+#tab-nodes.compact #nodes-panel-mem-alloc,
+#tab-nodes.compact #nodes-panel-health-summary,
+#tab-nodes.compact #nodes-panel-distribution-summary,
+#tab-nodes.compact #nodes-table-panel,
+#tab-nodes.compact #node-groups-table-panel {
+    height: auto;
+    min-height: 13;
+}
+
+#tab-nodes.narrow #nodes-health-digits-grid {
+    grid-size: 2 3;
+    grid-columns: 1fr 1fr;
+    grid-rows: auto auto auto;
+}
+
+#tab-nodes.narrow #nodes-distribution-digits-grid {
+    grid-size: 2 3;
+    grid-columns: 1fr 1fr;
+    grid-rows: auto auto auto;
+}
+
+#tab-nodes.compact #nodes-health-digits-grid {
+    grid-size: 1 6;
+    grid-columns: 1fr;
+    grid-rows: auto auto auto auto auto auto;
+}
+
+#tab-nodes.compact #nodes-distribution-digits-grid {
+    grid-size: 1 6;
+    grid-columns: 1fr;
+    grid-rows: auto auto auto auto auto auto;
+}
+
+#tab-pods.cluster-tab-pane {
+    layout: vertical;
+    padding-bottom: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#tab-pods .cluster-filter-bar {
+    min-height: 2;
+    padding: 0;
+}
+
+#tab-pods .cluster-tab-controls-row {
+    min-height: 4;
+}
+
+#workloads-main-grid {
+    width: 1fr;
+    height: auto;
+    min-height: 0;
+    margin-bottom: 0;
+    layout: grid;
+    grid-size: 1 2;
+    grid-columns: 1fr;
+    grid-rows: auto auto;
+    grid-gutter: 1 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#workloads-main-grid > .summary-panel {
+    width: 1fr;
+    height: auto;
+    min-height: 16;
+    margin-bottom: 0;
+}
+
+#workloads-main-grid > .cluster-data-panel {
+    width: 1fr;
+    height: 1fr;
+    min-height: 18;
+    margin-bottom: 0;
+}
+
+#workloads-main-grid > .summary-panel {
+    padding: 0 1 0 1;
+}
+
+#workloads-main-grid > .cluster-data-panel {
+    padding: 0 1 0 1;
+    overflow: hidden;
+}
+
+#workloads-main-grid .cluster-table-surface {
+    height: 1fr;
+    min-height: 0;
+    max-height: 1fr;
+}
+
+#workloads-main-grid .cluster-table-surface > CustomDataTable {
+    height: 1fr;
+    min-height: 0;
+    max-height: 1fr;
+}
+
+#workloads-main-grid .cluster-table-surface > CustomDataTable > DataTable {
+    height: 1fr;
+    min-height: 0;
+}
+
+#workloads-main-grid .summary-digit-item,
+#workloads-main-grid .summary-digit-item-compact {
+    height: auto;
+    min-height: 7;
+}
+
+#workloads-main-grid .summary-digit-item-pair {
+    min-height: 7;
+}
+
+#workloads-main-grid .summary-digit-value {
+    min-height: 3;
+}
+
+.cluster-data-panel {
+    width: 1fr;
+    min-width: 0;
+    height: auto;
+    min-height: 6;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 28%;
+    margin-bottom: 1;
+    padding: 0 1 1 1;
+}
+
+.cluster-data-panel > .section-title {
+    margin-bottom: 0;
+}
+
+.cluster-data-panel > .cluster-table-surface {
+    margin-bottom: 0;
+    height: auto;
+    min-height: 3;
+}
+
+.cluster-data-panel > .cluster-table-surface > CustomDataTable {
+    height: auto;
+    min-height: 3;
+}
+
+#tab-pods .cluster-table-surface > CustomDataTable > DataTable {
+    height: 1fr;
+    min-height: 0;
+}
+
+#tab-pods.narrow #workloads-main-grid,
+#tab-pods.compact #workloads-main-grid {
+    height: auto;
+    min-height: 0;
+    grid-size: 1 2;
+    grid-columns: 1fr;
+    grid-rows: auto auto;
+}
+
+#tab-pods.narrow #workloads-main-grid > .summary-panel,
+#tab-pods.narrow #workloads-main-grid > .cluster-data-panel,
+#tab-pods.compact #workloads-main-grid > .summary-panel,
+#tab-pods.compact #workloads-main-grid > .cluster-data-panel {
+    height: auto;
+    min-height: 13;
+}
+
+.cluster-tab-pane.narrow .cluster-data-panel {
+    min-height: 6;
+}
+
+.cluster-tab-pane.narrow .cluster-data-panel > .cluster-table-surface {
+    height: auto;
+    min-height: 3;
+}
+
+.cluster-tab-pane.narrow .cluster-data-panel > .cluster-table-surface > CustomDataTable {
+    height: auto;
+    min-height: 3;
+}
+
+.cluster-tab-pane.compact .cluster-data-panel {
+    min-height: 5;
+}
+
+.cluster-tab-pane.compact .cluster-data-panel > .cluster-table-surface {
+    min-height: 3;
+}
+
+.cluster-tab-pane.compact .cluster-data-panel > .cluster-table-surface > CustomDataTable {
+    min-height: 3;
+}
+
+#health-container {
+    min-height: 4;
+    padding: 0 1 1 1;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 28%;
+}
+
+/* Per-tab full-cover loading overlays */
+.tab-loading-overlay {
+    layer: tab-loading;
+    position: absolute;
+    offset: 0 0;
+    width: 1fr;
+    height: 1fr;
+    layout: vertical;
+    align: center middle;
+    content-align: center middle;
+    margin: 0;
+    padding: 0 2;
+    background: $background 72%;
+    border: none;
+}
+
+.tab-loading-overlay.hidden {
+    display: none;
+}
+
+.tab-loading-stack {
+    width: auto;
+    min-width: 32;
+    max-width: 72;
+    height: auto;
+    padding: 1 2;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 45%;
+    layout: vertical;
+    align: center middle;
+    content-align: center middle;
+}
+
+.tab-loading-indicator {
+    dock: none;
+    width: 1fr;
+    min-width: 5;
+    height: 3;
+    content-align: center middle;
+}
+
+.tab-loading-indicator > LoadingIndicator {
+    width: 1fr;
+    min-width: 5;
+    height: 3;
+    align: center middle;
+    color: $accent;
+}
+
+.tab-loading-label {
+    width: 1fr;
+    min-width: 5;
+    max-width: 100%;
+    color: $accent;
+    text-style: bold;
+    text-align: center;
+    content-align: center middle;
+}
+
+.tab-loading-status {
+    width: 1fr;
+    min-width: 8;
+    color: $accent;
+    text-style: italic;
+    text-align: center;
+    content-align: center middle;
+}
+
+.table-loading-overlay {
+    layer: table-overlay;
+    position: absolute;
+    offset: 0 0;
+    width: 1fr;
+    height: 1fr;
+    layout: vertical;
+    align: center middle;
+    content-align: center middle;
+    padding: 0;
+    background: $surface-darken-1 68%;
+}
+
+.table-loading-overlay.hidden {
+    display: none;
+}
+
+.table-loading-indicator {
+    width: 1fr;
+    min-width: 5;
+    height: 3;
+    content-align: center middle;
+}
+
+.table-loading-indicator > LoadingIndicator {
+    width: 1fr;
+    min-width: 5;
+    height: 3;
+    align: center middle;
+    color: $accent;
+}
+
+.table-loading-label {
+    width: 1fr;
+    color: $accent;
+    text-style: italic;
+    text-align: center;
+    content-align: center middle;
+}
+
+.error-message {
+    color: $error;
+    padding: 2;
+    align: center middle;
+}
+
+.status-error {
+    color: $error;
+    text-style: bold;
+}
+
+/* Cluster filters modal (Charts-aligned structure) */
+.cluster-filters-modal-shell {
+    max-width: 172;
+    height: 1fr;
+}
+
+.cluster-filters-modal-title {
+    margin-bottom: 1;
+}
+
+.cluster-filters-modal-summary {
+    margin-bottom: 1;
+}
+
+.cluster-filters-modal-search {
+    margin-bottom: 1;
+}
+
+.cluster-filters-modal-lists-row {
+    layout: grid;
+    grid-size: 3 2;
+    grid-columns: 1fr 1fr 1fr;
+    grid-rows: 1fr 1fr;
+    grid-gutter: 1 0;
+    width: 1fr;
+    height: 1fr;
+    min-height: 11;
+}
+
+.cluster-filters-modal-list-column {
+    layout: vertical;
+    width: 1fr;
+    min-width: 0;
+    height: 1fr;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.cluster-filters-modal-list {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 1fr;
+    min-height: 5;
+    margin-bottom: 0;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-1 22%;
+}
+
+.cluster-filters-modal-list-actions {
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 1fr 1fr;
+    grid-gutter: 2 0;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    margin-top: 0;
+    padding: 0;
+    width: 1fr;
+}
+
+.cluster-filters-modal-list-actions > CustomButton {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    height: 3;
+    min-height: 3;
+    margin-right: 1;
+}
+
+.cluster-filters-modal-list-actions > CustomButton:last-child {
+    margin-right: 0;
+}
+
+.cluster-filters-modal-empty {
+    margin-top: 1;
+}
+
+.cluster-filters-modal-actions {
+    layout: grid;
+    margin-top: 1;
+    grid-size: 2 1;
+    grid-columns: 1fr 1fr;
+    grid-gutter: 3 0;
+    padding: 0 1;
+}
+
+.cluster-filters-modal-actions > CustomButton {
+    width: 1fr;
+    min-width: 0;
+    max-width: 100%;
+    margin-right: 1;
+}
+
+.cluster-filters-modal-actions > CustomButton:last-child {
+    margin-right: 0;
+}
+
+/* Status bar */
+#cluster-status-bar {
+    width: 1fr;
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    padding: 0 1;
+    background: $surface;
+    border-top: solid $surface-lighten-1 45%;
+}
+
+.status-label {
+    color: $text;
+    width: auto;
+    text-style: bold;
+}
+
+.status-value {
+    color: $text;
+    width: auto;
+    text-style: bold;
+    margin-right: 2;
+}
+
+/* Summary table sizing is controlled by per-grid panel rules above. */

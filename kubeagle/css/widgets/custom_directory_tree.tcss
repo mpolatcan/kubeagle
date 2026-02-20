@@ -1,0 +1,75 @@
+/* CustomDirectoryTree widget styles */
+CustomDirectoryTree,
+.widget-custom-directory-tree {
+    height: auto;
+    width: 100%;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-2;
+}
+
+CustomDirectoryTree:focus,
+.widget-custom-directory-tree:focus {
+    border: solid $accent;
+    background: $accent 12%;
+}
+
+CustomDirectoryTree > DirectoryTree,
+.widget-custom-directory-tree > DirectoryTree {
+    background: $surface-darken-2;
+    color: $text;
+    padding: 0 1;
+}
+
+CustomDirectoryTree > DirectoryTree .tree--selected,
+.widget-custom-directory-tree > DirectoryTree .tree--selected {
+    background: $accent 30%;
+    color: $text;
+    text-style: bold;
+}
+
+CustomDirectoryTree > DirectoryTree .tree--cursor,
+.widget-custom-directory-tree > DirectoryTree .tree--cursor {
+    background: $accent 20%;
+    color: $text;
+}
+
+CustomDirectoryTree > DirectoryTree .tree--guide,
+.widget-custom-directory-tree > DirectoryTree .tree--guide {
+    color: $text-muted;
+}
+
+CustomDirectoryTree > DirectoryTree .tree--folder,
+.widget-custom-directory-tree > DirectoryTree .tree--folder {
+    color: $accent;
+    text-style: bold;
+}
+
+CustomDirectoryTree > DirectoryTree .tree--file,
+.widget-custom-directory-tree > DirectoryTree .tree--file {
+    color: $text;
+}
+
+CustomDirectoryTree > DirectoryTree .tree--extension-folder,
+.widget-custom-directory-tree > DirectoryTree .tree--extension-folder {
+    color: $accent;
+}
+
+CustomDirectoryTree > DirectoryTree .tree--extension-css,
+.widget-custom-directory-tree > DirectoryTree .tree--extension-css {
+    color: $warning;
+}
+
+CustomDirectoryTree > DirectoryTree .tree--extension-py,
+.widget-custom-directory-tree > DirectoryTree .tree--extension-py {
+    color: $success;
+}
+
+CustomDirectoryTree > DirectoryTree .tree--extension-md,
+.widget-custom-directory-tree > DirectoryTree .tree--extension-md {
+    color: $primary;
+}
+
+CustomDirectoryTree:disabled,
+.widget-custom-directory-tree:disabled {
+    opacity: 0.6;
+}

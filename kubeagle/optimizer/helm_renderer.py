@@ -1,0 +1,344 @@
+"""Helm template rendering helpers used by optimizer verification."""
+
+from __future__ import annotations
+
+import shutil
+import subprocess
+import tempfile
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+
+@dataclass(slots=True)
+class HelmRenderResult:
+    """Structured output for helm template execution."""
+
+    ok: bool
+    chart_dir: Path
+    values_file: Path
+    command: list[str] = field(default_factory=list)
+    stdout: str = ""
+    stderr: str = ""
+    docs: list[dict[str, Any]] = field(default_factory=list)
+    error_kind: str = ""
+    error_message: str = ""
+    parent_only_render_attempted: bool = False
+
+
+def render_chart(
+    *,
+    chart_dir: Path,
+    values_file: Path,
+    release_name: str | None = None,
+    timeout_seconds: int = 30,
+    values_content: str | None = None,
+) -> HelmRenderResult:
+    """Render chart templates and parse resulting manifests."""
+    chart_dir = chart_dir.expanduser().resolve()
+    values_file = values_file.expanduser().resolve()
+    resolved_release_name = (release_name or chart_dir.name or "release").strip() or "release"
+
+    if not chart_dir.exists():
+        return HelmRenderResult(
+            ok=False,
+            chart_dir=chart_dir,
+            values_file=values_file,
+            error_kind="chart_dir_missing",
+            error_message=f"Chart directory not found: {chart_dir}",
+        )
+
+    if values_content is None and not values_file.exists():
+        return HelmRenderResult(
+            ok=False,
+            chart_dir=chart_dir,
+            values_file=values_file,
+            error_kind="values_file_missing",
+            error_message=f"Values file not found: {values_file}",
+        )
+
+    temp_path: Path | None = None
+    try:
+        effective_values_file = values_file
+        if values_content is not None:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                suffix=".yaml",
+                prefix="kubeagle-values-",
+                delete=False,
+            ) as tmp_file:
+                tmp_file.write(values_content)
+                temp_path = Path(tmp_file.name)
+            effective_values_file = temp_path
+
+        command = [
+            "helm",
+            "template",
+            resolved_release_name,
+            str(chart_dir),
+            "-f",
+            str(effective_values_file),
+            "--namespace",
+            "default",
+            "--include-crds",
+            "--skip-tests",
+        ]
+        process, run_error = _run_helm_command(command, timeout_seconds)
+        if run_error is not None:
+            return HelmRenderResult(
+                ok=False,
+                chart_dir=chart_dir,
+                values_file=values_file,
+                command=command,
+                stdout=run_error.stdout,
+                stderr=run_error.stderr,
+                error_kind=run_error.error_kind,
+                error_message=run_error.error_message,
+            )
+
+        stdout = process.stdout or ""
+        stderr = process.stderr or ""
+        if process.returncode != 0:
+            if _is_missing_dependencies_error(stderr):
+                retry_result = _retry_with_parent_chart_only_render(
+                    chart_dir=chart_dir,
+                    values_file=values_file,
+                    values_content=values_content,
+                    release_name=resolved_release_name,
+                    timeout_seconds=timeout_seconds,
+                )
+                if retry_result is not None:
+                    return retry_result
+            return HelmRenderResult(
+                ok=False,
+                chart_dir=chart_dir,
+                values_file=values_file,
+                command=command,
+                stdout=stdout,
+                stderr=stderr,
+                error_kind="render_failed",
+                error_message=(stderr.strip() or "helm template failed"),
+            )
+
+        try:
+            docs = _parse_rendered_docs(stdout)
+        except yaml.YAMLError as exc:
+            return HelmRenderResult(
+                ok=False,
+                chart_dir=chart_dir,
+                values_file=values_file,
+                command=command,
+                stdout=stdout,
+                stderr=stderr,
+                error_kind="yaml_parse_error",
+                error_message=str(exc),
+            )
+        return HelmRenderResult(
+            ok=True,
+            chart_dir=chart_dir,
+            values_file=values_file,
+            command=command,
+            stdout=stdout,
+            stderr=stderr,
+            docs=docs,
+        )
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
+def _parse_rendered_docs(rendered_output: str) -> list[dict[str, Any]]:
+    """Parse YAML stream generated by helm template."""
+    docs: list[dict[str, Any]] = []
+    with_docs = yaml.safe_load_all(rendered_output)
+    for doc in with_docs:
+        if isinstance(doc, dict):
+            docs.append(doc)
+    return docs
+
+
+def _run_helm_command(
+    command: list[str],
+    timeout_seconds: int,
+) -> tuple[subprocess.CompletedProcess[str], HelmRenderResult | None]:
+    try:
+        process = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=max(1, int(timeout_seconds)),
+            check=False,
+        )
+        return process, None
+    except FileNotFoundError as exc:
+        return subprocess.CompletedProcess(command, 127), HelmRenderResult(
+            ok=False,
+            chart_dir=Path("."),
+            values_file=Path("."),
+            command=command,
+            error_kind="helm_missing",
+            error_message=str(exc),
+        )
+    except subprocess.TimeoutExpired as exc:
+        return subprocess.CompletedProcess(command, 124), HelmRenderResult(
+            ok=False,
+            chart_dir=Path("."),
+            values_file=Path("."),
+            command=command,
+            stdout=_safe_text(exc.stdout),
+            stderr=_safe_text(exc.stderr),
+            error_kind="timeout",
+            error_message=f"helm command timed out after {timeout_seconds}s",
+        )
+
+
+def _is_missing_dependencies_error(stderr: str) -> bool:
+    lowered = (stderr or "").lower()
+    return (
+        "missing in charts/" in lowered
+        and "found in chart.yaml" in lowered
+    )
+
+
+def _retry_with_parent_chart_only_render(
+    *,
+    chart_dir: Path,
+    values_file: Path,
+    values_content: str | None,
+    release_name: str,
+    timeout_seconds: int,
+) -> HelmRenderResult | None:
+    with tempfile.TemporaryDirectory(prefix="kubeagle-chart-") as tmp_dir:
+        temp_chart_dir = Path(tmp_dir) / chart_dir.name
+        try:
+            shutil.copytree(chart_dir, temp_chart_dir)
+        except OSError as exc:
+            return HelmRenderResult(
+                ok=False,
+                chart_dir=chart_dir,
+                values_file=values_file,
+                error_kind="parent_render_setup_failed",
+                error_message=f"Failed to stage chart copy for parent-only render: {exc!s}",
+                parent_only_render_attempted=True,
+            )
+
+        strip_error = _strip_chart_dependencies(temp_chart_dir / "Chart.yaml")
+        if strip_error:
+            return HelmRenderResult(
+                ok=False,
+                chart_dir=chart_dir,
+                values_file=values_file,
+                error_kind="parent_render_setup_failed",
+                error_message=strip_error,
+                parent_only_render_attempted=True,
+            )
+
+        effective_values_file = values_file
+        if values_content is None:
+            try:
+                relative_values = values_file.relative_to(chart_dir)
+                effective_values_file = temp_chart_dir / relative_values
+            except ValueError:
+                effective_values_file = values_file
+        else:
+            temp_values_file = temp_chart_dir / "__verification_values__.yaml"
+            temp_values_file.write_text(values_content, encoding="utf-8")
+            effective_values_file = temp_values_file
+
+        template_cmd = [
+            "helm",
+            "template",
+            release_name,
+            str(temp_chart_dir),
+            "-f",
+            str(effective_values_file),
+            "--namespace",
+            "default",
+            "--include-crds",
+            "--skip-tests",
+        ]
+        process, template_error = _run_helm_command(template_cmd, timeout_seconds)
+        if template_error is not None:
+            return HelmRenderResult(
+                ok=False,
+                chart_dir=chart_dir,
+                values_file=values_file,
+                command=template_cmd,
+                stdout=template_error.stdout,
+                stderr=template_error.stderr,
+                error_kind=template_error.error_kind,
+                error_message=template_error.error_message,
+                parent_only_render_attempted=True,
+            )
+        if process.returncode != 0:
+            return HelmRenderResult(
+                ok=False,
+                chart_dir=chart_dir,
+                values_file=values_file,
+                command=template_cmd,
+                stdout=process.stdout or "",
+                stderr=process.stderr or "",
+                error_kind="parent_render_failed",
+                error_message=(process.stderr or "").strip() or "helm template failed",
+                parent_only_render_attempted=True,
+            )
+        try:
+            docs = _parse_rendered_docs(process.stdout or "")
+        except yaml.YAMLError as exc:
+            return HelmRenderResult(
+                ok=False,
+                chart_dir=chart_dir,
+                values_file=values_file,
+                command=template_cmd,
+                stdout=process.stdout or "",
+                stderr=process.stderr or "",
+                error_kind="yaml_parse_error",
+                error_message=str(exc),
+                parent_only_render_attempted=True,
+            )
+        return HelmRenderResult(
+            ok=True,
+            chart_dir=chart_dir,
+            values_file=values_file,
+            command=template_cmd,
+            stdout=process.stdout or "",
+            stderr=process.stderr or "",
+            docs=docs,
+            parent_only_render_attempted=True,
+        )
+
+
+def _strip_chart_dependencies(chart_yaml_path: Path) -> str | None:
+    """Remove Chart.yaml dependencies to allow parent-only template rendering."""
+    try:
+        raw = chart_yaml_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return f"Failed to read Chart.yaml for parent-only render: {exc!s}"
+    try:
+        parsed = yaml.safe_load(raw) or {}
+    except yaml.YAMLError as exc:
+        return f"Failed to parse Chart.yaml for parent-only render: {exc!s}"
+    if not isinstance(parsed, dict):
+        return "Chart.yaml root must be a mapping for parent-only render."
+
+    parsed.pop("dependencies", None)
+    try:
+        chart_yaml_path.write_text(
+            yaml.safe_dump(parsed, sort_keys=False),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        return f"Failed to write Chart.yaml for parent-only render: {exc!s}"
+    return None
+
+
+def _safe_text(value: str | bytes | None) -> str:
+    """Normalize subprocess output fields that may be bytes in type stubs."""
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value

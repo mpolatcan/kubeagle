@@ -1,0 +1,22 @@
+/* CustomMarkdown widget styles */
+CustomMarkdown,
+.widget-custom-markdown {
+    height: auto;
+    width: 1fr;
+    border: round $surface-lighten-1 40%;
+    background: $surface-darken-2;
+    padding: 1;
+    overflow: hidden;
+}
+
+CustomMarkdown:focus-within,
+.widget-custom-markdown:focus-within {
+    border: solid $accent;
+}
+
+CustomMarkdown > Markdown,
+.widget-custom-markdown > Markdown {
+    background: transparent;
+    color: $text;
+    padding: 0 1;
+}
