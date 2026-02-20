@@ -385,7 +385,7 @@ async def get_cluster_recommendations(context: str | None = None) -> list[dict[s
     try:
         import shutil
 
-        if not shutil.which("kubectl"):
+        if not await asyncio.to_thread(shutil.which, "kubectl"):
             return recs
 
         from kubeagle.controllers import ClusterController
@@ -402,8 +402,14 @@ async def get_cluster_recommendations(context: str | None = None) -> list[dict[s
         if not connected:
             return recs
 
+        # Fetch independent data sources in parallel
+        pdbs, single_replicas, node_resources = await asyncio.gather(
+            controller.fetch_pdbs(),
+            controller.fetch_single_replica_workloads(),
+            controller.fetch_node_resources(),
+        )
+
         # Blocking PDBs
-        pdbs = await controller.fetch_pdbs()
         blocking_pdbs = [p for p in pdbs if p.is_blocking]
         recs.extend({
                 "id": f"pdb-blocking-{pdb.namespace}-{pdb.name}",
@@ -424,7 +430,6 @@ async def get_cluster_recommendations(context: str | None = None) -> list[dict[s
             } for pdb in blocking_pdbs)
 
         # Single replica workloads
-        single_replicas = await controller.fetch_single_replica_workloads()
         by_namespace: dict[str, list] = {}
         for wl in single_replicas:
             if wl.namespace not in by_namespace:
@@ -453,7 +458,6 @@ async def get_cluster_recommendations(context: str | None = None) -> list[dict[s
                 })
 
         # Overcommitted nodes
-        node_resources = await controller.fetch_node_resources()
         overcommitted = [
             n for n in node_resources if n.cpu_req_pct > 100 or n.mem_req_pct > 100
         ]

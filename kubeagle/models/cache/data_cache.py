@@ -65,6 +65,28 @@ class DataCache:
         async with self._lock:
             self._cache[key] = {"data": data, "timestamp": time.monotonic(), "ttl": ttl}
 
+    async def get_if_fresh(self, key: str, max_age_seconds: float) -> Any:
+        """Get cached data only if younger than max_age_seconds.
+
+        Unlike ``get()``, this ignores the entry's own TTL and uses
+        the caller-supplied *max_age_seconds* as the freshness threshold.
+
+        Args:
+            key: Cache key.
+            max_age_seconds: Maximum acceptable age in seconds.
+
+        Returns:
+            Cached data if fresh enough, otherwise None.
+        """
+        async with self._lock:
+            if key not in self._cache:
+                return None
+            entry = self._cache[key]
+            age = time.monotonic() - entry["timestamp"]
+            if age > max_age_seconds:
+                return None
+            return entry["data"]
+
     async def clear(self, key: str | None = None) -> None:
         """Clear cache for specific key or all (thread-safe)."""
         async with self._lock:

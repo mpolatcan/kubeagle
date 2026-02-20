@@ -804,6 +804,10 @@ class SettingsScreen(MainNavigationTabsMixin, BaseScreen):
         ):
             self._show_loading(False)
             self._update_status("Failed to reset settings.", is_error=True)
+        elif event.state == WorkerState.CANCELLED:
+            # Prevent loading indicator from getting stuck on worker cancellation
+            # (e.g., user navigates away while save is in progress)
+            self._show_loading(False)
 
     def _reset_defaults(self) -> None:
         """Reset all settings to defaults."""

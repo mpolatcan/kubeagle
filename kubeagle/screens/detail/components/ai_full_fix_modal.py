@@ -1335,8 +1335,37 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
 
     def _tick_pulse(self) -> None:
         self._pulse_index = (self._pulse_index + 1) % len(self._PULSE_FRAMES)
-        if any(bundle.is_processing or bundle.is_waiting for bundle in self._bundles.values()):
-            self._populate_violations_tree()
+        has_active = any(
+            bundle.is_processing or bundle.is_waiting for bundle in self._bundles.values()
+        )
+        if has_active:
+            # Only update tree node labels instead of full rebuild to avoid
+            # destroying and recreating the entire tree 4 times per second.
+            self._update_tree_markers()
+            self._sync_bulk_progress()
+
+    def _update_tree_markers(self) -> None:
+        """Update only the marker text of active tree nodes without rebuilding."""
+        with contextlib.suppress(Exception):
+            tree = self.query_one("#ai-full-fix-bulk-violations-tree", CustomTree)
+            for chart_node in tree.root.children:
+                chart_key = (chart_node.data or {}).get("chart_key")
+                if chart_key is None:
+                    continue
+                bundle = self._bundles.get(chart_key)
+                if bundle is None:
+                    continue
+                if not (bundle.is_processing or bundle.is_waiting):
+                    continue
+                marker = self._chart_marker(bundle)
+                violation_count = len(bundle.violations)
+                violation_label = "violation" if violation_count == 1 else "violations"
+                elapsed_suffix = self._tree_elapsed_label(bundle)
+                new_label = (
+                    f"{marker} {bundle.chart_name} ({violation_count} {violation_label})"
+                    f"{elapsed_suffix}"
+                )
+                chart_node.set_label(Text(new_label, style=self._chart_row_color(bundle)))
 
     def _chart_marker(self, bundle: ChartBundleEditorState) -> str:
         if bundle.is_processing or bundle.is_waiting:

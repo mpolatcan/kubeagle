@@ -310,12 +310,15 @@ class CacheManager:
         if cache is None:
             return await fetch_fn()
 
-        # Check if cache is fresh enough
-        # This is a simplified check - full implementation would need
-        # access to cache internals
+        # Return cached data if it's fresh enough
+        cached = await cache.get_if_fresh(key, max_age_seconds)
+        if cached is not None:
+            return cached
 
-        # For now, always fetch fresh if we can't determine age
-        return await fetch_fn()
+        # Cache miss or stale – fetch fresh data and store it
+        result = await fetch_fn()
+        await cache.set(key, result)
+        return result
 
 
 # Global cache manager instance

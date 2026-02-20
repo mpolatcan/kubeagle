@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import subprocess
-import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -37,6 +36,7 @@ logger = logging.getLogger(__name__)
 class ChartsController(BaseController):
     """Helm chart analysis operations with parallel file parsing."""
     _GLOBAL_CACHE_TTL_SECONDS = 45.0
+    _GLOBAL_CACHE_MAX_ENTRIES = 10  # Prevent unbounded memory growth
     _CLUSTER_ANALYSIS_CONCURRENCY_CAP = 16
     _CLUSTER_ANALYSIS_CONCURRENCY_MULTIPLIER = 2
     _global_charts_cache: dict[
@@ -86,10 +86,11 @@ class ChartsController(BaseController):
 
         # Caching
         self._active_charts: frozenset[str] | None = None
-        self._lock = threading.Lock()
+        self._state_lock = asyncio.Lock()  # Protects non-cache mutable state
         self._cache = cache
         self._charts_cache: list[ChartInfo] | None = None
         self._charts_cache_lock = asyncio.Lock()
+        self._analysis_in_progress: asyncio.Event | None = None  # Prevents duplicate analyses
         self._live_values_output_cache: dict[tuple[str, str], str] = {}
 
     @property
@@ -135,7 +136,7 @@ class ChartsController(BaseController):
         async with self._charts_cache_lock:
             self._charts_cache = None
 
-        with self._lock:
+        async with self._state_lock:
             self._active_charts = None
             self._live_values_output_cache.clear()
 
@@ -197,9 +198,16 @@ class ChartsController(BaseController):
         active_releases: set[str] | None,
         charts: list[ChartInfo],
     ) -> None:
-        """Store shared chart-analysis cache snapshot."""
+        """Store shared chart-analysis cache snapshot with LRU eviction."""
         key = self._global_cache_key(active_releases)
         self._global_charts_cache[key] = (time.monotonic(), list(charts))
+        # Evict oldest entries when cache exceeds max size
+        if len(self._global_charts_cache) > self._GLOBAL_CACHE_MAX_ENTRIES:
+            oldest_key = min(
+                self._global_charts_cache,
+                key=lambda k: self._global_charts_cache[k][0],
+            )
+            self._global_charts_cache.pop(oldest_key, None)
 
     async def analyze_all_charts_async(
         self,
@@ -244,6 +252,8 @@ class ChartsController(BaseController):
             if self._charts_cache is not None:
                 return self._charts_cache
 
+        # Only hold the lock for the cache check, not the entire analysis.
+        # Use an Event to prevent duplicate concurrent analyses.
         async with self._charts_cache_lock:
             if active_releases is None and not force_refresh:
                 if self._cache is not None:
@@ -254,6 +264,24 @@ class ChartsController(BaseController):
                 if self._charts_cache is not None:
                     return self._charts_cache
 
+            # If another analysis is already running, wait for it
+            if self._analysis_in_progress is not None:
+                event = self._analysis_in_progress
+                # Release the lock while waiting
+            else:
+                event = None
+
+        if event is not None:
+            await event.wait()
+            # After the other analysis completes, try cache again
+            shared_cached = self._get_global_cached_charts(active_releases)
+            if shared_cached is not None:
+                return shared_cached
+
+        # Mark analysis as in progress
+        self._analysis_in_progress = asyncio.Event()
+
+        try:
             try:
                 if not self.repo_path.exists():
                     return []
@@ -287,6 +315,11 @@ class ChartsController(BaseController):
                     await self._cache.set(cache_key, charts)
 
             return charts
+        finally:
+            # Signal waiting callers and clear the event
+            if self._analysis_in_progress is not None:
+                self._analysis_in_progress.set()
+            self._analysis_in_progress = None
 
     def _analyze_charts_parallel(self, chart_dirs: list[Path]) -> list[ChartInfo]:
         """Analyze charts in parallel using ThreadPoolExecutor."""

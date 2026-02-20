@@ -5652,7 +5652,8 @@ class ViolationsView(CustomVertical):
             local_paths = self._local_chart_paths_from_chart(chart)
             chart_dir = local_paths[0] if local_paths is not None else None
             if direct_artifact is None or not diff_text.strip():
-                diff_text = _full_fix_template_diff_text(
+                diff_text = await asyncio.to_thread(
+                    _full_fix_template_diff_text,
                     template_patches,
                     chart_dir=chart_dir,
                 )

@@ -3995,7 +3995,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         self._last_selected_row = cursor_row
         self._last_selected_row_time = now
         if is_double_select:
-            self._open_chart_preview_dialog(chart)
+            asyncio.ensure_future(self._open_chart_preview_dialog(chart))
 
     # =========================================================================
     # Actions
@@ -4020,7 +4020,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
             return
 
         self._set_selected_chart(chart)
-        self._open_chart_preview_dialog(chart)
+        asyncio.ensure_future(self._open_chart_preview_dialog(chart))
 
     def action_toggle_mode(self) -> None:
         """Toggle between cluster and local mode."""
@@ -4461,9 +4461,12 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         except OSError:
             return "Failed to read values file."
 
-    def _open_chart_preview_dialog(self, chart: ChartInfo) -> None:
-        """Open chart details preview dialog for selected chart."""
-        values_content = self._load_values_file_content(chart)
+    async def _open_chart_preview_dialog(self, chart: ChartInfo) -> None:
+        """Open chart details preview dialog for selected chart.
+
+        File I/O is offloaded to a thread to prevent blocking the UI.
+        """
+        values_content = await asyncio.to_thread(self._load_values_file_content, chart)
         modal = _ChartDetailsModal(
             chart=chart,
             values_markdown=self._build_values_content_markdown(values_content),

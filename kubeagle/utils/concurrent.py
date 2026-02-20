@@ -251,6 +251,10 @@ class RateLimiter:
         Returns:
             Wait time in seconds before tokens are available
         """
+        wait_time = 0.0
+
+        # Compute wait time under the lock, but release before sleeping
+        # so other callers are not serialized behind our sleep.
         async with self._lock:
             now = asyncio.get_running_loop().time()
 
@@ -265,17 +269,19 @@ class RateLimiter:
                 self.available_tokens + tokens_to_add,
             )
 
-            # Wait if not enough tokens
+            # Reserve tokens and compute wait time
             if self.available_tokens < tokens:
-                # Calculate wait time
                 tokens_needed = tokens - self.available_tokens
                 wait_time = (tokens_needed / self.rate) * self.period
-                await asyncio.sleep(wait_time)
-                self.available_tokens -= tokens
+                self.available_tokens = 0.0
             else:
                 self.available_tokens -= tokens
 
-            return 0.0
+        # Sleep outside the lock so concurrent callers can proceed
+        if wait_time > 0:
+            await asyncio.sleep(wait_time)
+
+        return wait_time
 
     async def __aenter__(self) -> RateLimiter:
         """Context manager entry."""

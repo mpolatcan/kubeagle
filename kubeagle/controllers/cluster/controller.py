@@ -103,6 +103,7 @@ class ClusterController(BaseController):
     _GLOBAL_COMMAND_CACHE_TTL_SECONDS = 20.0
     _PARTIAL_UPDATE_TARGET_EMITS = 4
     _PDB_NAMESPACE_RETRY_ATTEMPTS = 1
+    _SEMAPHORE_ACQUIRE_TIMEOUT = 60.0  # Prevent indefinite blocking on hung fetches
     _SYSTEM_NAMESPACES = {"kube-system", "kube-public", "kube-node-lease"}
     _HELM_RELEASE_LABEL_KEYS = (
         "app.kubernetes.io/instance",
@@ -633,15 +634,28 @@ class ClusterController(BaseController):
     async def fetch_all(self) -> dict[str, Any]:
         """Fetch all cluster data.
 
+        Runs independent fetches in parallel via asyncio.gather() to reduce
+        total latency from sum-of-all to max-of-all.  The shared semaphore
+        still throttles actual subprocess calls.
+
         Returns:
             Dictionary containing all fetched data.
         """
-        nodes = await self.fetch_nodes()
-        events = await self.fetch_events()
-        pdbs = await self.fetch_pdbs()
-        helm_releases = await self.get_helm_releases()
-        node_resources = await self.fetch_node_resources()
-        pod_distribution = await self.fetch_pod_distribution()
+        (
+            nodes,
+            events,
+            pdbs,
+            helm_releases,
+            node_resources,
+            pod_distribution,
+        ) = await asyncio.gather(
+            self.fetch_nodes(),
+            self.fetch_events(),
+            self.fetch_pdbs(),
+            self.get_helm_releases(),
+            self.fetch_node_resources(),
+            self.fetch_pod_distribution(),
+        )
 
         return {
             "nodes": nodes,
@@ -3161,7 +3175,7 @@ class ClusterController(BaseController):
 
         try:
             semaphore = self.get_semaphore()
-            await semaphore.acquire()
+            await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
 
             try:
                 self._notify_progress(progress_callback, self.SOURCE_NODES, 0, 1)
@@ -3266,15 +3280,20 @@ class ClusterController(BaseController):
 
         try:
             semaphore = self.get_semaphore()
-            await semaphore.acquire()
+            await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
 
             try:
                 self._notify_progress(progress_callback, self.SOURCE_NODE_RESOURCES, 0, 1)
 
-                # Fetch nodes and pods in parallel
-                nodes_items = await self._node_fetcher.fetch_nodes_raw()
+                # Fetch nodes and pods in parallel when cache is cold
+                if self._pods_cache:
+                    nodes_items, pods_data = await self._node_fetcher.fetch_nodes_raw(), self._pods_cache
+                else:
+                    nodes_items, pods_data = await asyncio.gather(
+                        self._node_fetcher.fetch_nodes_raw(),
+                        self._pod_fetcher.fetch_pods(),
+                    )
                 try:
-                    pods_data = self._pods_cache or await self._pod_fetcher.fetch_pods()
                     if not self._pods_cache and pods_data:
                         self._pods_cache = list(pods_data)
                     totals_by_node = await asyncio.to_thread(
@@ -3510,7 +3529,7 @@ class ClusterController(BaseController):
 
         try:
             semaphore = self.get_semaphore()
-            await semaphore.acquire()
+            await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
 
             try:
                 self._notify_progress(
@@ -3598,7 +3617,7 @@ class ClusterController(BaseController):
         """Fetch runtime Kubernetes workload inventory."""
         self._nonfatal_warnings = {}
         semaphore = self.get_semaphore()
-        await semaphore.acquire()
+        await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
         prefetch_task: asyncio.Task[tuple[Any, Any, Any, Any]] | None = None
         runtime_lookups_task: asyncio.Task[Any] | None = None
 
@@ -3844,7 +3863,7 @@ class ClusterController(BaseController):
     ) -> list[SingleReplicaWorkloadInfo]:
         """Find workloads with only 1 replica (no HA)."""
         semaphore = self.get_semaphore()
-        await semaphore.acquire()
+        await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
 
         try:
             if on_namespace_update is None:
@@ -3931,7 +3950,7 @@ class ClusterController(BaseController):
 
         try:
             semaphore = self.get_semaphore()
-            await semaphore.acquire()
+            await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
 
             try:
                 self._notify_progress(progress_callback, self.SOURCE_EVENTS, 0, 1)
@@ -4140,7 +4159,7 @@ class ClusterController(BaseController):
 
         try:
             semaphore = self.get_semaphore()
-            await semaphore.acquire()
+            await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
 
             try:
                 self._notify_progress(
@@ -4242,7 +4261,7 @@ class ClusterController(BaseController):
     ) -> list[HelmReleaseInfo]:
         """Get list of Helm releases from the cluster."""
         semaphore = self.get_semaphore()
-        await semaphore.acquire()
+        await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
 
         try:
             self._update_fetch_state(self.SOURCE_HELM_RELEASES, FetchState.LOADING)
