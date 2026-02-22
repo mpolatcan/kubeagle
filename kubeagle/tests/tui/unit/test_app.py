@@ -358,10 +358,6 @@ class TestAppBindingCoverage:
         """App must bind escape for back navigation."""
         assert "escape" in self._binding_keys()
 
-    def test_has_home_binding(self) -> None:
-        """App must bind 'h' for home navigation."""
-        assert "h" in self._binding_keys()
-
     def test_has_cluster_binding(self) -> None:
         """App must bind 'c' for cluster navigation."""
         assert "c" in self._binding_keys()
@@ -379,8 +375,8 @@ class TestAppBindingCoverage:
         assert "e" in self._binding_keys()
 
     def test_has_settings_binding(self) -> None:
-        """App must bind 'ctrl+s' for settings navigation."""
-        assert "ctrl+s" in self._binding_keys()
+        """App must bind 's' for settings navigation."""
+        assert "s" in self._binding_keys()
 
     def test_has_quit_binding(self) -> None:
         """App must bind 'q' for quit."""
@@ -394,9 +390,9 @@ class TestAppBindingCoverage:
         """App must bind '?' for help."""
         assert "?" in self._binding_keys()
 
-    def test_has_recommendations_binding(self) -> None:
-        """App must bind 'R' for recommendations navigation."""
-        assert "R" in self._binding_keys()
+    def test_no_recommendations_binding(self) -> None:
+        """App should not bind 'R' for recommendations (removed)."""
+        assert "R" not in self._binding_keys()
 
 
 # =============================================================================

@@ -12,12 +12,10 @@ from textual.binding import Binding
 
 APP_BINDINGS: list[Binding] = [
     Binding("escape", "back", "Back", priority=True),
-    Binding("h", "nav_home", "Summary"),
     Binding("c", "nav_cluster", "Cluster"),
     Binding("C", "nav_charts", "Charts"),
     Binding("e", "nav_export", "Export"),
-    Binding("ctrl+s", "nav_settings", "Settings"),
-    Binding("R", "nav_recommendations", "Viol+Recs"),
+    Binding("s", "nav_settings", "Settings"),
     Binding("?", "show_help", "Help"),
     Binding("r", "refresh", "Refresh"),
     Binding("q", "app.quit", "Quit", priority=True),

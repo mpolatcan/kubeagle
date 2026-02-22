@@ -143,7 +143,7 @@ class TestClusterScreenKeybindings:
     def test_has_navigation_bindings(self) -> None:
         """Test that navigation bindings exist."""
         bindings = ClusterScreen.BINDINGS
-        nav_keys = ["h"]
+        nav_keys = ["?", "r"]
         nav_bindings = [b for b in bindings if b[0] in nav_keys]
         assert len(nav_bindings) > 0
 

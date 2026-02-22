@@ -559,7 +559,6 @@ class TestKeybindingsStructure:
         from kubeagle.keyboard import CHARTS_EXPLORER_SCREEN_BINDINGS
 
         binding_actions = [b[1] for b in CHARTS_EXPLORER_SCREEN_BINDINGS]
-        assert "nav_home" in binding_actions
         assert "nav_cluster" in binding_actions
 
     def test_charts_explorer_screen_bindings_is_list(self):
@@ -573,8 +572,6 @@ class TestKeybindingsStructure:
         from kubeagle.keyboard import CLUSTER_SCREEN_BINDINGS
 
         binding_actions = [b[1] for b in CLUSTER_SCREEN_BINDINGS]
-        # Cluster screen has nav_home (h key) for jumping to primary screen.
-        assert "nav_home" in binding_actions
         # Cluster screen uses base navigation bindings
         assert "pop_screen" in binding_actions
 

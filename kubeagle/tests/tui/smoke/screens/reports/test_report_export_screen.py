@@ -76,12 +76,6 @@ class TestReportExportScreenKeybindings:
         help_bindings = [b for b in bindings if b[0] == "?"]
         assert len(help_bindings) > 0
 
-    def test_has_home_binding(self) -> None:
-        """Test that 'h' home binding exists."""
-        bindings = ReportExportScreen.BINDINGS
-        home_bindings = [b for b in bindings if b[0] == "h"]
-        assert len(home_bindings) > 0
-
     def test_has_cluster_binding(self) -> None:
         """Test that 'c' cluster binding exists."""
         bindings = ReportExportScreen.BINDINGS

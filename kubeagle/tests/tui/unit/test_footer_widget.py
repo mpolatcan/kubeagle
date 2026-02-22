@@ -82,8 +82,8 @@ class TestCustomFooterIntegration:
             footer = app.screen.query_one("CustomFooter")
             footer_keys = list(footer.query(FooterKey))
             descriptions = {key.description for key in footer_keys}
-            assert "Summary" in descriptions
             assert "Cluster" in descriptions
+            assert "Settings" in descriptions
 
     async def test_footer_uses_default_textual_scroll_on_narrow_width(self) -> None:
         """Test narrow layouts do not render custom Prev/Next footer controls."""

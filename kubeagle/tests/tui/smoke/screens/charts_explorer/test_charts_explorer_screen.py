@@ -509,22 +509,10 @@ class TestChartsExplorerScreenKeybindings:
         matches = [b for b in bindings if b[0] == "slash"]
         assert len(matches) > 0
 
-    def test_has_enter_binding(self) -> None:
-        """Test that enter binding exists."""
-        bindings = ChartsExplorerScreen.BINDINGS
-        matches = [b for b in bindings if b[0] == "enter"]
-        assert len(matches) > 0
-
     def test_has_mode_binding(self) -> None:
         """Test that 'm' mode binding exists."""
         bindings = ChartsExplorerScreen.BINDINGS
         matches = [b for b in bindings if b[0] == "m"]
-        assert len(matches) > 0
-
-    def test_has_active_binding(self) -> None:
-        """Test that 'a' active binding exists."""
-        bindings = ChartsExplorerScreen.BINDINGS
-        matches = [b for b in bindings if b[0] == "a"]
         assert len(matches) > 0
 
     def test_has_view_bindings_1_through_5(self) -> None:
@@ -534,34 +522,10 @@ class TestChartsExplorerScreenKeybindings:
             matches = [b for b in bindings if b[0] == key]
             assert len(matches) > 0, f"Missing binding for key '{key}'"
 
-    def test_has_sort_direction_binding(self) -> None:
-        """Test that 's' sort-direction binding exists."""
-        bindings = ChartsExplorerScreen.BINDINGS
-        matches = [b for b in bindings if b[0] == "s"]
-        assert len(matches) > 0
-
-    def test_has_team_binding(self) -> None:
-        """Test that 't' team binding exists."""
-        bindings = ChartsExplorerScreen.BINDINGS
-        matches = [b for b in bindings if b[0] == "t"]
-        assert len(matches) > 0
-
-    def test_has_violations_binding(self) -> None:
-        """Test that 'v' violations binding exists."""
-        bindings = ChartsExplorerScreen.BINDINGS
-        matches = [b for b in bindings if b[0] == "v"]
-        assert len(matches) > 0
-
     def test_has_export_binding(self) -> None:
         """Test that 'x' export binding exists."""
         bindings = ChartsExplorerScreen.BINDINGS
         matches = [b for b in bindings if b[0] == "x"]
-        assert len(matches) > 0
-
-    def test_has_home_binding(self) -> None:
-        """Test that 'h' home binding exists."""
-        bindings = ChartsExplorerScreen.BINDINGS
-        matches = [b for b in bindings if b[0] == "h"]
         assert len(matches) > 0
 
     def test_has_help_binding(self) -> None:

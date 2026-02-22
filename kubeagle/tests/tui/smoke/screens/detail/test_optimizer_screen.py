@@ -210,23 +210,11 @@ class TestOptimizerScreenKeybindings:
         refresh_bindings = [b for b in bindings if b[0] == "r"]
         assert len(refresh_bindings) > 0
 
-    def test_has_home_binding(self) -> None:
-        """Test that 'h' home binding exists."""
-        bindings = OptimizerScreen.BINDINGS
-        home_bindings = [b for b in bindings if b[0] == "h"]
-        assert len(home_bindings) > 0
-
     def test_has_help_binding(self) -> None:
         """Test that '?' help binding exists."""
         bindings = OptimizerScreen.BINDINGS
         help_bindings = [b for b in bindings if b[0] == "?"]
         assert len(help_bindings) > 0
-
-    def test_has_toggle_active_binding(self) -> None:
-        """Test that 'a' toggle active filter binding exists."""
-        bindings = OptimizerScreen.BINDINGS
-        apply_bindings = [b for b in bindings if b[0] == "a"]
-        assert len(apply_bindings) > 0
 
     def test_has_fix_violation_binding(self) -> None:
         """Test that 'f' fix violation binding exists."""
@@ -270,18 +258,6 @@ class TestOptimizerScreenKeybindings:
         matches = [b for b in bindings if b[0] == "y"]
         assert len(matches) > 0
 
-    def test_has_toggle_sort_direction_binding(self) -> None:
-        """Test that 's' toggle sort direction binding exists."""
-        bindings = OptimizerScreen.BINDINGS
-        matches = [b for b in bindings if b[0] == "s"]
-        assert len(matches) > 0
-
-    def test_has_cycle_severity_binding(self) -> None:
-        """Test that 'v' cycle severity binding exists."""
-        bindings = OptimizerScreen.BINDINGS
-        matches = [b for b in bindings if b[0] == "v"]
-        assert len(matches) > 0
-
     def test_has_go_to_chart_binding(self) -> None:
         """Test that 'g' go to chart binding exists."""
         bindings = OptimizerScreen.BINDINGS
@@ -294,11 +270,11 @@ class TestOptimizerScreenKeybindings:
         matches = [b for b in bindings if b[0] == "slash"]
         assert len(matches) > 0
 
-    def test_has_settings_binding(self) -> None:
-        """Test that 'ctrl+s' settings binding exists."""
+    def test_no_settings_binding_on_optimizer(self) -> None:
+        """Test that 'ctrl+s' settings binding is not in optimizer (app-level 's' handles it)."""
         bindings = OptimizerScreen.BINDINGS
         matches = [b for b in bindings if b[0] == "ctrl+s"]
-        assert len(matches) > 0
+        assert len(matches) == 0
 
     def test_data_table_bindings_exclude_manual_column_sizing(self) -> None:
         """Global table bindings should not expose manual column sizing actions."""

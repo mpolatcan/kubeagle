@@ -6,7 +6,7 @@ This module contains:
 3. navigate_* standalone functions for convenience
 """
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from textual.app import App
 
@@ -176,11 +176,10 @@ class ScreenNavigator:
             "  ESC - Back\n"
             "  r - Refresh\n"
             "  / - Search\n"
-            "  H - Summary\n"
+            "  c - Cluster\n"
             "  C - Charts\n"
-            "  Shift+R - Violations + Recommendations\n"
-            "  E - Export\n"
-            "  Ctrl+S - Settings\n"
+            "  e - Export\n"
+            "  s - Settings\n"
             "  ? - Help",
             severity="information",
             timeout=30,
@@ -328,11 +327,10 @@ BASE_SCREEN_BINDINGS: list[
 ] = [
     ("escape", "pop_screen", "Back"),
     ("r", "refresh", "Refresh"),
-    ("h", "nav_home", "Summary"),
     ("c", "nav_cluster", "Cluster"),
     ("C", "nav_charts", "Charts"),
     ("e", "nav_export", "Export"),
-    ("ctrl+s", "nav_settings", "Settings"),
+    ("s", "nav_settings", "Settings"),
     ("?", "show_help", "Help"),
 ]
 
@@ -350,7 +348,6 @@ CLUSTER_SCREEN_BINDINGS: list[
     ("2", "switch_tab_2", "Workloads"),
     ("3", "switch_tab_3", "Events"),
     ("?", "show_help", "Help"),
-    ("h", "nav_home", "Summary"),
 ]
 
 # ============================================================================
@@ -369,7 +366,6 @@ WORKLOADS_SCREEN_BINDINGS: list[
     ("4", "switch_tab_4", "Missing PDB"),
     ("5", "switch_tab_5", "Node Analysis"),
     ("?", "show_help", "Help"),
-    ("h", "nav_home", "Summary"),
 ]
 
 # ============================================================================
@@ -383,7 +379,6 @@ SETTINGS_SCREEN_BINDINGS: list[
     ("ctrl+s", "save_settings", "Save"),
     ("ctrl+r", "reset_defaults", "Reset Defaults"),
     ("?", "show_help", "Help"),
-    ("h", "nav_home", "Summary"),
     ("c", "nav_cluster", "Cluster"),
     ("C", "nav_charts", "Charts"),
     ("e", "nav_export", "Export"),
@@ -402,7 +397,6 @@ REPORT_EXPORT_SCREEN_BINDINGS: list[
     ("ctrl+e", "export_report", "Export Report"),
     ("y", "copy_clipboard", "Copy (Yank)"),
     ("?", "show_help", "Help"),
-    ("h", "nav_home", "Summary"),
     ("c", "nav_cluster", "Cluster"),
     ("C", "nav_charts", "Charts"),
 ]
@@ -418,11 +412,10 @@ CHART_DETAIL_SCREEN_BINDINGS: list[
     ("r", "refresh", "Refresh"),
     ("n", "next_chart", "Next"),
     ("p", "prev_chart", "Prev"),
-    ("h", "nav_home", "Summary"),
     ("c", "nav_cluster", "Cluster"),
     ("C", "nav_charts", "Charts"),
     ("e", "nav_export", "Export"),
-    ("ctrl+s", "nav_settings", "Settings"),
+    ("s", "nav_settings", "Settings"),
     ("?", "show_help", "Help"),
 ]
 
@@ -436,26 +429,19 @@ CHARTS_EXPLORER_SCREEN_BINDINGS: list[
     ("escape", "pop_screen", "Back"),
     ("r", "refresh", "Refresh"),
     ("slash", "focus_search", "Search"),
-    ("enter", "select_chart", "Preview Chart"),
     ("m", "toggle_mode", "Toggle Mode"),
-    ("a", "toggle_active_filter", "Active Only"),
     ("1", "view_all", "All Charts"),
     ("2", "view_extreme", "Extreme Ratios"),
     ("3", "view_single_replica", "Single Replica"),
     ("4", "view_no_pdb", "Missing PDB"),
     ("5", "view_violations", "Violations"),
-    ("s", "toggle_sort_direction", "Sort"),
-    ("t", "cycle_team", "Team"),
-    ("v", "view_team_violations", "Team Violations"),
     ("f", "fix_violation", "Fix Chart"),
     ("p", "preview_fix", "Preview"),
     ("y", "copy_yaml", "Copy YAML"),
     ("g", "go_to_chart", "Go to Chart"),
     ("x", "export_team_report", "Export Report"),
-    ("h", "nav_home", "Summary"),
     ("c", "nav_cluster", "Cluster"),
     ("e", "nav_export", "Export"),
-    ("ctrl+s", "nav_settings", "Settings"),
     ("?", "show_help", "Help"),
 ]
 

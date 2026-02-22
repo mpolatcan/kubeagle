@@ -95,12 +95,6 @@ class TestChartDetailScreenKeybindings:
         refresh_bindings = [b for b in bindings if b[0] == "r"]
         assert len(refresh_bindings) > 0
 
-    def test_has_help_binding(self) -> None:
-        """Test that 'h' help binding exists."""
-        bindings = ChartDetailScreen.BINDINGS
-        help_bindings = [b for b in bindings if b[0] == "h"]
-        assert len(help_bindings) > 0
-
     def test_binding_descriptions_exist(self) -> None:
         """Test that all bindings have descriptions."""
         for binding in ChartDetailScreen.BINDINGS:

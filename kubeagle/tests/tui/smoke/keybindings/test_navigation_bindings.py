@@ -57,24 +57,6 @@ class TestBaseScreenBindings:
             assert app is not None
 
     @pytest.mark.asyncio
-    async def test_h_navigates_home(self, app: App) -> None:
-        """Test that 'h' pushes ClusterScreen onto the screen stack."""
-        import asyncio
-
-        async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("c")
-            await asyncio.sleep(1.0)
-            await pilot.pause()
-            await pilot.press("h")
-            await asyncio.sleep(1.0)
-            await pilot.pause()
-            cluster_screens = [s for s in app.screen_stack if isinstance(s, ClusterScreen)]
-            assert len(cluster_screens) > 0, (
-                f"Expected ClusterScreen in stack, got: "
-                f"{[type(s).__name__ for s in app.screen_stack]}"
-            )
-
-    @pytest.mark.asyncio
     async def test_c_navigates_cluster(self, app: App) -> None:
         """Test that 'c' navigates to cluster screen."""
         async with app.run_test() as pilot:
@@ -148,10 +130,10 @@ class TestBaseScreenBindings:
             assert isinstance(app.screen, ReportExportScreen)
 
     @pytest.mark.asyncio
-    async def test_ctrl_s_navigates_settings(self, app: App) -> None:
-        """Test that 'Ctrl+s' navigates to settings screen."""
+    async def test_s_navigates_settings(self, app: App) -> None:
+        """Test that 's' navigates to settings screen."""
         async with app.run_test() as pilot:
-            await pilot.press("ctrl+s")
+            await pilot.press("s")
             await pilot.pause()
             assert isinstance(app.screen, SettingsScreen)
 
@@ -208,25 +190,6 @@ class TestClusterScreenBindings:
             await pilot.press("r")
             await pilot.pause()
             assert app is not None
-
-    @pytest.mark.asyncio
-    async def test_h_navigates_home(self, app: App) -> None:
-        """Test that 'h' keeps/pushes ClusterScreen from ClusterScreen."""
-        import asyncio
-
-        async with app.run_test(size=(120, 40)) as pilot:
-            await pilot.press("c")
-            await asyncio.sleep(1.0)
-            await pilot.pause()
-            await pilot.press("h")
-            await asyncio.sleep(1.0)
-            await pilot.pause()
-            cluster_screens = [s for s in app.screen_stack if isinstance(s, ClusterScreen)]
-            assert len(cluster_screens) > 0, (
-                f"Expected ClusterScreen in stack, got: "
-                f"{[type(s).__name__ for s in app.screen_stack]}"
-            )
-
 
 class TestClusterScreenBindingsTupleVerification:
     """Verify CLUSTER_SCREEN_BINDINGS tuples contain expected key-action pairs."""
@@ -320,32 +283,14 @@ class TestChartsExplorerScreenBindingsTuples:
         binding_pairs = [(k, a) for k, a, _ in CHARTS_EXPLORER_SCREEN_BINDINGS]
         assert ("5", "view_violations") in binding_pairs
 
-    def test_has_toggle_sort_direction_binding(self) -> None:
-        """Test 's' -> toggle_sort_direction exists in CHARTS_EXPLORER_SCREEN_BINDINGS."""
+    def test_has_fix_violation_binding(self) -> None:
+        """Test 'f' -> fix_violation exists in CHARTS_EXPLORER_SCREEN_BINDINGS."""
         from kubeagle.keyboard.navigation import (
             CHARTS_EXPLORER_SCREEN_BINDINGS,
         )
 
         binding_pairs = [(k, a) for k, a, _ in CHARTS_EXPLORER_SCREEN_BINDINGS]
-        assert ("s", "toggle_sort_direction") in binding_pairs
-
-    def test_has_cycle_team_binding(self) -> None:
-        """Test 't' -> cycle_team exists in CHARTS_EXPLORER_SCREEN_BINDINGS."""
-        from kubeagle.keyboard.navigation import (
-            CHARTS_EXPLORER_SCREEN_BINDINGS,
-        )
-
-        binding_pairs = [(k, a) for k, a, _ in CHARTS_EXPLORER_SCREEN_BINDINGS]
-        assert ("t", "cycle_team") in binding_pairs
-
-    def test_has_nav_home_binding(self) -> None:
-        """Test 'h' -> nav_home exists in CHARTS_EXPLORER_SCREEN_BINDINGS."""
-        from kubeagle.keyboard.navigation import (
-            CHARTS_EXPLORER_SCREEN_BINDINGS,
-        )
-
-        binding_pairs = [(k, a) for k, a, _ in CHARTS_EXPLORER_SCREEN_BINDINGS]
-        assert ("h", "nav_home") in binding_pairs
+        assert ("f", "fix_violation") in binding_pairs
 
     def test_has_nav_cluster_binding(self) -> None:
         """Test 'c' -> nav_cluster exists in CHARTS_EXPLORER_SCREEN_BINDINGS."""
@@ -364,15 +309,6 @@ class TestChartsExplorerScreenBindingsTuples:
 
         binding_pairs = [(k, a) for k, a, _ in CHARTS_EXPLORER_SCREEN_BINDINGS]
         assert ("?", "show_help") in binding_pairs
-
-    def test_has_select_chart_binding(self) -> None:
-        """Test 'enter' -> select_chart exists in CHARTS_EXPLORER_SCREEN_BINDINGS."""
-        from kubeagle.keyboard.navigation import (
-            CHARTS_EXPLORER_SCREEN_BINDINGS,
-        )
-
-        binding_pairs = [(k, a) for k, a, _ in CHARTS_EXPLORER_SCREEN_BINDINGS]
-        assert ("enter", "select_chart") in binding_pairs
 
     def test_has_toggle_mode_binding(self) -> None:
         """Test 'm' -> toggle_mode exists in CHARTS_EXPLORER_SCREEN_BINDINGS."""
@@ -396,7 +332,7 @@ class TestSettingsScreenBindings:
     async def test_escape_pops_screen(self, app: App) -> None:
         """Test that escape key pops settings screen."""
         async with app.run_test() as pilot:
-            await pilot.press("ctrl+s")
+            await pilot.press("s")
             await pilot.pause()
             await pilot.press("escape")
             await pilot.pause()
@@ -406,7 +342,7 @@ class TestSettingsScreenBindings:
     async def test_ctrl_s_saves_settings(self, app: App) -> None:
         """Test that 'Ctrl+s' saves settings."""
         async with app.run_test() as pilot:
-            await pilot.press("ctrl+s")
+            await pilot.press("s")
             await pilot.pause()
             await pilot.press("ctrl+s")
             await pilot.pause()
@@ -416,7 +352,7 @@ class TestSettingsScreenBindings:
     async def test_ctrl_c_cancels(self, app: App) -> None:
         """Test that 'Ctrl+c' cancels settings."""
         async with app.run_test() as pilot:
-            await pilot.press("ctrl+s")
+            await pilot.press("s")
             await pilot.pause()
             await pilot.press("ctrl+c")
             await pilot.pause()
@@ -426,7 +362,7 @@ class TestSettingsScreenBindings:
     async def test_r_refreshes(self, app: App) -> None:
         """Test that 'r' triggers refresh on settings screen."""
         async with app.run_test() as pilot:
-            await pilot.press("ctrl+s")
+            await pilot.press("s")
             await pilot.pause()
             await pilot.press("r")
             await pilot.pause()
@@ -442,13 +378,6 @@ class TestSettingsScreenBindingsTupleVerification:
 
         binding_pairs = [(k, a) for k, a, _ in SETTINGS_SCREEN_BINDINGS]
         assert ("?", "show_help") in binding_pairs
-
-    def test_h_nav_home(self) -> None:
-        """Test 'h' -> nav_home exists in SETTINGS_SCREEN_BINDINGS."""
-        from kubeagle.keyboard.navigation import SETTINGS_SCREEN_BINDINGS
-
-        binding_pairs = [(k, a) for k, a, _ in SETTINGS_SCREEN_BINDINGS]
-        assert ("h", "nav_home") in binding_pairs
 
     def test_c_nav_cluster(self) -> None:
         """Test 'c' -> nav_cluster exists in SETTINGS_SCREEN_BINDINGS."""
@@ -557,15 +486,6 @@ class TestReportExportScreenBindingsTupleVerification:
         binding_pairs = [(k, a) for k, a, _ in REPORT_EXPORT_SCREEN_BINDINGS]
         assert ("?", "show_help") in binding_pairs
 
-    def test_h_nav_home(self) -> None:
-        """Test 'h' -> nav_home exists in REPORT_EXPORT_SCREEN_BINDINGS."""
-        from kubeagle.keyboard.navigation import (
-            REPORT_EXPORT_SCREEN_BINDINGS,
-        )
-
-        binding_pairs = [(k, a) for k, a, _ in REPORT_EXPORT_SCREEN_BINDINGS]
-        assert ("h", "nav_home") in binding_pairs
-
     def test_c_nav_cluster(self) -> None:
         """Test 'c' -> nav_cluster exists in REPORT_EXPORT_SCREEN_BINDINGS."""
         from kubeagle.keyboard.navigation import (
@@ -631,16 +551,6 @@ class TestChartDetailScreenBindings:
             await pilot.pause()
             assert app is not None
 
-    @pytest.mark.asyncio
-    async def test_h_shows_help(self, app: App) -> None:
-        """Test that 'h' shows help."""
-        async with app.run_test() as pilot:
-            await pilot.press("C")
-            await pilot.pause()
-            await pilot.press("h")
-            await pilot.pause()
-            assert app is not None
-
 
 # =============================================================================
 # BINDING COUNT VERIFICATION
@@ -654,19 +564,19 @@ class TestNavigationBindingCounts:
         """Test BASE_SCREEN_BINDINGS has expected count."""
         from kubeagle.keyboard.navigation import BASE_SCREEN_BINDINGS
 
-        assert len(BASE_SCREEN_BINDINGS) == 8
+        assert len(BASE_SCREEN_BINDINGS) == 7
 
     def test_cluster_screen_bindings_count(self) -> None:
         """Test CLUSTER_SCREEN_BINDINGS has expected count."""
         from kubeagle.keyboard.navigation import CLUSTER_SCREEN_BINDINGS
 
-        assert len(CLUSTER_SCREEN_BINDINGS) == 8
+        assert len(CLUSTER_SCREEN_BINDINGS) == 7
 
     def test_settings_screen_bindings_count(self) -> None:
         """Test SETTINGS_SCREEN_BINDINGS has expected count."""
         from kubeagle.keyboard.navigation import SETTINGS_SCREEN_BINDINGS
 
-        assert len(SETTINGS_SCREEN_BINDINGS) == 9
+        assert len(SETTINGS_SCREEN_BINDINGS) == 8
 
     def test_report_export_screen_bindings_count(self) -> None:
         """Test REPORT_EXPORT_SCREEN_BINDINGS has expected count."""
@@ -674,7 +584,7 @@ class TestNavigationBindingCounts:
             REPORT_EXPORT_SCREEN_BINDINGS,
         )
 
-        assert len(REPORT_EXPORT_SCREEN_BINDINGS) == 8
+        assert len(REPORT_EXPORT_SCREEN_BINDINGS) == 7
 
     def test_chart_detail_screen_bindings_count(self) -> None:
         """Test CHART_DETAIL_SCREEN_BINDINGS has expected count."""
@@ -682,7 +592,7 @@ class TestNavigationBindingCounts:
             CHART_DETAIL_SCREEN_BINDINGS,
         )
 
-        assert len(CHART_DETAIL_SCREEN_BINDINGS) == 10
+        assert len(CHART_DETAIL_SCREEN_BINDINGS) == 9
 
     def test_charts_explorer_screen_bindings_count(self) -> None:
         """Test CHARTS_EXPLORER_SCREEN_BINDINGS has expected count."""
@@ -690,4 +600,4 @@ class TestNavigationBindingCounts:
             CHARTS_EXPLORER_SCREEN_BINDINGS,
         )
 
-        assert len(CHARTS_EXPLORER_SCREEN_BINDINGS) == 24
+        assert len(CHARTS_EXPLORER_SCREEN_BINDINGS) == 17

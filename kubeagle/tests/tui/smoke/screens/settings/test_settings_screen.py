@@ -135,7 +135,7 @@ class TestSettingsScreenKeybindings:
     def test_has_navigation_bindings(self) -> None:
         """Test that navigation bindings exist."""
         bindings = SettingsScreen.BINDINGS
-        nav_keys = ["h", "c", "C", "e"]
+        nav_keys = ["c", "C", "e"]
         nav_bindings = [b for b in bindings if b[0] in nav_keys]
         assert len(nav_bindings) > 0
 

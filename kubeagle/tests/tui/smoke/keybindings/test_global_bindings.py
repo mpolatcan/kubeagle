@@ -38,30 +38,6 @@ class TestGlobalBindings:
             assert app is not None
 
     @pytest.mark.asyncio
-    async def test_h_navigates_to_home(self, app: App) -> None:
-        """Test that 'h' key navigates to primary landing (Cluster).
-
-        Verify via screen_stack that ClusterScreen was pushed after pressing 'h'.
-        """
-        import asyncio
-
-        async with app.run_test(size=(120, 40)) as pilot:
-            # Navigate to cluster screen first
-            await pilot.press("c")
-            await asyncio.sleep(1.0)
-            await pilot.pause()
-            # Then press h to go home
-            await pilot.press("h")
-            await asyncio.sleep(1.0)
-            await pilot.pause()
-            # Check that ClusterScreen is somewhere in the screen stack
-            cluster_screens = [s for s in app.screen_stack if isinstance(s, ClusterScreen)]
-            assert len(cluster_screens) > 0, (
-                f"Expected ClusterScreen in stack, got: "
-                f"{[type(s).__name__ for s in app.screen_stack]}"
-            )
-
-    @pytest.mark.asyncio
     async def test_c_navigates_to_cluster(self, app: App) -> None:
         """Test that 'c' key navigates to cluster screen."""
         async with app.run_test() as pilot:
@@ -94,20 +70,12 @@ class TestGlobalBindings:
             assert isinstance(app.screen, ReportExportScreen)
 
     @pytest.mark.asyncio
-    async def test_ctrl_s_navigates_to_settings(self, app: App) -> None:
-        """Test that 'Ctrl+s' key navigates to settings screen."""
+    async def test_s_navigates_to_settings(self, app: App) -> None:
+        """Test that 's' key navigates to settings screen."""
         async with app.run_test() as pilot:
-            await pilot.press("ctrl+s")
+            await pilot.press("s")
             await pilot.pause()
             assert isinstance(app.screen, SettingsScreen)
-
-    @pytest.mark.asyncio
-    async def test_shift_r_navigates_to_optimizer_recommendations(self, app: App) -> None:
-        """Test that 'R' (shift+r) key navigates to OptimizerScreen (recommendations view)."""
-        async with app.run_test() as pilot:
-            await pilot.press("R")
-            await pilot.pause()
-            assert isinstance(app.screen, OptimizerScreen)
 
     @pytest.mark.asyncio
     async def test_question_mark_shows_help(self, app: App) -> None:
@@ -274,34 +242,33 @@ class TestAppBindings:
             assert escape_binding.priority is True
 
     @pytest.mark.asyncio
-    async def test_ctrl_s_binding_for_settings(self, app: App) -> None:
-        """Test that Ctrl+s is bound to nav_settings action."""
+    async def test_s_binding_for_settings(self, app: App) -> None:
+        """Test that 's' is bound to nav_settings action."""
         async with app.run_test():
-            # Find ctrl+s binding (filter to Binding objects only)
-            ctrl_s_binding = None
+            s_binding = None
             for b in app.BINDINGS:
-                if isinstance(b, Binding) and b.key == "ctrl+s":
-                    ctrl_s_binding = b
+                if isinstance(b, Binding) and b.key == "s":
+                    s_binding = b
                     break
 
-            assert ctrl_s_binding is not None
-            assert ctrl_s_binding.action == "nav_settings"
+            assert s_binding is not None
+            assert s_binding.action == "nav_settings"
 
     @pytest.mark.asyncio
     async def test_navigation_bindings_execute(self, app: App) -> None:
         """Test that navigation bindings execute correctly."""
         async with app.run_test() as pilot:
-            # Test home navigation
-            await pilot.press("h")
+            # Test cluster navigation
+            await pilot.press("c")
             await pilot.pause()
             assert isinstance(app.screen, ClusterScreen)
 
-            # Test charts navigation from home (global binding)
+            # Test charts navigation from cluster (global binding)
             await pilot.press("C")
             await pilot.pause()
             assert isinstance(app.screen, ChartsExplorerScreen)
 
-            # Test export navigation (need to go back home first due to screen-specific bindings)
+            # Test export navigation (need to go back first due to screen-specific bindings)
             await pilot.press("escape")
             await pilot.pause()
             await pilot.press("e")
@@ -335,8 +302,8 @@ class TestBindingCounts:
         """Test that APP_BINDINGS has expected number of bindings."""
         from kubeagle.keyboard.app import APP_BINDINGS
 
-        # Should have: escape, h, c, C, e, ctrl+s, R, ?, r, q = 10
-        assert len(APP_BINDINGS) == 10
+        # Should have: escape, c, C, e, s, ?, r, q = 8
+        assert len(APP_BINDINGS) == 8
 
 
 # =============================================================================
