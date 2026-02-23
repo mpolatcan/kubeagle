@@ -162,7 +162,7 @@ Presenters act as the data orchestration layer between screens and controllers. 
 | Presenter | Module | Screen | Controller(s) Used |
 |-----------|--------|--------|-------------------|
 | ClusterPresenter | `screens/cluster/presenter.py` | ClusterScreen | ClusterController |
-| ChartsExplorerPresenter | `screens/charts_explorer/presenter.py` | ChartsExplorerScreen | ChartsController, TeamController |
+| ChartsExplorerPresenter | `screens/charts_explorer/presenter.py` | ChartsExplorerScreen | ChartsController, Team Module |
 | WorkloadsPresenter | `screens/workloads/presenter.py` | WorkloadsScreen | ClusterController, ChartsController |
 | SettingsPresenter | `screens/settings/presenter.py` | SettingsScreen | -- (reads/writes AppSettings) |
 
@@ -326,7 +326,7 @@ graph TD
     subgraph Controllers
         CC[ClusterController]
         CHC[ChartsController]
-        TC[TeamController]
+        TC[Team Module]
         UOC[UnifiedOptimizerController]
     end
 

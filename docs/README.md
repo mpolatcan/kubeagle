@@ -14,6 +14,59 @@ The KubEagle TUI is a terminal-based dashboard for monitoring and analyzing Helm
 - Optimization violations and AI-assisted fix recommendations
 - Report generation and export
 
+```mermaid
+graph TB
+    subgraph "Entry Point"
+        CLI["Typer CLI<br/>main.py"]
+    end
+
+    subgraph "Application"
+        APP["KubEagleApp<br/>app.py"]
+        KB["Keyboard<br/>3 modules · 14 binding sets"]
+    end
+
+    subgraph "Screens (6 + 1 guard + 1 shim)"
+        BASE["BaseScreen"]
+        CS["ClusterScreen"]
+        CE["ChartsExplorerScreen"]
+        WS["WorkloadsScreen"]
+        CD["ChartDetailScreen"]
+        RE["ReportExportScreen"]
+        SS["SettingsScreen"]
+    end
+
+    subgraph "Widgets (40+ across 11 categories)"
+        WC["Containers"]
+        WD["Data: Tables · KPI · Indicators"]
+        WF["Feedback: Button · Dialog · Loading"]
+        WI["Input · Selection · Filter"]
+        WS2["Display · Structure · Tabs · Special"]
+    end
+
+    subgraph "Data Layer"
+        CTRL["Controllers<br/>Cluster · Charts · Team"]
+        OPT["Optimizer<br/>13 modules · 17 rules"]
+        MDL["Pydantic Models<br/>45+ models · 11 categories"]
+    end
+
+    subgraph "Infrastructure"
+        CSS["TCSS Stylesheets<br/>54 files"]
+        CONST["Constants<br/>enums · defaults · limits"]
+        UTIL["Utils<br/>cache · concurrent · parser"]
+    end
+
+    CLI --> APP
+    APP --> KB
+    APP --> BASE
+    BASE --> CS & CE & WS & CD & RE & SS
+    CS & CE & WS --> WC & WD & WF & WI & WS2
+    CS & CE & WS --> CTRL
+    CE --> OPT
+    CTRL --> MDL
+    OPT --> MDL
+    CSS -.-> APP
+```
+
 ## Quick Start
 
 ```bash
@@ -116,10 +169,15 @@ python -m kubeagle --version
 | Pydantic | 2.x | Data validation and models |
 | Typer | >=0.9.0 | CLI interface |
 | Rich | >=13.0.0 | Terminal rendering |
+| textual-plotext | >=1.0.1 | Terminal charts and graphs |
 | PyYAML | >=6.0 | YAML parsing |
 | Loguru | >=0.7.0 | Structured logging |
+| orjson | >=3.9.0 | Fast JSON serialization |
+| ujson | >=5.8.0 | Fast JSON parsing |
+| claude-agent-sdk | >=0.1.37 | AI-powered fix generation |
 | pytest | >=7.0.0 | Testing framework |
-| asyncio | stdlib | Async operations |
+| ruff | >=0.8.0 | Linter |
+| ty | >=0.0.14 | Type checker |
 
 ## Navigation Quick Reference
 
@@ -139,6 +197,24 @@ These keybindings work from any screen in the application:
 | `r` | `refresh` | Refresh current screen data |
 | `Escape` | `back` | Go back to previous screen |
 | `q` | `app.quit` | Quit application |
+
+### Screen-Specific Bindings
+
+```mermaid
+graph TD
+    APP["APP_BINDINGS<br/>h c C R e Ctrl+S ? r Esc q"]
+
+    CS["ClusterScreen<br/>1-3 (tabs) · / (search)"]
+    CE["ChartsExplorerScreen<br/>/ m a 1-5 s t v f p y g x"]
+    WS["WorkloadsScreen<br/>1-5 (tabs) · / (search)"]
+    CD["ChartDetailScreen<br/>n (next) · p (prev)"]
+    RE["ReportExportScreen<br/>Ctrl+E (export) · y (copy)"]
+    SS["SettingsScreen<br/>Ctrl+S (save) · Ctrl+R (reset)"]
+    DT["DataTable<br/>s (sort)"]
+
+    APP --> CS & CE & WS & CD & RE & SS
+    CS & CE & WS -.-> DT
+```
 
 ### ClusterScreen Bindings
 
@@ -220,13 +296,17 @@ These keybindings work from any screen in the application:
 | Component | Count | Details |
 |-----------|-------|---------|
 | Screens | 6 main + 1 guard + 1 shim | 6 navigable screens, TerminalSizeUnsupportedScreen guard, OptimizerScreen shim |
-| Screen Presenters | 5 | ClusterPresenter, ChartsExplorerPresenter, WorkloadsPresenter, SettingsPresenter, detail presenter |
+| Screen Presenters | 5 | ClusterPresenter, ChartsExplorerPresenter, WorkloadsPresenter, SettingsPresenter, ChartDetailPresenter |
 | Screen Mixins | 4 | WorkerMixin, TabbedViewMixin, ScreenDataLoader, MainNavigationTabsMixin |
-| Widgets | 47 files across 11 categories | containers, data/tables, data/indicators, data/kpi, display, feedback, filter, input, selection, special, structure, tabs |
-| Controllers | 3 + 3 analyzers | ClusterController, ChartsController, TeamController, DistributionAnalyzer, EventAnalyzer, PDBAnalyzer |
-| Optimizer modules | 12 | analyzer, fixer, rules, fix_verifier, full_ai_fixer, llm_cli_runner, llm_patch_protocol, helm_renderer, template_patch_suggester, rendered_rule_input, full_fix_applier, wiring_diagnoser |
+| Widgets | 40+ files across 11 categories | containers, data/tables, data/indicators, data/kpi, display, feedback, filter, input, selection, special, structure, tabs |
+| Controllers | 2 + base | ClusterController, ChartsController + BaseController/AsyncControllerMixin |
+| Team Module | 3 components | TeamFetcher, TeamParser, TeamMapper (no controller class) |
+| Fetchers | 8 | ClusterFetcher, NodeFetcher, PodFetcher, EventFetcher, TopMetricsFetcher, ChartFetcher, ReleaseFetcher, TeamFetcher |
+| Parsers | 5 | NodeParser, PodParser, EventParser, ChartParser, TeamParser |
+| Optimizer modules | 13 | analyzer, fixer, rules, fix_verifier, full_ai_fixer, llm_cli_runner, llm_patch_protocol, helm_renderer, template_patch_suggester, rendered_rule_input, full_fix_applier, wiring_diagnoser, resource_impact_calculator |
+| Pydantic Models | 45+ across 11 categories | core, analysis, cache, charts, events, optimization, pdb, reports, state, teams, types |
 | CSS files | 54 | 1 app + 7 screen + 46 widget styles |
-| Test files | 158 | 14 smoke + 144 unit |
+| Keyboard modules | 3 | app.py (5 binding sets), navigation.py (screen bindings), tables.py (table bindings) |
 | Utility modules | 6 | concurrent, cache_manager, report_generator, resource_parser, cluster_summary, __init__ |
 
 ## Screens (6 main + 1 guard + 1 shim)

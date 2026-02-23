@@ -17,6 +17,7 @@ from kubeagle.models.analysis.violation import ViolationResult
 from kubeagle.optimizer.llm_cli_runner import (
     LLMProvider,
     provider_supports_direct_edit,
+    provider_unavailable_reason,
     run_llm_direct_edit,
 )
 from kubeagle.optimizer.llm_patch_protocol import (
@@ -316,7 +317,9 @@ def _generate_ai_full_fix_direct_edit(
     for provider in _provider_order_direct_edit(preferred_provider):
         tried.append(provider.value)
         if not provider_supports_direct_edit(provider):
-            errors.append(f"{provider.value}: direct-edit backend unavailable, skipping provider.")
+            reason = provider_unavailable_reason(provider)
+            detail = f" ({reason})" if reason else ""
+            errors.append(f"{provider.value}: direct-edit backend unavailable{detail}, skipping provider.")
             continue
         model = None
         if provider_models is not None and provider in provider_models:

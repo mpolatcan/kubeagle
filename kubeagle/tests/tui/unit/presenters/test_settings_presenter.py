@@ -255,7 +255,7 @@ class TestSettingsPresenterGetValue:
         mock_screen = MockSettingsScreen()
         presenter = SettingsPresenter(mock_screen)
 
-        value = presenter.get_value("ai-fix-bulk-parallelism-input")
+        value = presenter.get_value("ai-fix-bulk-parallelism-select")
 
         assert value == 2
 

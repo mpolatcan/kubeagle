@@ -18,7 +18,6 @@ from kubeagle.constants.screens.settings import (
     SETTINGS_SECTION_THRESHOLDS,
 )
 from kubeagle.constants.values import (
-    PLACEHOLDER_AI_FIX_BULK_PARALLELISM,
     PLACEHOLDER_EXPORT_PATH,
     PLACEHOLDER_LIMIT_REQUEST,
     PLACEHOLDER_REFRESH_INTERVAL,
@@ -78,7 +77,7 @@ INPUT_TOOLTIPS: dict[str, str] = {
         "Use placeholders: {{VIOLATIONS}}, {{SEED_YAML}}, {{ALLOWED_FILES}}, "
         "{{RETRY_BLOCK}}, {{CANONICAL_GUIDANCE}}."
     ),
-    "ai-fix-bulk-parallelism-input": (
+    "ai-fix-bulk-parallelism-select": (
         "Maximum number of chart bundles generated in parallel during AI bulk fix."
     ),
     "progressive-parallelism-select": (
@@ -88,6 +87,14 @@ INPUT_TOOLTIPS: dict[str, str] = {
         "Yield to UI event loop every N completions for progressive table display."
     ),
 }
+
+BULK_PARALLELISM_OPTIONS: list[tuple[str, str]] = [
+    ("2", "2"),
+    ("4", "4"),
+    ("6", "6"),
+    ("8", "8"),
+]
+BULK_PARALLELISM_VALUES: set[str] = {v for _, v in BULK_PARALLELISM_OPTIONS}
 
 PROGRESSIVE_OPTIONS: list[tuple[str, str]] = [
     ("2", "2"),
@@ -325,14 +332,14 @@ class SettingsScreen(MainNavigationTabsMixin, BaseScreen):
                                     id="ai-fix-claude-model-select",
                                 ),
                                 CustomStatic(
-                                    "Bulk Fix Paralellism",
+                                    "Bulk Fix Parallelism",
                                     classes="setting-label",
                                 ),
-                                CustomInput(
+                                Select(
+                                    BULK_PARALLELISM_OPTIONS,
                                     value=str(self._settings.ai_fix_bulk_parallelism),
-                                    placeholder=PLACEHOLDER_AI_FIX_BULK_PARALLELISM,
-                                    id="ai-fix-bulk-parallelism-input",
-                                    restrict=r"[0-9]+",
+                                    allow_blank=False,
+                                    id="ai-fix-bulk-parallelism-select",
                                 ),
                                 CustomStatic(
                                     "Optimizer System Prompt",
@@ -692,9 +699,9 @@ class SettingsScreen(MainNavigationTabsMixin, BaseScreen):
                 else "auto"
             )
         with suppress(Exception):
-            self.query_one("#ai-fix-bulk-parallelism-input", CustomInput).value = str(
-                settings.ai_fix_bulk_parallelism
-            )
+            select_widget = self.query_one("#ai-fix-bulk-parallelism-select", Select)
+            val = str(settings.ai_fix_bulk_parallelism)
+            select_widget.value = val if val in BULK_PARALLELISM_VALUES else "2"
         with suppress(Exception):
             self.query_one("#ai-fix-full-fix-prompt-input", CustomTextArea).text = str(
                 self._resolve_ai_fix_system_prompt_editor_text(
@@ -747,8 +754,9 @@ class SettingsScreen(MainNavigationTabsMixin, BaseScreen):
                 "ai-fix-claude-model-select",
                 "auto",
             ),
-            "ai-fix-bulk-parallelism-input": self._get_input_value(
-                "ai-fix-bulk-parallelism-input"
+            "ai-fix-bulk-parallelism-select": self._get_select_value(
+                "ai-fix-bulk-parallelism-select",
+                "2",
             ),
             "progressive-parallelism-select": self._get_select_value(
                 "progressive-parallelism-select",
@@ -813,7 +821,7 @@ class SettingsScreen(MainNavigationTabsMixin, BaseScreen):
             "ai fix provider": "ai-fix-llm-provider-select",
             "codex model": "ai-fix-codex-model-select",
             "claude model": "ai-fix-claude-model-select",
-            "bulk parallelism": "ai-fix-bulk-parallelism-input",
+            "bulk parallelism": "ai-fix-bulk-parallelism-select",
             "progressive parallelism": "progressive-parallelism-select",
             "progressive yield": "progressive-yield-interval-select",
             "ai fix system prompt": "ai-fix-full-fix-prompt-input",

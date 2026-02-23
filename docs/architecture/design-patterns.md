@@ -21,7 +21,7 @@ graph TB
         direction LR
         ChartsController
         ClusterController
-        TeamController
+        Team Module
         OptimizerModule[Optimizer Module]
     end
 

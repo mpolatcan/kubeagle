@@ -15,7 +15,7 @@ graph TB
     subgraph Controllers["Controllers"]
         ChartsCtrl["ChartsController<br/>analyze_all_charts<br/>get_team_statistics"]
         ClusterCtrl["ClusterController<br/>fetch_nodes<br/>fetch_events<br/>fetch_pdbs"]
-        TeamCtrl["TeamController<br/>get_team_info<br/>map_chart_team"]
+        TeamCtrl["Team Module<br/>get_team_info<br/>map_chart_team"]
     end
 
     subgraph OptimizerMod["Optimizer Module"]
@@ -391,7 +391,7 @@ sequenceDiagram
     participant Presenter as WorkloadsPresenter
     participant Controller as ClusterController
     participant Fetchers as Fetchers (Pod, Node, Event, TopMetrics)
-    participant Analyzers as Analyzers (PDB, Distribution)
+    participant Utils as Utils (cluster_summary)
     participant UI as Widgets (Tables, KPIs)
 
     Screen->>Screen: on_mount()
@@ -406,8 +406,8 @@ sequenceDiagram
         Controller->>Fetchers: NodeFetcher.fetch()
         Fetchers-->>Presenter: WorkloadsSourceLoaded("nodes")
     and
-        Controller->>Analyzers: PDBAnalyzer.analyze()
-        Analyzers-->>Presenter: WorkloadsSourceLoaded("pdbs")
+        Controller->>Controller: analyze PDBs
+        Controller-->>Presenter: WorkloadsSourceLoaded("pdbs")
     and
         Controller->>Fetchers: TopMetricsFetcher.fetch()
         Fetchers-->>Presenter: WorkloadsSourceLoaded("metrics")
@@ -598,7 +598,7 @@ graph LR
     subgraph "Per-Screen Data Sources"
         CS["ClusterScreen"] -.-> CC["ClusterController"]
         CES["ChartsExplorerScreen"] -.-> ChC["ChartsController"]
-        CES -.-> TC["TeamController"]
+        CES -.-> TC["Team Module"]
         WS["WorkloadsScreen"] -.-> CC
         OS["OptimizerScreen"] -.-> OM["Optimizer Module"]
         OS -.-> ChC

@@ -48,24 +48,17 @@ classDiagram
         +analyze_limit_request_ratios() list[ExtremeLimitRatio]
         +fetch_live_helm_releases() list[dict]
     }
-    class TeamController {
-        +load_teams() list[str]
-        +get_team(chart_name) str
-        +get_team_for_path(chart_path) str | None
-        +get_all_teams() list[str]
-        +get_teams_with_charts() dict
-        +find_team_info(team_name) list
-        +find_charts_for_team(team_name) list[str]
-        +get_team_owners(team_name) list[str]
-        +has_team(team_name) bool
-        +search_by_owner(owner_pattern) list
-        +group_charts_by_team(charts) dict
+    class TeamModule {
+        <<Module: not a controller>>
+        TeamFetcher
+        TeamParser
+        TeamMapper
     }
 
     AsyncControllerMixin <|-- BaseController
     BaseController <|-- ClusterController
     BaseController <|-- ChartsController
-    BaseController <|-- TeamController
+    ChartsController ..> TeamModule : uses
 ```
 
 ## Fetcher / Parser / Mapper Pipeline per Controller
@@ -88,17 +81,9 @@ flowchart TB
             CC_EP[EventParser]
             CC_PP[PodParser]
         end
-        subgraph "ClusterController Analyzers"
-            CC_EA[EventAnalyzer]
-            CC_PA[PDBAnalyzer]
-            CC_DA[DistributionAnalyzer]
-        end
         CC_NF --> CC_NP
         CC_EF --> CC_EP
         CC_PF --> CC_PP
-        CC_EP --> CC_EA
-        CC_PP --> CC_PA
-        CC_NP --> CC_DA
         CC_TMF -->|"kubectl top"| CC_PP
     end
 
@@ -115,15 +100,15 @@ flowchart TB
         CHC_RF --> CHC_CP
     end
 
-    subgraph "TeamController Pipeline"
+    subgraph "Team Module (no controller class)"
         direction LR
-        subgraph "TeamController Fetchers"
+        subgraph "Team Fetchers"
             TC_TF[TeamFetcher]
         end
-        subgraph "TeamController Parsers"
+        subgraph "Team Parsers"
             TC_TP[TeamParser]
         end
-        subgraph "TeamController Mappers"
+        subgraph "Team Mappers"
             TC_TM[TeamMapper]
         end
         TC_TF --> TC_TP
@@ -149,7 +134,7 @@ flowchart TB
     subgraph Controllers
         CC[ClusterController]
         CHC[ChartsController]
-        TC[TeamController]
+        TC[Team Module<br/>Fetcher · Parser · Mapper]
     end
 
     subgraph "Models (not controllers)"
@@ -250,10 +235,9 @@ flowchart LR
 ```
 controllers/
 ├── __init__.py                    # Re-exports: ClusterController, ChartsController,
-│                                  #   TeamController, BaseController, AsyncControllerMixin,
+│                                  #   BaseController, AsyncControllerMixin,
 │                                  #   WorkerResult, LoadingProgress, FetchStatus,
-│                                  #   EventAnalyzer, PDBAnalyzer, DistributionAnalyzer,
-│                                  #   TeamMapper, TeamInfo, OptimizerController, etc.
+│                                  #   TeamMapper, TeamInfo, etc.
 ├── base/
 │   ├── __init__.py                # AsyncControllerMixin, BaseController, WorkerResult, LoadingProgress
 │   └── base_controller.py         # AsyncControllerMixin, BaseController, WorkerResult
@@ -282,25 +266,17 @@ controllers/
 │   └── parsers/
 │       ├── __init__.py
 │       └── chart_parser.py        # ChartParser
-├── team/
-│   ├── __init__.py
-│   ├── controller.py              # TeamController
-│   ├── fetchers/
-│   │   ├── __init__.py
-│   │   └── team_fetcher.py        # TeamFetcher
-│   ├── parsers/
-│   │   ├── __init__.py
-│   │   └── team_parser.py         # TeamParser
-│   └── mappers/
-│       ├── __init__.py
-│       └── team_mapper.py         # TeamMapper, TeamInfo (re-export)
-└── analyzers/
-    ├── __init__.py                # EventAnalyzer, PDBAnalyzer, DistributionAnalyzer,
-    │                              #   count_events_by_category, analyze_blocking_pdbs, _get_label_value
-    ├── event_analyzer.py          # EventAnalyzer, count_events_by_category
-    ├── pdb_analyzer.py            # PDBAnalyzer, analyze_blocking_pdbs
-    └── distribution_analyzer.py   # DistributionAnalyzer, _get_label_value,
-                                   #   fetch_and_analyze_distributions
+└── team/                          # Module (no controller class)
+    ├── __init__.py                # TeamFetcher, TeamInfo, TeamMapper
+    ├── fetchers/
+    │   ├── __init__.py
+    │   └── team_fetcher.py        # TeamFetcher
+    ├── parsers/
+    │   ├── __init__.py
+    │   └── team_parser.py         # TeamParser
+    └── mappers/
+        ├── __init__.py
+        └── team_mapper.py         # TeamMapper, TeamInfo (re-export)
 ```
 
 ## Data Flow
@@ -319,7 +295,7 @@ flowchart TB
     subgraph Controllers
         CC[ClusterController]
         CHC[ChartsController]
-        TC[TeamController]
+        TC[Team Module<br/>Fetcher · Parser · Mapper]
     end
 
     subgraph "Fetchers & Parsers"
@@ -329,12 +305,6 @@ flowchart TB
         CHP[ChartParser]
         TF[TeamFetcher]
         TP[TeamParser / TeamMapper]
-    end
-
-    subgraph Analyzers
-        EA[EventAnalyzer]
-        PA[PDBAnalyzer]
-        DA[DistributionAnalyzer]
     end
 
     subgraph "Optimizer Module (separate)"
@@ -357,9 +327,6 @@ flowchart TB
 
     CC --> CF
     CF --> NP
-    CC --> EA
-    CC --> PA
-    CC --> DA
 
     CHC --> CHF
     CHF --> CHP
@@ -823,11 +790,11 @@ ChartInfo(
 
 ---
 
-## TeamController
+## Team Module
 
-**Location**: `controllers/team/controller.py`
+**Location**: `controllers/team/` (no controller class — provides fetcher, parser, and mapper)
 
-Manages team data from CODEOWNERS file.
+Manages team data from CODEOWNERS file. Used by `ChartsController` for chart-to-team mapping.
 
 ### Sub-modules
 
@@ -836,36 +803,6 @@ Manages team data from CODEOWNERS file.
 | `fetchers/` | `team_fetcher.py` | Fetch and parse CODEOWNERS data |
 | `parsers/` | `team_parser.py` | Parse team statistics, group charts by team |
 | `mappers/` | `team_mapper.py` | Map charts to teams, resolve team names |
-
-### Constructor
-
-```python
-def __init__(self, codeowners_path: Path | None = None) -> None:
-    """Initialize the team controller.
-
-    Args:
-        codeowners_path: Optional path to CODEOWNERS file.
-    """
-```
-
-### Methods
-
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `check_connection()` | `bool` | Check if CODEOWNERS file exists |
-| `fetch_all()` | `dict` | Fetch all team data |
-| `load_teams()` | `list[str]` | Load team names from CODEOWNERS |
-| `get_team(chart_name)` | `str` | Get team name for a chart by name |
-| `get_team_for_path(chart_path)` | `str \| None` | Get team for a chart path |
-| `get_all_teams()` | `list[str]` | List all unique team names (sorted) |
-| `get_teams_with_charts()` | `dict[str, list[str]]` | Map teams to their charts |
-| `find_team_info(team_name)` | `list[TeamInfo]` | Find TeamInfo entries for a team |
-| `find_charts_for_team(team_name)` | `list[str]` | Get chart patterns owned by a team |
-| `get_team_owners(team_name)` | `list[str]` | Get owner references for a team |
-| `has_team(team_name)` | `bool` | Check if a team exists |
-| `search_by_owner(owner_pattern)` | `list[TeamInfo]` | Find teams by owner pattern |
-| `group_charts_by_team(charts)` | `dict[str, list[dict]]` | Group chart dicts by team |
-| `to_dict()` | `dict[str, Any]` | Export team mapping as dict |
 
 ### TeamMapper
 
@@ -955,123 +892,6 @@ class TeamParser:
 
 ---
 
-## Analyzers
-
-**Location**: `controllers/analyzers/`
-
-Specialized analysis classes used by ClusterController for interpreting cluster data. Analyzers operate on parsed model objects (not raw JSON) and produce summary/insight objects consumed by presenters.
-
-| Analyzer | File | Exported Functions | Purpose |
-|----------|------|--------------------|---------|
-| `EventAnalyzer` | `event_analyzer.py` | `count_events_by_category` | Categorizes events (OOM, scheduling failures, backoff, unhealthy, mount failures, evictions) |
-| `PDBAnalyzer` | `pdb_analyzer.py` | `analyze_blocking_pdbs` | Detects blocking PDBs, classifies risk levels (critical/high/medium/low) |
-| `DistributionAnalyzer` | `distribution_analyzer.py` | `_get_label_value`, `fetch_and_analyze_distributions` | Analyzes distribution across nodes, AZs, instance types, and node groups |
-
-### Analyzer Integration
-
-```mermaid
-flowchart LR
-    subgraph "Parsed Models"
-        NI["list[NodeInfo]"]
-        ES["EventSummary"]
-        PI["list[PDBInfo]"]
-    end
-
-    subgraph "Analyzers"
-        EA[EventAnalyzer]
-        PA[PDBAnalyzer]
-        DA[DistributionAnalyzer]
-    end
-
-    subgraph "Analysis Results"
-        EC["Event categories<br/>(oom, scheduling, backoff, ...)"]
-        BP["Blocking PDBs<br/>(critical/high/medium/low)"]
-        DD["Distribution data<br/>(AZ, instance type, node group)"]
-    end
-
-    ES --> EA --> EC
-    PI --> PA --> BP
-    NI --> DA --> DD
-```
-
-### EventAnalyzer
-
-```python
-class EventAnalyzer:
-    """Analyzes Kubernetes cluster events for various issue categories."""
-
-    @classmethod
-    def is_oom_event(cls, reason: str, message: str) -> bool: ...
-    @classmethod
-    def is_node_not_ready_event(cls, reason: str, involved_object_kind: str) -> bool: ...
-    @classmethod
-    def is_scheduling_failure(cls, reason: str) -> bool: ...
-    @classmethod
-    def is_backoff_event(cls, reason: str, message: str) -> bool: ...
-    @classmethod
-    def is_unhealthy_event(cls, reason: str) -> bool: ...
-    @classmethod
-    def is_failed_mount_event(cls, reason: str) -> bool: ...
-    @classmethod
-    def is_eviction_event(cls, reason: str, message: str) -> bool: ...
-    @classmethod
-    def parse_event_timestamp(cls, event: dict) -> tuple[str | None, datetime | None]: ...
-    @classmethod
-    def is_event_recent(cls, event_datetime: datetime | None, max_age_seconds: float) -> bool: ...
-    @classmethod
-    def classify_event(cls, event: dict, max_age_seconds: float) -> dict | None: ...
-    @classmethod
-    def parse_events_json(cls, output: str) -> dict[str, Any]: ...
-
-
-def count_events_by_category(
-    events: list[dict], max_age_hours: float = 1.0
-) -> dict[str, int]:
-    """Count events by category (oom, node_not_ready, failed_scheduling, etc.)."""
-```
-
-### PDBAnalyzer
-
-```python
-class PDBAnalyzer:
-    """Analyzes PodDisruptionBudgets for blocking issues and conflicts."""
-
-    def analyze(self, pdb: PDBInfo) -> PDBInfo:
-        """Analyze a PDB for blocking issues. Mutates and returns the PDBInfo."""
-        ...
-
-    @staticmethod
-    def classify_blocking_risk(pdb: PDBInfo) -> str:
-        """Classify risk level: critical, high, medium, or low."""
-        ...
-
-
-def analyze_blocking_pdbs(pdbs: list[PDBInfo]) -> dict[str, Any]:
-    """Analyze PDBs and return blocking PDB summary.
-
-    Returns:
-        {"total_pdbs": int, "blocking_pdbs": list[BlockingPDBInfo], "blocking_count": int}
-    """
-```
-
-### DistributionAnalyzer
-
-```python
-class DistributionAnalyzer:
-    """Analyzes distribution of cluster resources."""
-
-    def __init__(self, nodes_output: str, pods_output: str | None = None) -> None: ...
-
-    def get_node_conditions_summary(self) -> dict[str, dict[str, int]]: ...
-    def get_node_taints_analysis(self) -> dict[str, Any]: ...
-    def get_kubelet_version_distribution(self) -> dict[str, int]: ...
-    def get_instance_type_distribution(self) -> dict[str, int]: ...
-    def get_az_distribution(self) -> dict[str, int]: ...
-    def get_node_groups_az_matrix(self) -> dict[str, dict[str, int]]: ...
-    def get_high_pod_count_nodes(self, threshold_pct: float = 80.0) -> list[dict]: ...
-    def get_all_distributions(self) -> dict[str, Any]: ...
-```
-
 ---
 
 ## Optimizer Module (Separate Subsystem)
@@ -1092,6 +912,7 @@ flowchart TB
         FFA --> TPS[template_patch_suggester.py]
         FFA --> WD[wiring_diagnoser.py]
         A --> RRI[rendered_rule_input.py]
+        A --> RIC[resource_impact_calculator.py]
     end
 
     subgraph "kubeagle/models/optimization/"

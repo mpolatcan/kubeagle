@@ -83,7 +83,7 @@ class SettingsPresenter:
             "ai-fix-codex-model-select": self._settings.ai_fix_codex_model,
             "ai-fix-claude-model-select": self._settings.ai_fix_claude_model,
             "ai-fix-full-fix-prompt-input": self._settings.ai_fix_full_fix_system_prompt,
-            "ai-fix-bulk-parallelism-input": self._settings.ai_fix_bulk_parallelism,
+            "ai-fix-bulk-parallelism-select": self._settings.ai_fix_bulk_parallelism,
             "progressive-parallelism-select": self._settings.progressive_parallelism,
             "progressive-yield-interval-select": self._settings.progressive_yield_interval,
             "use-cluster-values-switch": self._settings.use_cluster_values,
@@ -125,8 +125,6 @@ class SettingsPresenter:
             THEME_DEFAULT,
         )
         from kubeagle.constants.limits import (
-            AI_FIX_BULK_PARALLELISM_MAX,
-            AI_FIX_BULK_PARALLELISM_MIN,
             PROGRESSIVE_PARALLELISM_MAX,
             PROGRESSIVE_PARALLELISM_MIN,
             PROGRESSIVE_YIELD_INTERVAL_MAX,
@@ -201,7 +199,7 @@ class SettingsPresenter:
             or ""
         ).strip()
         ai_fix_bulk_parallelism = self._parse_int(
-            input_values.get("ai-fix-bulk-parallelism-input", ""),
+            input_values.get("ai-fix-bulk-parallelism-select", ""),
             AI_FIX_BULK_PARALLELISM_DEFAULT,
         )
         progressive_parallelism = self._parse_int(
@@ -266,15 +264,6 @@ class SettingsPresenter:
                 f"AI fix system prompt is too long (max {AI_FIX_SYSTEM_PROMPT_MAX_CHARS} characters)."
             )
             ai_fix_full_fix_system_prompt = AI_FIX_FULL_FIX_SYSTEM_PROMPT_DEFAULT
-        if (
-            ai_fix_bulk_parallelism < AI_FIX_BULK_PARALLELISM_MIN
-            or ai_fix_bulk_parallelism > AI_FIX_BULK_PARALLELISM_MAX
-        ):
-            errors.append(
-                "AI fix bulk parallelism must be between "
-                f"{AI_FIX_BULK_PARALLELISM_MIN}-{AI_FIX_BULK_PARALLELISM_MAX}."
-            )
-            ai_fix_bulk_parallelism = AI_FIX_BULK_PARALLELISM_DEFAULT
         if (
             progressive_parallelism < PROGRESSIVE_PARALLELISM_MIN
             or progressive_parallelism > PROGRESSIVE_PARALLELISM_MAX

@@ -209,7 +209,7 @@ kubeagle/
 │       ├── common.py
 │       └── teams.py
 │
-├── optimizer/            # Optimizer module (12 modules)
+├── optimizer/            # Optimizer module (13 modules)
 │   ├── __init__.py
 │   ├── analyzer.py           # ChartAnalyzer
 │   ├── fixer.py              # FixGenerator
@@ -222,7 +222,8 @@ kubeagle/
 │   ├── template_patch_suggester.py
 │   ├── rendered_rule_input.py
 │   ├── full_fix_applier.py   # FullFixApplyResult, _Hunk
-│   └── wiring_diagnoser.py
+│   ├── wiring_diagnoser.py
+│   └── resource_impact_calculator.py  # Resource impact estimation
 │
 ├── utils/                # Utilities
 │   ├── resource_parser.py    # Resource string parsing

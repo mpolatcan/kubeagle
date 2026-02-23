@@ -44,6 +44,7 @@ graph TD
         OP --> UOC[UnifiedOptimizerController]
         OP --> OPC[OptimizerController alias]
         OP --> CD[ContainerDict]
+        OP --> RI[ResourceImpact Models]
 
         RE[reports/] --> RD[ReportData]
 
@@ -1051,6 +1052,50 @@ class UnifiedOptimizerController(BaseModel):
 OptimizerController = UnifiedOptimizerController
 ```
 
+## Resource Impact Models (`optimization/resource_impact.py`)
+
+Models for before/after optimization resource impact analysis, node estimation, and cost savings calculation.
+
+```mermaid
+flowchart LR
+    subgraph "Per-Chart"
+        CRS[ChartResourceSnapshot]
+    end
+    subgraph "Fleet Aggregation"
+        FRS[FleetResourceSummary]
+    end
+    subgraph "Comparison"
+        RD[ResourceDelta]
+    end
+    subgraph "Infrastructure"
+        ITS[InstanceTypeSpec]
+        NE[NodeEstimation]
+        CNG[ClusterNodeGroup]
+    end
+    subgraph "Result"
+        RIR[ResourceImpactResult]
+    end
+
+    CRS -->|aggregated| FRS
+    FRS -->|before vs after| RD
+    RD --> RIR
+    ITS --> NE
+    NE --> RIR
+    CNG --> RIR
+```
+
+| Model | Purpose | Key Fields |
+|-------|---------|------------|
+| `ChartResourceSnapshot` | Per-chart resource snapshot (before or after) | name, team, replicas, cpu/memory request/limit per replica and total |
+| `FleetResourceSummary` | Aggregated fleet resource totals | cpu/memory request/limit totals, chart_count, total_replicas |
+| `ResourceDelta` | Delta between before and after summaries | cpu/memory diffs (absolute + percentage), replicas diff |
+| `InstanceTypeSpec` | AWS EC2 instance type specification | name, vcpus, memory_gib, hourly/spot prices |
+| `NodeEstimation` | Node estimation for a specific instance type | nodes before/after, reduction, cost savings monthly |
+| `ClusterNodeGroup` | Actual cluster node group by instance type | instance_type, node_count, allocatable resources, cost savings |
+| `ResourceImpactResult` | Complete resource impact analysis result | before/after summaries, delta, chart snapshots, node estimations |
+
+---
+
 ## Optimizer Protocol Models
 
 These models live in `kubeagle/optimizer/` (not `models/`) and define the structured contracts for AI-powered fix generation, LLM CLI integration, fix verification, and fix application.
@@ -1629,6 +1674,13 @@ fix = optimizer.generate_fix(chart, violations[0])
 | `UnifiedOptimizerController` | optimization | `optimizer_controller.py` | BaseModel | Chart-optimizer bridge |
 | `OptimizerController` | optimization | `optimizer_controller.py` | Alias | Backward compat alias |
 | `ContainerDict` | optimization | `optimizer_controller.py` | TypedDict | Container type for rules |
+| `ChartResourceSnapshot` | optimization | `resource_impact.py` | BaseModel | Per-chart resource snapshot |
+| `FleetResourceSummary` | optimization | `resource_impact.py` | BaseModel | Aggregated fleet totals |
+| `ResourceDelta` | optimization | `resource_impact.py` | BaseModel | Before/after resource delta |
+| `InstanceTypeSpec` | optimization | `resource_impact.py` | BaseModel | EC2 instance type spec |
+| `NodeEstimation` | optimization | `resource_impact.py` | BaseModel | Node count estimation |
+| `ClusterNodeGroup` | optimization | `resource_impact.py` | BaseModel | Cluster node group data |
+| `ResourceImpactResult` | optimization | `resource_impact.py` | BaseModel | Complete impact analysis |
 | `ReportData` | reports | `report_data.py` | BaseModel | Report export data |
 | `DataCache` | cache | `data_cache.py` | Plain class | Data caching |
 | `ColumnDef` | types | `columns.py` | dataclass | Column definitions |
@@ -1679,6 +1731,9 @@ from kubeagle.models import (
     OptimizationRule, OptimizationViolation,
     UnifiedOptimizerController, OptimizerController,
     ContainerDict,
+    # Resource Impact
+    ChartResourceSnapshot, FleetResourceSummary, ResourceDelta,
+    InstanceTypeSpec, NodeEstimation, ClusterNodeGroup, ResourceImpactResult,
     # Reports
     ReportData,
     # Types

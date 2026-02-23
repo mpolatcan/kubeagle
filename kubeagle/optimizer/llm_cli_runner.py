@@ -48,26 +48,43 @@ _CLAUDE_SESSION_ENV_VARS: tuple[str, ...] = (
 
 _CLAUDE_SDK_CHECKED: bool = False
 _CLAUDE_SDK_OK: bool = False
+_CLAUDE_SDK_ERROR: str = ""
 
 
 def _claude_agent_sdk_available() -> bool:
     """Return True if the claude-agent-sdk package is importable.
 
-    The result is cached after the first successful probe so that Textual
-    terminal takeover or other runtime environment changes cannot flip
-    a previously-working import to False.
+    A successful import is cached permanently so that Textual terminal
+    takeover or other runtime changes cannot flip a working import to False.
+    A failed import is retried each call so that late installation (e.g.
+    ``pip install claude-agent-sdk`` while the TUI is running) is picked up.
     """
-    global _CLAUDE_SDK_CHECKED, _CLAUDE_SDK_OK
-    if _CLAUDE_SDK_CHECKED:
-        return _CLAUDE_SDK_OK
+    global _CLAUDE_SDK_CHECKED, _CLAUDE_SDK_OK, _CLAUDE_SDK_ERROR
+    if _CLAUDE_SDK_OK:
+        return True
     try:
         from claude_agent_sdk import query as _q
 
         _CLAUDE_SDK_OK = True
-    except Exception:
+        _CLAUDE_SDK_ERROR = ""
+    except Exception as exc:
         _CLAUDE_SDK_OK = False
+        _CLAUDE_SDK_ERROR = str(exc)
     _CLAUDE_SDK_CHECKED = True
     return _CLAUDE_SDK_OK
+
+
+def _claude_sdk_unavailable_reason() -> str:
+    """Return a human-readable reason if the SDK is not available."""
+    if _CLAUDE_SDK_OK:
+        return ""
+    if not _CLAUDE_SDK_CHECKED:
+        _claude_agent_sdk_available()
+    if _CLAUDE_SDK_OK:
+        return ""
+    if _CLAUDE_SDK_ERROR:
+        return _CLAUDE_SDK_ERROR
+    return "claude-agent-sdk not installed"
 
 
 def detect_llm_cli_capabilities() -> dict[LLMProvider, bool]:
@@ -81,6 +98,15 @@ def detect_llm_cli_capabilities() -> dict[LLMProvider, bool]:
 def provider_supports_direct_edit(provider: LLMProvider) -> bool:
     """Return whether provider appears available for direct-edit execution."""
     return detect_llm_cli_capabilities().get(provider, False)
+
+
+def provider_unavailable_reason(provider: LLMProvider) -> str:
+    """Return a human-readable reason why *provider* is not available."""
+    if provider == LLMProvider.CLAUDE:
+        return _claude_sdk_unavailable_reason()
+    if provider == LLMProvider.CODEX and shutil.which("codex") is None:
+        return "codex binary not found on PATH"
+    return ""
 
 
 def run_llm_direct_edit(

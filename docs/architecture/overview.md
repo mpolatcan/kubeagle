@@ -30,11 +30,10 @@ graph TB
         subgraph Controllers["Controllers"]
             ChartsController
             ClusterController
-            TeamController
-            Analyzers
+            TeamModule["Team Module"]
         end
 
-        subgraph Optimizer["Optimizer Module (12 modules)"]
+        subgraph Optimizer["Optimizer Module (13 modules)"]
             analyzer[analyzer.py]
             fixer[fixer.py]
             rules[rules.py]
@@ -47,6 +46,7 @@ graph TB
             rendered_rule_input[rendered_rule_input.py]
             full_fix_applier[full_fix_applier.py]
             wiring_diagnoser[wiring_diagnoser.py]
+            resource_impact[resource_impact_calculator.py]
         end
 
         subgraph Models["Models (Pydantic)"]
@@ -261,7 +261,6 @@ classDiagram
     AsyncControllerMixin <|-- BaseController
     BaseController <|-- ChartsController
     BaseController <|-- ClusterController
-    BaseController <|-- TeamController
 
     class ChartsController {
         +analyze_all_charts_async()
@@ -272,34 +271,26 @@ classDiagram
         +get_event_summary()
         +fetch_pdbs()
     }
-    class TeamController {
-        +get_team_info()
-        +map_chart_team()
-    }
 
-    class Analyzers {
-        EventAnalyzer
-        PDBAnalyzer
-        DistributionAnalyzer
+    class TeamModule {
+        <<Module>>
+        TeamFetcher
+        TeamParser
+        TeamMapper
     }
+    ChartsController ..> TeamModule : uses
+
+    note for ClusterController "Analysis logic (events, PDB, distribution)\nis embedded in controller methods\nand cluster utils"
 ```
 
 **Controller Sub-structure:**
 Each controller module has `fetchers/`, `parsers/`, `mappers/` sub-directories for separation of concerns.
 
-| Controller | Fetchers | Parsers | Mappers |
-|-----------|----------|---------|---------|
+| Module | Fetchers | Parsers | Mappers |
+|--------|----------|---------|---------|
 | ClusterController | ClusterFetcher, NodeFetcher, PodFetcher, EventFetcher, TopMetricsFetcher | NodeParser, PodParser, EventParser | -- |
 | ChartsController | ChartFetcher, ReleaseFetcher | ChartParser | -- |
-| TeamController | TeamFetcher | TeamParser | TeamMapper |
-
-**Analyzers (`controllers/analyzers/`):**
-
-| Analyzer | Purpose |
-|----------|---------|
-| DistributionAnalyzer | Workload distribution analysis across nodes |
-| EventAnalyzer | Kubernetes event analysis and aggregation |
-| PDBAnalyzer | Pod Disruption Budget coverage analysis |
+| Team Module | TeamFetcher | TeamParser | TeamMapper |
 
 **Key Features:**
 - Semaphore-based concurrency control (default: 8)
@@ -307,7 +298,7 @@ Each controller module has `fetchers/`, `parsers/`, `mappers/` sub-directories f
 - Progress reporting
 - Error handling with `WorkerResult`
 
-### 5. Optimizer Module (`optimizer/`) - 12 Modules
+### 5. Optimizer Module (`optimizer/`) - 13 Modules
 
 The optimizer is a **separate module** (not part of controllers) that handles chart analysis, violation detection, and AI-assisted fix generation.
 
@@ -325,6 +316,7 @@ The optimizer is a **separate module** (not part of controllers) that handles ch
 | `rendered_rule_input.py` | Convert rendered manifests to optimizer rule input payloads | `build_rule_inputs_from_rendered` |
 | `template_patch_suggester.py` | Suggestion-only template patch hints for wiring mismatches | `build_template_patch_suggestions` |
 | `wiring_diagnoser.py` | Template wiring issue diagnosis for unresolved fix outcomes | `diagnose_template_wiring` |
+| `resource_impact_calculator.py` | Calculate resource impact of optimization fixes | Resource impact estimation |
 
 **Optimizer Internal Architecture:**
 
@@ -364,6 +356,10 @@ graph TB
         WiringDiagnoser["wiring_diagnoser.py"]
     end
 
+    subgraph Impact["Impact Analysis"]
+        ResourceImpact["resource_impact_calculator.py"]
+    end
+
     RuleDefs --> ChartAnalyzer
     ConfigThresholds --> RuleDefs
     ChartAnalyzer --> FixGenerator
@@ -377,6 +373,7 @@ graph TB
     FixVerifier --> FixApplier
     RenderedInput --> ChartAnalyzer
     WiringDiagnoser --> RenderedInput
+    ResourceImpact --> ChartAnalyzer
 ```
 
 **AI Full Fix Pipeline Detail:**
