@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import io
 import os
 import re
 import shutil
@@ -15,6 +16,8 @@ from threading import Lock
 from typing import Any
 
 import yaml
+from ruamel.yaml import YAML
+from ruamel.yaml.comments import CommentedMap
 
 from kubeagle.optimizer.llm_patch_protocol import FullFixTemplatePatch
 
@@ -174,16 +177,19 @@ def apply_full_fix_bundle_atomic(
             # Values patch
             if values_patch:
                 raw_values = values_path.read_text(encoding="utf-8")
-                parsed_values = yaml.safe_load(raw_values) or {}
+                ryaml = YAML()
+                ryaml.preserve_quotes = True
+                parsed_values = ryaml.load(raw_values)
+                if parsed_values is None:
+                    parsed_values = CommentedMap()
                 if not isinstance(parsed_values, dict):
                     raise ValueError("values.yaml root must be mapping to apply values patch.")
-                merged_values = _deep_merge_dict(parsed_values, values_patch)
+                _deep_merge_roundtrip(parsed_values, values_patch)
                 if values_path not in snapshots:
                     snapshots[values_path] = values_path.read_bytes()
-                values_path.write_text(
-                    yaml.safe_dump(merged_values, sort_keys=False),
-                    encoding="utf-8",
-                )
+                buf = io.StringIO()
+                ryaml.dump(parsed_values, buf)
+                values_path.write_text(buf.getvalue(), encoding="utf-8")
                 touched_files.append(str(values_path))
 
             return FullFixApplyResult(
@@ -529,14 +535,17 @@ def _validate_relative_template_path(rel_path: str) -> None:
         raise ValueError(f"Only templates/ files are allowed: {rel_path}")
 
 
-def _deep_merge_dict(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    merged = dict(base)
+def _deep_merge_roundtrip(base: dict[str, Any], override: dict[str, Any]) -> None:
+    """Deep-merge *override* into a ruamel.yaml round-trip mapping in-place.
+
+    Preserves the existing CommentedMap structure (quotes, comments, blank
+    lines) while recursively adding/updating keys from the patch.
+    """
     for key, value in override.items():
-        if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
-            merged[key] = _deep_merge_dict(merged[key], value)
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            _deep_merge_roundtrip(base[key], value)
         else:
-            merged[key] = value
-    return merged
+            base[key] = value
 
 
 def _chart_lock(chart_dir: Path) -> Lock:

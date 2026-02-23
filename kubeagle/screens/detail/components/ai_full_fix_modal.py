@@ -97,6 +97,7 @@ class ChartBundleEditorState:
     template_diff_text: str = ""
     template_patches_json: str = "[]"
     raw_llm_output_text: str = ""
+    sent_prompt_text: str = ""
     artifact_key: str = ""
     execution_log_text: str = ""
     values_preview_text: str = "{}\n"
@@ -1066,6 +1067,7 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
                 "template_diff_text": bundle.template_diff_text,
                 "template_patches_json": bundle.template_patches_json,
                 "raw_llm_output_text": bundle.raw_llm_output_text,
+                "sent_prompt_text": bundle.sent_prompt_text,
                 "artifact_key": bundle.artifact_key,
                 "execution_log_text": bundle.execution_log_text,
                 "values_preview_text": bundle.values_preview_text,
@@ -1086,6 +1088,7 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
         template_diff_text: str,
         template_patches_json: str | None = None,
         raw_llm_output_text: str | None = None,
+        sent_prompt_text: str | None = None,
         artifact_key: str | None = None,
         execution_log_text: str | None = None,
         values_preview_text: str,
@@ -1104,6 +1107,8 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
             bundle.template_patches_json = template_patches_json
         if raw_llm_output_text is not None:
             bundle.raw_llm_output_text = raw_llm_output_text
+        if sent_prompt_text is not None:
+            bundle.sent_prompt_text = sent_prompt_text
         if artifact_key is not None:
             bundle.artifact_key = artifact_key
         if execution_log_text is not None:

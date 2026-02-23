@@ -1,10 +1,11 @@
 """Fix generator for optimization violations."""
 
-import copy
+import io
 import logging
 from typing import Any
 
-import yaml
+from ruamel.yaml import YAML
+from ruamel.yaml.comments import CommentedMap
 
 from kubeagle.optimizer.rules import (
     BURSTABLE_TARGET_RATIO,
@@ -435,17 +436,23 @@ def apply_fix(values_path: str, fix: dict[str, Any]) -> bool:
         return False
 
     try:
-        current = yaml.safe_load(content) or {}
-    except yaml.YAMLError as e:
+        ryaml = YAML()
+        ryaml.preserve_quotes = True
+        current = ryaml.load(content)
+        if current is None:
+            current = CommentedMap()
+    except Exception as e:
         logger.error("Failed to parse values file %s: %s", values_path, e)
         return False
 
-    # Deep merge the fix
-    merged = _deep_merge(copy.deepcopy(current), fix)
+    # Deep merge the fix in-place on the round-trip structure
+    _deep_merge_roundtrip(current, fix)
 
     try:
+        buf = io.StringIO()
+        ryaml.dump(current, buf)
         with open(values_path, "w") as f:
-            yaml.dump(merged, f, default_flow_style=False, sort_keys=False)
+            f.write(buf.getvalue())
     except OSError as e:
         logger.error("Failed to write values file %s: %s", values_path, e)
         # Best-effort in-memory rollback without leaving backup artifacts.
@@ -471,3 +478,16 @@ def _deep_merge(base: dict, override: dict) -> dict:
         else:
             base[key] = value
     return base
+
+
+def _deep_merge_roundtrip(base: dict[str, Any], override: dict[str, Any]) -> None:
+    """Deep-merge *override* into a ruamel.yaml round-trip mapping in-place.
+
+    Preserves the existing CommentedMap structure (quotes, comments, blank
+    lines) while recursively adding/updating keys from the patch.
+    """
+    for key, value in override.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            _deep_merge_roundtrip(base[key], value)
+        else:
+            base[key] = value

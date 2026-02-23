@@ -5915,6 +5915,7 @@ class ViolationsView(CustomVertical):
             "template_diff_text": diff_text,
             "template_patches_json": template_patches_json,
             "raw_llm_output_text": raw_output_text,
+            "sent_prompt_text": str(ai_result.prompt or ""),
             "artifact_key": artifact_key,
             "execution_log_text": execution_log_text,
             "artifact_cleanup_on_close": artifact_cleanup_on_close,
@@ -6549,6 +6550,7 @@ class ViolationsView(CustomVertical):
                         template_diff_text=str(entry.get("template_diff_text", "")),
                         template_patches_json=str(entry.get("template_patches_json", "[]")),
                         raw_llm_output_text=str(entry.get("raw_llm_output_text", "")),
+                        sent_prompt_text=str(entry.get("sent_prompt_text", "")),
                         artifact_key=str(entry.get("artifact_key", "")),
                         execution_log_text=str(entry.get("execution_log_text", "")),
                         values_preview_text=str(entry.get("values_preview_text", "{}\n")),
@@ -6633,6 +6635,7 @@ class ViolationsView(CustomVertical):
                 payload["template_diff_text"] = str(entry.get("template_diff_text", ""))
                 payload["template_patches_json"] = str(entry.get("template_patches_json", "[]"))
                 payload["raw_llm_output_text"] = str(entry.get("raw_llm_output_text", ""))
+                payload["sent_prompt_text"] = str(entry.get("sent_prompt_text", ""))
                 payload["artifact_key"] = str(entry.get("artifact_key", ""))
                 payload["execution_log_text"] = str(entry.get("execution_log_text", ""))
                 payload["values_preview_text"] = str(entry.get("values_preview_text", "{}\n"))
@@ -6649,6 +6652,7 @@ class ViolationsView(CustomVertical):
                         template_diff_text=str(payload.get("template_diff_text", "")),
                         template_patches_json=str(payload.get("template_patches_json", "[]")),
                         raw_llm_output_text=str(payload.get("raw_llm_output_text", "")),
+                        sent_prompt_text=str(payload.get("sent_prompt_text", "")),
                         artifact_key=str(payload.get("artifact_key", "")),
                         execution_log_text=str(payload.get("execution_log_text", "")),
                         values_preview_text=str(payload.get("values_preview_text", "{}\n")),
@@ -6740,6 +6744,7 @@ class ViolationsView(CustomVertical):
                         template_diff_text=str(payload.get("template_diff_text", "")),
                         template_patches_json=str(payload.get("template_patches_json", "[]")),
                         raw_llm_output_text=str(payload.get("raw_llm_output_text", "")),
+                        sent_prompt_text=str(payload.get("sent_prompt_text", "")),
                         artifact_key=str(payload.get("artifact_key", "")),
                         execution_log_text=str(payload.get("execution_log_text", "")),
                         values_preview_text=str(payload.get("values_preview_text", "{}\n")),
@@ -6775,10 +6780,12 @@ class ViolationsView(CustomVertical):
                     payload.get("execution_log_text")
                     or payload.get("raw_llm_output_text", "")
                 ).strip()
+                prompt_text = str(payload.get("sent_prompt_text", "")).strip()
                 await self._open_bulk_raw_llm_output_modal(
                     title="LLM Output",
                     subtitle=f"{chart_name} | Provider response",
                     raw_text=raw_text,
+                    prompt_text=prompt_text,
                 )
             if keep_open and modal is not None:
                 return
@@ -6876,6 +6883,7 @@ class ViolationsView(CustomVertical):
                     template_diff_text=str(payload.get("template_diff_text", "")),
                     template_patches_json=str(payload.get("template_patches_json", "[]")),
                     raw_llm_output_text=str(payload.get("raw_llm_output_text", "")),
+                    sent_prompt_text=str(payload.get("sent_prompt_text", "")),
                     artifact_key=str(payload.get("artifact_key", "")),
                     execution_log_text=str(payload.get("execution_log_text", "")),
                     values_preview_text=str(
@@ -6948,8 +6956,19 @@ class ViolationsView(CustomVertical):
         title: str,
         subtitle: str,
         raw_text: str,
+        prompt_text: str = "",
     ) -> None:
-        content = raw_text if raw_text else "# No raw LLM output captured."
+        sections: list[str] = []
+        if prompt_text:
+            sections.append(
+                "═══ SENT PROMPT ═══\n\n"
+                f"{prompt_text}\n\n"
+                "═══ END PROMPT ═══"
+            )
+        if raw_text:
+            sections.append(raw_text)
+        content = "\n\n".join(sections) if sections else "# No raw LLM output captured."
+        full_copy_text = "\n\n".join(sections) if sections else ""
         modal = FixDetailsModal(
             title=title,
             subtitle=subtitle,
@@ -6965,10 +6984,10 @@ class ViolationsView(CustomVertical):
 
         def _on_dismiss(action: str | None) -> None:
             if action == "copy":
-                if not raw_text:
+                if not full_copy_text:
                     self.notify("No raw output to copy", severity="warning")
                 else:
-                    self.app.copy_to_clipboard(raw_text)
+                    self.app.copy_to_clipboard(full_copy_text)
                     self.notify("LLM output copied", severity="information")
             if not closed.done():
                 closed.set_result(None)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import shutil
 import subprocess
 import tempfile
@@ -10,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from ruamel.yaml import YAML
+from ruamel.yaml.comments import CommentedMap
 
 
 @dataclass(slots=True)
@@ -313,18 +316,21 @@ def _strip_chart_dependencies(chart_yaml_path: Path) -> str | None:
     except OSError as exc:
         return f"Failed to read Chart.yaml for parent-only render: {exc!s}"
     try:
-        parsed = yaml.safe_load(raw) or {}
-    except yaml.YAMLError as exc:
+        ryaml = YAML()
+        ryaml.preserve_quotes = True
+        parsed = ryaml.load(raw)
+        if parsed is None:
+            parsed = CommentedMap()
+    except Exception as exc:
         return f"Failed to parse Chart.yaml for parent-only render: {exc!s}"
     if not isinstance(parsed, dict):
         return "Chart.yaml root must be a mapping for parent-only render."
 
     parsed.pop("dependencies", None)
     try:
-        chart_yaml_path.write_text(
-            yaml.safe_dump(parsed, sort_keys=False),
-            encoding="utf-8",
-        )
+        buf = io.StringIO()
+        ryaml.dump(parsed, buf)
+        chart_yaml_path.write_text(buf.getvalue(), encoding="utf-8")
     except OSError as exc:
         return f"Failed to write Chart.yaml for parent-only render: {exc!s}"
     return None

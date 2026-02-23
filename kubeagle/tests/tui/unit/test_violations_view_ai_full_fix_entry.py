@@ -230,10 +230,11 @@ async def test_bulk_raw_llm_action_falls_back_to_raw_output_when_execution_log_e
     view = ViolationsView()
     captured: dict[str, str] = {}
 
-    async def _capture_raw_llm(*, title: str, subtitle: str, raw_text: str) -> None:
+    async def _capture_raw_llm(*, title: str, subtitle: str, raw_text: str, prompt_text: str = "") -> None:
         captured["title"] = title
         captured["subtitle"] = subtitle
         captured["raw_text"] = raw_text
+        captured["prompt_text"] = prompt_text
 
     view._open_bulk_raw_llm_output_modal = _capture_raw_llm  # type: ignore[method-assign]
 
