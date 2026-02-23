@@ -122,12 +122,12 @@ class Kubeagle < Formula
   end
 
   resource "tree-sitter" do
-    url "https://files.pythonhosted.org/packages/2e/39/8e3e89b1f0dae229e46a0e1973a95b62e76b9f6e05a788862a5064738514/tree-sitter-0.25.2.tar.gz"
+    url "https://files.pythonhosted.org/packages/66/7c/0350cfc47faadc0d3cf7d8237a4e34032b3014ddf4a12ded9933e1648b55/tree-sitter-0.25.2.tar.gz"
     sha256 "fe43c158555da46723b28b52e058ad444195afd1db3ca7720c59a254544e9c20"
   end
 
   resource "tree-sitter-yaml" do
-    url "https://files.pythonhosted.org/packages/05/8e/28c41cd1b84a1e77e18b7bb8db7e55f8bee0925bf878d40a4f8d6677e30c/tree_sitter_yaml-0.7.2.tar.gz"
+    url "https://files.pythonhosted.org/packages/57/b6/941d356ac70c90b9d2927375259e3a4204f38f7499ec6e7e8a95b9664689/tree_sitter_yaml-0.7.2.tar.gz"
     sha256 "756db4c09c9d9e97c81699e8f941cb8ce4e51104927f6090eefe638ee567d32c"
   end
 
