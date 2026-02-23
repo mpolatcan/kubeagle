@@ -121,14 +121,24 @@ class Kubeagle < Formula
     sha256 "8dbca0739d487e5bd35ab3ca4b36e11c4078f3a234bfce294b0a0291363404de"
   end
 
-  resource "tree-sitter" do
-    url "https://files.pythonhosted.org/packages/66/7c/0350cfc47faadc0d3cf7d8237a4e34032b3014ddf4a12ded9933e1648b55/tree-sitter-0.25.2.tar.gz"
-    sha256 "fe43c158555da46723b28b52e058ad444195afd1db3ca7720c59a254544e9c20"
+  resource "tree-sitter-arm" do
+    url "https://files.pythonhosted.org/packages/4e/9c/a278b15e6b263e86c5e301c82a60923fa7c59d44f78d7a110a89a413e640/tree_sitter-0.25.2-cp313-cp313-macosx_11_0_arm64.whl", using: :nounzip
+    sha256 "f5ddcd3e291a749b62521f71fc953f66f5fd9743973fd6dd962b092773569601"
   end
 
-  resource "tree-sitter-yaml" do
-    url "https://files.pythonhosted.org/packages/57/b6/941d356ac70c90b9d2927375259e3a4204f38f7499ec6e7e8a95b9664689/tree_sitter_yaml-0.7.2.tar.gz"
-    sha256 "756db4c09c9d9e97c81699e8f941cb8ce4e51104927f6090eefe638ee567d32c"
+  resource "tree-sitter-intel" do
+    url "https://files.pythonhosted.org/packages/8c/67/67492014ce32729b63d7ef318a19f9cfedd855d677de5773476caf771e96/tree_sitter-0.25.2-cp313-cp313-macosx_10_13_x86_64.whl", using: :nounzip
+    sha256 "0628671f0de69bb279558ef6b640bcfc97864fe0026d840f872728a86cd6b6cd"
+  end
+
+  resource "tree-sitter-yaml-arm" do
+    url "https://files.pythonhosted.org/packages/18/0d/15a5add06b3932b5e4ce5f5e8e179197097decfe82a0ef000952c8b98216/tree_sitter_yaml-0.7.2-cp310-abi3-macosx_11_0_arm64.whl", using: :nounzip
+    sha256 "0807b7966e23ddf7dddc4545216e28b5a58cdadedcecca86b8d8c74271a07870"
+  end
+
+  resource "tree-sitter-yaml-intel" do
+    url "https://files.pythonhosted.org/packages/38/29/c0b8dbff302c49ff4284666ffb6f2f21145006843bb4c3a9a85d0ec0b7ae/tree_sitter_yaml-0.7.2-cp310-abi3-macosx_10_9_x86_64.whl", using: :nounzip
+    sha256 "7e269ddcfcab8edb14fbb1f1d34eed1e1e26888f78f94eedfe7cc98c60f8bc9f"
   end
 
   resource "textual" do
@@ -165,7 +175,7 @@ class Kubeagle < Formula
     venv = virtualenv_create(libexec, "python3.13")
 
     # Install pure-Python resources from sdist (skip native wheel resources)
-    wheel_resources = %w[pydantic-core-arm pydantic-core-intel orjson ujson-arm ujson-intel claude-agent-sdk]
+    wheel_resources = %w[pydantic-core-arm pydantic-core-intel orjson ujson-arm ujson-intel claude-agent-sdk tree-sitter-arm tree-sitter-intel tree-sitter-yaml-arm tree-sitter-yaml-intel]
     sdist_resources = resources.reject { |r| wheel_resources.include?(r.name) }
     venv.pip_install sdist_resources
     venv.pip_install_and_link buildpath
@@ -193,6 +203,20 @@ class Kubeagle < Formula
     # ujson (arch-specific)
     ujson_resource = Hardware::CPU.arm? ? "ujson-arm" : "ujson-intel"
     resource(ujson_resource).stage do
+      whl = Dir["*.whl"].first
+      system pip, "-m", "pip", "install", "--no-deps", "--no-compile", whl
+    end
+
+    # tree-sitter (arch-specific — C extension for syntax highlighting)
+    ts_resource = Hardware::CPU.arm? ? "tree-sitter-arm" : "tree-sitter-intel"
+    resource(ts_resource).stage do
+      whl = Dir["*.whl"].first
+      system pip, "-m", "pip", "install", "--no-deps", "--no-compile", whl
+    end
+
+    # tree-sitter-yaml (arch-specific — YAML grammar for TextArea highlighting)
+    ts_yaml_resource = Hardware::CPU.arm? ? "tree-sitter-yaml-arm" : "tree-sitter-yaml-intel"
+    resource(ts_yaml_resource).stage do
       whl = Dir["*.whl"].first
       system pip, "-m", "pip", "install", "--no-deps", "--no-compile", whl
     end

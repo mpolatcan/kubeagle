@@ -230,6 +230,25 @@ def _run_direct_edit_subprocess(
                 attempts=max(1, int(attempts)),
             ),
         )
+    except KeyboardInterrupt:
+        return LLMDirectEditResult(
+            ok=False,
+            provider=provider,
+            command=command,
+            attempts=max(1, int(attempts)),
+            error_message=f"{provider.value} interrupted by user.",
+            log_text=_build_direct_edit_log(
+                provider=provider,
+                command=command,
+                cwd=working_dir,
+                exit_code=-2,
+                changed_rel_paths=[],
+                stdout_tail="",
+                stderr_tail="",
+                error_message=f"{provider.value} interrupted by user.",
+                attempts=max(1, int(attempts)),
+            ),
+        )
 
     after_snapshot = _snapshot_tree_hashes(working_dir)
     changed_rel_paths = _collect_changed_paths(before_snapshot, after_snapshot)
@@ -373,6 +392,13 @@ def _run_claude_agent_sdk_direct_edit(
             ok=False,
             provider=LLMProvider.CLAUDE,
             error_message=f"Agent SDK timed out after {effective_timeout}s",
+            log_text="\n".join(log_lines),
+        )
+    except KeyboardInterrupt:
+        return LLMDirectEditResult(
+            ok=False,
+            provider=LLMProvider.CLAUDE,
+            error_message="Agent SDK interrupted by user.",
             log_text="\n".join(log_lines),
         )
     except Exception as exc:

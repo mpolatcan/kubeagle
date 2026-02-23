@@ -23,6 +23,46 @@ from textual.timer import Timer
 from textual.widgets import RichLog, TextArea
 from textual.widgets._text_area import TREE_SITTER
 
+# Probe which tree-sitter languages are actually usable at import time.
+# tree-sitter may be installed but individual grammar packages (e.g.
+# tree-sitter-yaml) may be missing — especially in brew installs where
+# sdist compilation can silently fail.  Passing an unavailable language
+# to TextArea() raises LanguageDoesNotExist and crashes the TUI.
+_AVAILABLE_TS_LANGUAGES: frozenset[str] = frozenset()
+if TREE_SITTER:
+    _probed: set[str] = set()
+    for _lang_name, _pkg_name in (
+        ("yaml", "tree_sitter_yaml"),
+        ("diff", "tree_sitter_diff"),
+    ):
+        try:
+            __import__(_pkg_name)
+            _probed.add(_lang_name)
+        except Exception:
+            pass
+    _AVAILABLE_TS_LANGUAGES = frozenset(_probed)
+
+
+def _safe_editor_language(language: str | None) -> str | None:
+    """Return *language* only when tree-sitter can actually handle it.
+
+    Falls back to ``None`` (plain-text) for languages that require an
+    external grammar package that is not installed.  Languages built
+    into Textual (python, json, markdown, css, html, toml, sql, regex)
+    are always safe.
+    """
+    if language is None or not TREE_SITTER:
+        return None
+    # Textual ships built-in grammars for these — always available.
+    _TEXTUAL_BUILTINS = {"python", "json", "markdown", "css", "html", "toml", "sql", "regex"}
+    normalized = language.strip().lower()
+    if normalized in _TEXTUAL_BUILTINS:
+        return normalized
+    if normalized in _AVAILABLE_TS_LANGUAGES:
+        return normalized
+    return None
+
+
 from kubeagle.widgets import (
     CustomButton,
     CustomCollapsible,
@@ -477,7 +517,7 @@ class AIFullFixModal(ModalScreen[AIFullFixModalResult | None]):
                     yield CustomStatic("Values (YAML)", classes="apply-fixes-modal-panel-title ui-section-title", markup=False)
                     yield TextArea(
                         text=self._values_patch_text,
-                        language="yaml",
+                        language=_safe_editor_language("yaml"),
                         theme="monokai",
                         show_line_numbers=True,
                         highlight_cursor_line=False,
@@ -487,7 +527,7 @@ class AIFullFixModal(ModalScreen[AIFullFixModalResult | None]):
                     yield CustomStatic("Template Diff (Unified Diff)", classes="apply-fixes-modal-panel-title ui-section-title", markup=False)
                     yield TextArea(
                         text=self._template_diff_text,
-                        language="diff",
+                        language=_safe_editor_language("diff"),
                         theme="monokai",
                         show_line_numbers=True,
                         highlight_cursor_line=False,
@@ -767,7 +807,7 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
                             with CustomContainer(id="ai-full-fix-bulk-values-wrap"):
                                 yield TextArea(
                                     text="{}\n",
-                                    language="yaml",
+                                    language=_safe_editor_language("yaml"),
                                     theme="monokai",
                                     show_line_numbers=True,
                                     highlight_cursor_line=False,
@@ -1310,15 +1350,18 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
 
     def _configure_editor_highlighting(self) -> None:
         editor_theme = self._active_preview_theme()
+        safe_yaml = _safe_editor_language("yaml")
         with contextlib.suppress(Exception):
             editor = self.query_one("#ai-full-fix-bulk-values-editor", TextArea)
-            editor.language = "yaml"
+            if safe_yaml is not None:
+                editor.language = safe_yaml
             _apply_supported_theme(editor, editor_theme)
         with contextlib.suppress(Exception):
             for node in self.query(".ai-full-fix-template-file-editor"):
                 if not isinstance(node, TextArea):
                     continue
-                node.language = "yaml"
+                if safe_yaml is not None:
+                    node.language = safe_yaml
                 _apply_supported_theme(node, editor_theme)
 
     async def _render_template_file_sections(self, template_preview_text: str) -> None:
@@ -1340,7 +1383,7 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
                 for index, section in enumerate(sections):
                     editor = TextArea(
                         text=section.content,
-                        language=section.language,
+                        language=_safe_editor_language(section.language),
                         theme="monokai",
                         show_line_numbers=True,
                         highlight_cursor_line=False,
