@@ -1522,11 +1522,16 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | str | None]):
                 chart_node.set_label(Text(new_label, style=self._chart_row_color(bundle)))
 
     def _chart_marker(self, bundle: ChartBundleEditorState) -> str:
-        if bundle.is_processing or bundle.is_waiting:
+        if bundle.is_processing:
             return self._PULSE_FRAMES[self._pulse_index]
+        if self._is_error_status(bundle.status_text):
+            return "✗"
+        if self._is_success_status(bundle.status_text, can_apply=bundle.can_apply):
+            return "✓"
         if self._is_completed_status(bundle.status_text):
             return "✓"
-        return "○"
+        # Not processing, not completed/success/error → waiting
+        return "⏳"
 
     @classmethod
     def _bundle_render_status(cls, status_text: str) -> str:
@@ -1572,17 +1577,13 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | str | None]):
 
     @classmethod
     def _chart_row_color(cls, bundle: ChartBundleEditorState) -> str:
-        if bundle.is_processing:
-            return "yellow"
-        if bundle.is_waiting or (
-            cls._is_waiting_status(bundle.status_text) and not bundle.can_apply
-        ):
-            return "blue"
         if cls._is_error_status(bundle.status_text):
             return "red"
         if cls._is_success_status(bundle.status_text, can_apply=bundle.can_apply):
             return "green"
-        return "white"
+        if cls._is_completed_status(bundle.status_text):
+            return "green"
+        return "grey70"
 
     @staticmethod
     def _is_waiting_status(status_text: str) -> bool:

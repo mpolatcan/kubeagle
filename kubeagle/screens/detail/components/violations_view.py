@@ -3492,6 +3492,7 @@ class _MinimizedAIFixState:
     is_finished: bool = False
     has_error: bool = False
     populate_tasks: list[asyncio.Task] | None = field(default=None, repr=False)
+    serialized_bundles: dict[str, dict[str, str]] = field(default_factory=dict, repr=False)
     bulk_fix_started_at_monotonic: float | None = None
     bulk_last_elapsed_seconds: float | None = None
 
@@ -6438,6 +6439,7 @@ class ViolationsView(CustomVertical):
                     total_count=total,
                     status_text=status_text,
                     populate_tasks=list(populate_tasks),
+                    serialized_bundles=modal._serialize_bundles(),
                     bulk_fix_started_at_monotonic=modal._bulk_fix_started_at_monotonic,
                     bulk_last_elapsed_seconds=modal._bulk_last_elapsed_seconds,
                 )
@@ -6889,13 +6891,14 @@ class ViolationsView(CustomVertical):
                         payload.get("template_preview_text", payload.get("template_diff_text", ""))
                     ),
                     values_diff_text=str(payload.get("values_diff_text", "")),
-                    status_text=str(payload.get("status_text", "Generating..." if not has_payload else "Pending")),
+                    status_text=str(payload.get("status_text", "Queued: waiting for fix worker...")),
                     can_apply=str(payload.get("can_apply", "false")).strip().lower() == "true",
-                    is_processing=not has_payload or str(payload.get("is_processing", "false")).strip().lower() == "true",
-                    is_waiting=str(payload.get("is_waiting", "false")).strip().lower() == "true",
+                    is_processing=str(payload.get("is_processing", "false")).strip().lower() == "true",
+                    is_waiting=str(payload.get("is_waiting", "true" if not has_payload else "false")).strip().lower() == "true",
                 )
             )
-            if not has_payload:
+            _restored_can_apply = str(payload.get("can_apply", "false")).strip().lower() == "true"
+            if not _restored_can_apply:
                 still_generating_keys.append(chart_key)
         modal = AIFullFixBulkModal(
             title=dialog_title,
@@ -6931,6 +6934,7 @@ class ViolationsView(CustomVertical):
                     grouped=grouped,
                     total_count=total,
                     status_text=status_text,
+                    serialized_bundles=modal._serialize_bundles(),
                     bulk_fix_started_at_monotonic=modal._bulk_fix_started_at_monotonic,
                     bulk_last_elapsed_seconds=modal._bulk_last_elapsed_seconds,
                 )
@@ -7413,6 +7417,10 @@ class ViolationsView(CustomVertical):
         # Save so _on_dismiss can restore the run if user just closes the dialog
         self._reopened_run_state = state
         payload_bundles: dict[str, dict[str, str]] = {}
+        # Start with serialized bundle state from minimize time as fallback
+        for chart_key, bundle_data in state.serialized_bundles.items():
+            payload_bundles[chart_key] = dict(bundle_data)
+        # Override with fresh cache data for completed bundles
         for chart_key, (_, violations) in state.grouped.items():
             cache_key = self._chart_bundle_ai_full_fix_cache_key(
                 chart_key=chart_key,
