@@ -318,6 +318,10 @@ def _strip_chart_dependencies(chart_yaml_path: Path) -> str | None:
     try:
         ryaml = YAML()
         ryaml.preserve_quotes = True
+        ryaml.width = 4096  # prevent long-line wrapping
+        ryaml.best_map_indent = 2
+        ryaml.best_sequence_indent = 2
+        ryaml.best_sequence_dash_offset = 0
         parsed = ryaml.load(raw)
         if parsed is None:
             parsed = CommentedMap()

@@ -438,6 +438,10 @@ def apply_fix(values_path: str, fix: dict[str, Any]) -> bool:
     try:
         ryaml = YAML()
         ryaml.preserve_quotes = True
+        ryaml.width = 4096  # prevent long-line wrapping
+        ryaml.best_map_indent = 2
+        ryaml.best_sequence_indent = 2
+        ryaml.best_sequence_dash_offset = 0
         current = ryaml.load(content)
         if current is None:
             current = CommentedMap()

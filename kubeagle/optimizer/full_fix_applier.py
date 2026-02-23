@@ -179,6 +179,10 @@ def apply_full_fix_bundle_atomic(
                 raw_values = values_path.read_text(encoding="utf-8")
                 ryaml = YAML()
                 ryaml.preserve_quotes = True
+                ryaml.width = 4096  # prevent long-line wrapping
+                ryaml.best_map_indent = 2
+                ryaml.best_sequence_indent = 2
+                ryaml.best_sequence_dash_offset = 0
                 parsed_values = ryaml.load(raw_values)
                 if parsed_values is None:
                     parsed_values = CommentedMap()
