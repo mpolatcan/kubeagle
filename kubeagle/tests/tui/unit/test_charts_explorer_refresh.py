@@ -127,9 +127,6 @@ def test_start_optimizer_worker_force_refresh_resets_caches(
     screen._violations_signature = "sig"
     screen._cached_violations = []
     screen._cached_violation_counts = {"demo": 1}
-    screen._cached_helm_recommendations = [{"kind": "helm"}]
-    screen._cached_helm_recommendations_signature = "sig"
-
     run_calls: list[tuple[str, bool]] = []
     cancel_calls: list[tuple[str, ...]] = []
 
@@ -146,8 +143,6 @@ def test_start_optimizer_worker_force_refresh_resets_caches(
     assert screen._violations_signature is None
     assert screen._cached_violations is None
     assert screen._cached_violation_counts is None
-    assert screen._cached_helm_recommendations is None
-    assert screen._cached_helm_recommendations_signature is None
     assert screen._optimizer_loading is True
     assert run_calls == [("charts-explorer-optimizer", True)]
     assert ("charts-explorer-violations",) in cancel_calls
@@ -261,30 +256,11 @@ def test_optimizer_partial_event_clears_table_loading_before_stream_update(
     class _FakeViolationsView:
         def __init__(self) -> None:
             self.loading_calls: list[bool] = []
-            self.recommendations_loading_calls: list[bool] = []
             self.partial_updates = 0
             self.last_violations: list[ViolationResult] = []
-            self.recommendation_updates = 0
 
         def set_table_loading(self, loading: bool) -> None:
             self.loading_calls.append(loading)
-
-        def set_recommendations_loading(
-            self,
-            loading: bool,
-            _message: str = "Loading recommendations...",
-        ) -> None:
-            self.recommendations_loading_calls.append(loading)
-
-        def update_recommendations_data(
-            self,
-            _recommendations: list[dict[str, object]],
-            _charts: list,
-            *,
-            partial: bool = False,
-        ) -> None:
-            _ = partial
-            self.recommendation_updates += 1
 
         def update_partial_data(
             self,
@@ -307,7 +283,6 @@ def test_optimizer_partial_event_clears_table_loading_before_stream_update(
     screen.on_charts_explorer_optimizer_partial_loaded(
         ChartsExplorerOptimizerPartialLoaded(
             violations=[_make_violation("chart-live")],
-            recommendations=[{"id": "rec-1", "title": "partial"}],
             completed_charts=1,
             total_charts=5,
             optimizer_generation=9,
@@ -316,9 +291,6 @@ def test_optimizer_partial_event_clears_table_loading_before_stream_update(
 
     assert fake_view.loading_calls
     assert fake_view.loading_calls[-1] is False
-    assert fake_view.recommendations_loading_calls
-    assert fake_view.recommendations_loading_calls[-1] is False
-    assert fake_view.recommendation_updates == 1
     assert fake_view.partial_updates == 1
     assert len(fake_view.last_violations) == 1
     assert progress_messages
@@ -350,23 +322,6 @@ def test_optimizer_partial_event_throttles_ui_rerenders_between_first_and_final(
         def set_table_loading(self, _loading: bool) -> None:
             return
 
-        def set_recommendations_loading(
-            self,
-            _loading: bool,
-            _message: str = "Loading recommendations...",
-        ) -> None:
-            return
-
-        def update_recommendations_data(
-            self,
-            _recommendations: list[dict[str, object]],
-            _charts: list,
-            *,
-            partial: bool = False,
-        ) -> None:
-            _ = partial
-            return
-
         def update_partial_data(
             self,
             _violations: list[ViolationResult],
@@ -392,7 +347,6 @@ def test_optimizer_partial_event_throttles_ui_rerenders_between_first_and_final(
     screen.on_charts_explorer_optimizer_partial_loaded(
         ChartsExplorerOptimizerPartialLoaded(
             violations=[_make_violation("chart-a")],
-            recommendations=[{"id": "rec-a"}],
             completed_charts=1,
             total_charts=5,
             optimizer_generation=7,
@@ -402,7 +356,6 @@ def test_optimizer_partial_event_throttles_ui_rerenders_between_first_and_final(
     screen.on_charts_explorer_optimizer_partial_loaded(
         ChartsExplorerOptimizerPartialLoaded(
             violations=[_make_violation("chart-b")],
-            recommendations=[{"id": "rec-b"}],
             completed_charts=2,
             total_charts=5,
             optimizer_generation=7,
@@ -412,7 +365,6 @@ def test_optimizer_partial_event_throttles_ui_rerenders_between_first_and_final(
     screen.on_charts_explorer_optimizer_partial_loaded(
         ChartsExplorerOptimizerPartialLoaded(
             violations=[_make_violation("chart-c")],
-            recommendations=[{"id": "rec-c"}],
             completed_charts=5,
             total_charts=5,
             optimizer_generation=7,
@@ -565,25 +517,16 @@ def test_start_optimizer_worker_keeps_cached_results_interactive(
     """Optimizer refresh should not block table interactions when cached data exists."""
     screen = ChartsExplorerScreen(testing=True)
     screen._cached_violations = [_make_violation("cached-chart")]
-    screen._cached_helm_recommendations = [{"id": "rec-1", "title": "cached"}]
 
     class _FakeViolationsView:
         def __init__(self) -> None:
             self.table_loading_calls: list[bool] = []
-            self.recommendations_loading_calls: list[bool] = []
 
         def _hide_error_banner(self) -> None:
             return
 
         def set_table_loading(self, loading: bool) -> None:
             self.table_loading_calls.append(loading)
-
-        def set_recommendations_loading(
-            self,
-            loading: bool,
-            _message: str = "Loading recommendations...",
-        ) -> None:
-            self.recommendations_loading_calls.append(loading)
 
     fake_view = _FakeViolationsView()
     monkeypatch.setattr(screen, "_ensure_violations_view_initialized", lambda: None)
@@ -603,8 +546,6 @@ def test_start_optimizer_worker_keeps_cached_results_interactive(
 
     assert fake_view.table_loading_calls
     assert fake_view.table_loading_calls[-1] is False
-    assert fake_view.recommendations_loading_calls
-    assert fake_view.recommendations_loading_calls[-1] is False
 
 
 @pytest.mark.unit
@@ -693,7 +634,6 @@ def test_on_optimizer_data_loaded_ignores_stale_generation() -> None:
 
     event = OptimizerDataLoaded(
         violations=[_make_violation("stale")],
-        recommendations=[],
         charts=[],
         total_charts=0,
         duration_ms=0.0,

@@ -191,10 +191,6 @@ class TestBaseScreenNavActions:
         assert hasattr(BaseScreen, "action_nav_settings")
         assert callable(BaseScreen.action_nav_settings)
 
-    def test_has_action_nav_recommendations(self) -> None:
-        """BaseScreen should have an action_nav_recommendations method."""
-        assert hasattr(BaseScreen, "action_nav_recommendations")
-        assert callable(BaseScreen.action_nav_recommendations)
 
 
 # ===========================================================================

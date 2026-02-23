@@ -44,7 +44,6 @@ from kubeagle.screens.charts_explorer.config import (
     EXPLORER_TABLE_COLUMNS,
     SORT_OPTIONS,
     TAB_CHARTS,
-    TAB_RECOMMENDATIONS,
     TAB_VIOLATIONS,
     VIEW_FILTER_BY_TAB_ID,
     VIEW_TAB_ID_BY_FILTER,
@@ -67,8 +66,6 @@ from kubeagle.screens.detail.config import (
 from kubeagle.screens.detail.presenter import (
     OptimizerDataLoaded,
     OptimizerDataLoadFailed,
-    build_helm_recommendations,
-    get_cluster_recommendations,
 )
 from kubeagle.screens.mixins.main_navigation_tabs_mixin import (
     MAIN_NAV_TAB_CHARTS,
@@ -145,14 +142,12 @@ class ChartsExplorerOptimizerPartialLoaded(Message):
         self,
         *,
         violations: list[ViolationResult],
-        recommendations: list[dict[str, Any]] | None = None,
         completed_charts: int,
         total_charts: int,
         optimizer_generation: int,
     ) -> None:
         super().__init__()
         self.violations = violations
-        self.recommendations = recommendations
         self.completed_charts = completed_charts
         self.total_charts = total_charts
         self.optimizer_generation = optimizer_generation
@@ -1132,8 +1127,6 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         self._violations_signature: str | None = None
         self._cached_violation_counts: dict[str, int] | None = None
         self._cached_violations: list[ViolationResult] | None = None
-        self._cached_helm_recommendations: list[dict[str, Any]] | None = None
-        self._cached_helm_recommendations_signature: str | None = None
         self._streaming_optimizer_violations: list[ViolationResult] = []
         self._streaming_optimizer_charts: list[ChartInfo] = []
         self._last_optimizer_partial_ui_update_monotonic: float = 0.0
@@ -1391,9 +1384,6 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         self._violations_cache_generation = self._charts_load_generation
         self._cached_violations = self._clone_violations_payload(violations)
         self._cached_violation_counts = self._build_violation_counts(violations)
-        if self._cached_helm_recommendations_signature != violations_signature:
-            self._cached_helm_recommendations = None
-            self._cached_helm_recommendations_signature = None
 
     @property
     def screen_title(self) -> str:
@@ -1781,8 +1771,6 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                 view_tabs.active = tab_id
 
     def _set_active_tab(self, tab_id: str) -> None:
-        if tab_id == TAB_RECOMMENDATIONS:
-            tab_id = TAB_VIOLATIONS
         valid_tabs = {TAB_CHARTS, TAB_VIOLATIONS}
         target_tab = tab_id if tab_id in valid_tabs else TAB_CHARTS
         self._active_tab = target_tab
@@ -1931,10 +1919,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         try:
             vv = self.query_one("#violations-view", ViolationsView)
             vv.set_table_loading(False)
-            vv.set_recommendations_loading(False)
             vv.update_data(violations, charts)
-            if self._cached_helm_recommendations is not None:
-                vv.update_recommendations_data(self._cached_helm_recommendations, charts)
         except Exception:
             pass
         self._apply_optimizer_team_filter()
@@ -1945,8 +1930,6 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         self._violations_signature = None
         self._cached_violations = None
         self._cached_violation_counts = None
-        self._cached_helm_recommendations = None
-        self._cached_helm_recommendations_signature = None
         self._streaming_optimizer_violations = []
         self._streaming_optimizer_charts = []
         self._last_optimizer_partial_ui_update_monotonic = 0.0
@@ -1977,12 +1960,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
             has_cached_violations = bool(
                 self._cached_violations or self._streaming_optimizer_violations
             )
-            has_cached_recommendations = bool(self._cached_helm_recommendations)
             vv.set_table_loading(not has_cached_violations)
-            vv.set_recommendations_loading(
-                not has_cached_recommendations,
-                "Loading recommendations...",
-            )
         except Exception:
             pass
         async def _worker() -> None:
@@ -2001,7 +1979,6 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
 
         start = time.time()
         worker = get_current_worker()
-        cluster_recs_task: asyncio.Task[list[dict[str, Any]]] | None = None
 
         try:
             app = self.app
@@ -2036,7 +2013,6 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                     self.post_message(
                         OptimizerDataLoaded(
                             violations=[],
-                            recommendations=[],
                             charts=[],
                             total_charts=0,
                             duration_ms=0.0,
@@ -2096,7 +2072,6 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                 self.post_message(
                     OptimizerDataLoaded(
                         violations=[],
-                        recommendations=[],
                         charts=[],
                         total_charts=0,
                         duration_ms=0.0,
@@ -2104,12 +2079,6 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                     )
                 )
                 return
-
-            if self._optimizer_include_cluster:
-                context = getattr(app, "context", None)
-                cluster_recs_task = asyncio.create_task(
-                    get_cluster_recommendations(context),
-                )
 
             total = len(charts)
             violations_signature = await self._violations_payload_signature_async(charts)
@@ -2211,25 +2180,9 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                     if not should_emit_partial:
                         continue
 
-                    # Only rebuild recommendations at milestone points (every
-                    # 25% of total or on final emit) to avoid the O(n) cost of
-                    # build_helm_recommendations on every partial update.
-                    is_milestone = (
-                        completed >= total_charts
-                        or (total_charts > 0 and completed % max(1, total_charts // 4) == 0)
-                    )
-                    partial_recommendations = (
-                        build_helm_recommendations(
-                            cumulative_partial_violations,
-                            charts,
-                        )
-                        if is_milestone
-                        else None
-                    )
                     self.post_message(
                         ChartsExplorerOptimizerPartialLoaded(
                             violations=pending_partial_violations,
-                            recommendations=partial_recommendations,
                             completed_charts=completed,
                             total_charts=total_charts,
                             optimizer_generation=optimizer_generation,
@@ -2240,14 +2193,9 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
 
                 all_violations = await analysis_task
                 if pending_partial_violations or latest_completed < total:
-                    partial_recommendations = build_helm_recommendations(
-                        cumulative_partial_violations,
-                        charts,
-                    )
                     self.post_message(
                         ChartsExplorerOptimizerPartialLoaded(
                             violations=pending_partial_violations,
-                            recommendations=partial_recommendations,
                             completed_charts=total,
                             total_charts=total,
                             optimizer_generation=optimizer_generation,
@@ -2260,94 +2208,23 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                     violations=all_violations,
                 )
 
-            cached_helm_recommendations = (
-                list(self._cached_helm_recommendations)
-                if (
-                    self._cached_helm_recommendations is not None
-                    and self._cached_helm_recommendations_signature
-                    == violations_signature
-                )
-                else None
-            )
-
-            if cached_helm_recommendations is not None:
-                helm_recs = cached_helm_recommendations
-            else:
-                self.call_later(
-                    self._update_optimizer_loading_message,
-                    "Building recommendations...",
-                    70,
-                )
-                helm_recs = await asyncio.to_thread(
-                    build_helm_recommendations,
-                    all_violations,
-                    charts,
-                )
-                if worker.is_cancelled or optimizer_generation != self._optimizer_generation:
-                    return
-                self._cached_helm_recommendations = list(helm_recs)
-                self._cached_helm_recommendations_signature = violations_signature
             duration_ms = (time.time() - start) * 1000
             if worker.is_cancelled or optimizer_generation != self._optimizer_generation:
                 return
             self.post_message(
                 OptimizerDataLoaded(
                     violations=all_violations,
-                    recommendations=helm_recs,
                     charts=charts,
                     total_charts=total,
                     duration_ms=duration_ms,
                     optimizer_generation=optimizer_generation,
                 )
             )
-
-            cluster_recs: list[dict[str, Any]] = []
-            if cluster_recs_task is not None:
-                self.call_later(
-                    self._update_optimizer_loading_message,
-                    "Collecting cluster recommendations...",
-                    85,
-                )
-                try:
-                    cluster_recs = await asyncio.wait_for(
-                        cluster_recs_task,
-                        timeout=CLUSTER_CHECK_TIMEOUT,
-                    )
-                except asyncio.TimeoutError:
-                    logger.debug(
-                        "Cluster recommendations timed out after %.1fs",
-                        CLUSTER_CHECK_TIMEOUT,
-                    )
-                    cluster_recs_task.cancel()
-                    with contextlib.suppress(asyncio.CancelledError):
-                        await cluster_recs_task
-                except Exception:
-                    logger.debug(
-                        "Cluster recommendations failed, continuing without them",
-                        exc_info=True,
-                    )
-
-            if cluster_recs:
-                if worker.is_cancelled or optimizer_generation != self._optimizer_generation:
-                    return
-                self.post_message(
-                    OptimizerDataLoaded(
-                        violations=all_violations,
-                        recommendations=cluster_recs + helm_recs,
-                        charts=charts,
-                        total_charts=total,
-                        duration_ms=(time.time() - start) * 1000,
-                        optimizer_generation=optimizer_generation,
-                    )
-                )
-            else:
-                # Cluster recommendations were empty or timed out — restore
-                # progress to 100% so the bar does not stay stuck at 85%.
-                self.call_later(
-                    self._update_optimizer_loading_message,
-                    "Ready",
-                    100,
-                )
+            self.call_later(
+                self._update_optimizer_loading_message,
+                "Ready",
+                100,
+            )
 
         except asyncio.CancelledError:
             return
@@ -2361,10 +2238,6 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
             )
         finally:
             self._finish_optimizer_worker_generation(optimizer_generation)
-            if cluster_recs_task is not None and not cluster_recs_task.done():
-                cluster_recs_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await cluster_recs_task
 
     def _update_optimizer_loading_message(
         self, message: str, progress_percent: int | None = None,
@@ -2426,15 +2299,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
 
         with contextlib.suppress(Exception):
             vv = self.query_one("#violations-view", ViolationsView)
-            # Streamed rows/recommendations should become visible immediately.
             vv.set_table_loading(False)
-            if event.recommendations is not None:
-                vv.set_recommendations_loading(False)
-                vv.update_recommendations_data(
-                    event.recommendations,
-                    self._streaming_optimizer_charts or list(self.charts),
-                    partial=True,
-                )
             vv.update_partial_data(
                 self._streaming_optimizer_violations,
                 self._streaming_optimizer_charts or list(self.charts),
@@ -2454,13 +2319,8 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         try:
             vv = self.query_one("#violations-view", ViolationsView)
             vv.set_table_loading(False)
-            vv.set_recommendations_loading(False)
             vv.update_data(
                 event.violations,
-                event.charts,
-            )
-            vv.update_recommendations_data(
-                event.recommendations,
                 event.charts,
             )
         except Exception:
@@ -2480,7 +2340,6 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         with contextlib.suppress(Exception):
             vv = self.query_one("#violations-view", ViolationsView)
             vv.show_error(event.error)
-            vv.show_recommendations_error(event.error)
 
     def on_violation_refresh_requested(self, _: ViolationRefreshRequested) -> None:
         self.show_loading_overlay("Refreshing...")
@@ -4257,14 +4116,6 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         if self._active_tab != TAB_VIOLATIONS:
             self._set_active_tab(TAB_VIOLATIONS)
 
-    def action_show_recommendations_tab(self) -> None:
-        if self._active_tab != TAB_VIOLATIONS:
-            self._set_active_tab(TAB_VIOLATIONS)
-
-    def action_view_recommendations(self) -> None:
-        """Compatibility action used by recommendations navigation."""
-        self.action_show_recommendations_tab()
-
     def action_view_all(self) -> None:
         """Set view to All Charts."""
         self._set_active_tab(TAB_CHARTS)
@@ -4350,8 +4201,8 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
     def action_apply_all(self) -> None:
         self.query_one("#violations-view", ViolationsView).apply_all()
 
-    async def action_fix_violation(self) -> None:
-        await self.query_one("#violations-view", ViolationsView).fix_violation()
+    def action_fix_violation(self) -> None:
+        self.query_one("#violations-view", ViolationsView).fix_violation()
 
     def action_preview_fix(self) -> None:
         self.query_one("#violations-view", ViolationsView).preview_fix()
@@ -4361,12 +4212,6 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
 
     def action_focus_sort(self) -> None:
         self.query_one("#violations-view", ViolationsView).focus_sort()
-
-    def action_cycle_severity(self) -> None:
-        self.query_one("#violations-view", ViolationsView).cycle_recommendation_severity()
-
-    def action_go_to_chart(self) -> None:
-        self.query_one("#violations-view", ViolationsView).go_to_recommendation_chart()
 
     def action_pop_screen(self) -> None:
         if self._active_tab == TAB_VIOLATIONS:
@@ -4412,8 +4257,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
             "Charts Explorer\n\n"
             "Tabs:\n"
             "  C - Charts tab\n"
-            "  5 - Optimizer tab\n"
-            "  R - Optimizer tab (recommendations section)\n\n"
+            "  5 - Optimizer tab\n\n"
             "Chart Views (1-4):\n"
             "  1 - All Charts\n"
             "  2 - Extreme Ratios\n"
@@ -4431,7 +4275,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
             "  f - Fix selected chart\n"
             "  p - Preview selected fix\n"
             "  y - Copy YAML fix\n"
-            "  g - Go to chart (from recommendation)\n"
+            "  g - Go to chart detail\n"
             "  x - Export team report\n"
             "  / - Search charts\n"
             "  enter - Open chart preview dialog\n"

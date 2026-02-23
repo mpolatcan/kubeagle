@@ -37,7 +37,6 @@ from kubeagle.keyboard.navigation import (
     navigate_to_export,
     navigate_to_home,
     navigate_to_optimizer,
-    navigate_to_recommendations,
     navigate_to_settings,
 )
 from kubeagle.screens.base_screen import BaseScreen
@@ -90,7 +89,6 @@ __all__ = [
     "navigate_to_export",
     "navigate_to_home",
     "navigate_to_optimizer",
-    "navigate_to_recommendations",
     "navigate_to_settings",
 ]
 

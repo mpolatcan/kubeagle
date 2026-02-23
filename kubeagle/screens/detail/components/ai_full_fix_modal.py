@@ -76,6 +76,9 @@ from kubeagle.widgets import (
 )
 
 
+MODAL_MINIMIZED_SENTINEL = "__MINIMIZED__"
+
+
 class AIFullFixModalResult(TypedDict):
     """Dismiss payload for single AI full-fix modal."""
 
@@ -473,7 +476,7 @@ class _ForwardGradientProgressBar(ProgressBar):
     BAR_RENDERABLE = _ForwardGradientBarRenderable
 
 
-class AIFullFixModal(ModalScreen[AIFullFixModalResult | None]):
+class AIFullFixModal(ModalScreen[AIFullFixModalResult | str | None]):
     """Single-violation AI full-fix editor modal."""
 
     BINDINGS = [("escape", "cancel", "Close")]
@@ -562,7 +565,14 @@ class AIFullFixModal(ModalScreen[AIFullFixModalResult | None]):
             timer.stop()
 
     def action_cancel(self) -> None:
-        self.dismiss(None)
+        minimize_intent = False
+        with contextlib.suppress(Exception):
+            close_btn = self.query_one("#ai-full-fix-close", CustomButton)
+            minimize_intent = str(close_btn.label).strip().lower() == "minimize"
+        if self._actions_locked() or minimize_intent:
+            self.dismiss(MODAL_MINIMIZED_SENTINEL)
+        else:
+            self.dismiss(None)
 
     def set_status(self, text: str, *, can_apply: bool) -> None:
         """Update status line and apply button availability."""
@@ -607,7 +617,14 @@ class AIFullFixModal(ModalScreen[AIFullFixModalResult | None]):
     def on_button_pressed(self, event: CustomButton.Pressed) -> None:
         button_id = event.button.id or ""
         if button_id == "ai-full-fix-close":
-            self.dismiss(None)
+            minimize_intent = False
+            with contextlib.suppress(Exception):
+                close_btn = self.query_one("#ai-full-fix-close", CustomButton)
+                minimize_intent = str(close_btn.label).strip().lower() == "minimize"
+            if self._actions_locked() or minimize_intent:
+                self.dismiss(MODAL_MINIMIZED_SENTINEL)
+            else:
+                self.dismiss(None)
             return
         if button_id == "ai-full-fix-copy-values":
             payload = self._collect_payload("copy-values")
@@ -672,6 +689,9 @@ class AIFullFixModal(ModalScreen[AIFullFixModalResult | None]):
                 self.query_one(button_id, CustomButton).disabled = locked
         with contextlib.suppress(Exception):
             self.query_one("#ai-full-fix-apply", CustomButton).disabled = locked or not self._can_apply
+        with contextlib.suppress(Exception):
+            close_btn = self.query_one("#ai-full-fix-close", CustomButton)
+            close_btn.label = "Minimize" if locked else "Close"
 
     def _apply_dynamic_layout(self) -> None:
         available_width = max(
@@ -720,7 +740,7 @@ class AIFullFixBulkModalResult(TypedDict):
     selected_chart_key: str
 
 
-class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
+class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | str | None]):
     """Bulk AI full-fix editor modal with one bundle per chart."""
 
     BINDINGS = [("escape", "cancel", "Close")]
@@ -743,6 +763,8 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
         *,
         title: str,
         bundles: list[ChartBundleEditorState],
+        restore_bulk_fix_started_at: float | None = None,
+        restore_bulk_last_elapsed: float | None = None,
     ) -> None:
         super().__init__(classes="selection-modal-screen")
         self._title = title
@@ -757,8 +779,8 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
         self._inline_action_task: asyncio.Task[None] | None = None
         self._pulse_index: int = 0
         self._pulse_timer: Timer | None = None
-        self._bulk_fix_started_at_monotonic: float | None = None
-        self._bulk_last_elapsed_seconds: float | None = None
+        self._bulk_fix_started_at_monotonic: float | None = restore_bulk_fix_started_at
+        self._bulk_last_elapsed_seconds: float | None = restore_bulk_last_elapsed
         self._ui_update_seq: int = 0
         started_at = time.monotonic()
         for bundle in self._bundles.values():
@@ -874,7 +896,20 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
             self._pulse_timer = None
 
     def action_cancel(self) -> None:
-        self.dismiss(None)
+        minimize_intent = False
+        with contextlib.suppress(Exception):
+            close_btn = self.query_one("#ai-full-fix-bulk-close", CustomButton)
+            minimize_intent = str(close_btn.label).strip().lower() == "minimize"
+        if self._any_bundle_active() or self._active_loading_jobs > 0 or minimize_intent:
+            self.dismiss(MODAL_MINIMIZED_SENTINEL)
+        else:
+            self.dismiss(None)
+
+    def _any_bundle_active(self) -> bool:
+        return any(
+            bundle.is_processing or bundle.is_waiting
+            for bundle in self._bundles.values()
+        )
 
     def _compute_tree_data(
         self,
@@ -1200,7 +1235,14 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
     def on_button_pressed(self, event: CustomButton.Pressed) -> None:
         button_id = event.button.id or ""
         if button_id == "ai-full-fix-bulk-close":
-            self.dismiss(None)
+            minimize_intent = False
+            with contextlib.suppress(Exception):
+                close_btn = self.query_one("#ai-full-fix-bulk-close", CustomButton)
+                minimize_intent = str(close_btn.label).strip().lower() == "minimize"
+            if self._any_bundle_active() or self._active_loading_jobs > 0 or minimize_intent:
+                self.dismiss(MODAL_MINIMIZED_SENTINEL)
+            else:
+                self.dismiss(None)
             return
         action_map = {
             "ai-full-fix-bulk-regenerate": "regenerate",
@@ -1320,6 +1362,9 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | None]):
             with contextlib.suppress(Exception):
                 self.query_one(button_id, CustomButton).disabled = locked
         self._sync_apply_button_state()
+        with contextlib.suppress(Exception):
+            close_btn = self.query_one("#ai-full-fix-bulk-close", CustomButton)
+            close_btn.label = "Minimize" if self._any_bundle_active() else "Close"
 
     @classmethod
     def _normalize_loading_message(cls, message: str) -> str:

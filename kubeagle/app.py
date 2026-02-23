@@ -530,32 +530,6 @@ class EKSHelmReporterApp(App[None]):
             prefer_switch=True,
         )
 
-    def action_nav_recommendations(self) -> None:
-        """Navigate to charts explorer violations/recommendations view."""
-        if self._block_actions_for_unsupported_terminal():
-            return
-        from kubeagle.screens import ChartsExplorerScreen
-        from kubeagle.screens.detail import OptimizerScreen
-
-        current_screen = self.screen
-        if isinstance(current_screen, ChartsExplorerScreen):
-            current_screen.action_show_recommendations_tab()
-            return
-
-        self._prepare_current_screen_for_navigation()
-        if self._activate_existing_screen(ChartsExplorerScreen):
-            current_screen = self.screen
-            if isinstance(current_screen, ChartsExplorerScreen):
-                current_screen.action_show_recommendations_tab()
-            return
-
-        self.push_screen(
-            OptimizerScreen(
-                initial_view="recommendations",
-                include_cluster=not self.skip_eks,
-            )
-        )
-
     def action_show_help(self) -> None:
         """Show help dialog."""
         if self._block_actions_for_unsupported_terminal():

@@ -125,22 +125,6 @@ class ScreenNavigator:
 
         self.app.push_screen(SettingsScreen())
 
-    def _navigate_recommendations(self) -> None:
-        """Navigate to charts explorer violations/recommendations view."""
-        app_nav = getattr(self.app, "action_nav_recommendations", None)
-        if callable(app_nav):
-            app_nav()
-            return
-        from kubeagle.screens.charts_explorer import ChartsExplorerScreen
-        from kubeagle.screens.detail import OptimizerScreen
-
-        current_screen = self.app.screen
-        if isinstance(current_screen, ChartsExplorerScreen):
-            current_screen.action_show_recommendations_tab()
-            return
-
-        self.app.push_screen(OptimizerScreen(initial_view="recommendations"))
-
     def action_nav_home(self) -> None:
         """Navigate to home screen."""
         self._navigate_home()
@@ -164,10 +148,6 @@ class ScreenNavigator:
     def action_nav_settings(self) -> None:
         """Navigate to settings screen."""
         self._navigate_settings()
-
-    def action_nav_recommendations(self) -> None:
-        """Navigate to violations/recommendations view."""
-        self._navigate_recommendations()
 
     def action_show_help(self) -> None:
         """Show help dialog."""
@@ -296,26 +276,6 @@ def navigate_to_settings(app: App) -> None:
 
     app.push_screen(SettingsScreen())
 
-
-def navigate_to_recommendations(app: App) -> None:
-    """Navigate to charts explorer violations/recommendations view.
-
-    Args:
-        app: The Textual app instance.
-    """
-    app_nav = getattr(app, "action_nav_recommendations", None)
-    if callable(app_nav):
-        app_nav()
-        return
-    from kubeagle.screens.charts_explorer import ChartsExplorerScreen
-    from kubeagle.screens.detail import OptimizerScreen
-
-    current_screen = app.screen
-    if isinstance(current_screen, ChartsExplorerScreen):
-        current_screen.action_show_recommendations_tab()
-        return
-
-    app.push_screen(OptimizerScreen(initial_view="recommendations"))
 
 
 # ============================================================================
@@ -462,6 +422,5 @@ __all__ = [
     # Navigation functions
     "navigate_to_home",
     "navigate_to_optimizer",
-    "navigate_to_recommendations",
     "navigate_to_settings",
 ]

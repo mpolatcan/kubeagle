@@ -41,7 +41,6 @@ MIGRATION GUIDE FOR SCREENS:
    - navigate_to_optimizer(app)
    - navigate_to_export(app)
    - navigate_to_settings(app)
-   - navigate_to_recommendations(app)
    - navigate_to_chart_detail(app, chart)
 """
 
@@ -66,7 +65,6 @@ from kubeagle.keyboard.navigation import (
     navigate_to_export,
     navigate_to_home,
     navigate_to_optimizer,
-    navigate_to_recommendations,
     navigate_to_settings,
 )
 from kubeagle.widgets import (
@@ -323,10 +321,6 @@ class BaseScreen(Screen, ScreenNavigator):
     def action_nav_settings(self) -> None:
         """Navigate to settings screen."""
         navigate_to_settings(self.app)
-
-    def action_nav_recommendations(self) -> None:
-        """Navigate to recommendations screen."""
-        navigate_to_recommendations(self.app)
 
     def action_show_help(self) -> None:
         """Show help dialog."""

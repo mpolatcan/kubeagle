@@ -34,13 +34,11 @@ class TestOptimizerDataLoadedMessage:
         """Test OptimizerDataLoaded stores all fields."""
         msg = OptimizerDataLoaded(
             violations=[MagicMock()],
-            recommendations=[{"id": "r1"}],
             charts=[MagicMock()],
             total_charts=5,
             duration_ms=123.4,
         )
         assert len(msg.violations) == 1
-        assert len(msg.recommendations) == 1
         assert len(msg.charts) == 1
         assert msg.total_charts == 5
         assert msg.duration_ms == 123.4
@@ -48,10 +46,9 @@ class TestOptimizerDataLoadedMessage:
     def test_create_with_empty_data(self) -> None:
         """Test OptimizerDataLoaded with empty lists."""
         msg = OptimizerDataLoaded(
-            violations=[], recommendations=[], charts=[], total_charts=0, duration_ms=0.0
+            violations=[], charts=[], total_charts=0, duration_ms=0.0
         )
         assert msg.violations == []
-        assert msg.recommendations == []
         assert msg.charts == []
         assert msg.total_charts == 0
 

@@ -103,6 +103,177 @@ def test_apply_full_fix_bundle_atomic_success(tmp_path: Path) -> None:
     assert "labels:" in deployment.read_text(encoding="utf-8")
 
 
+def test_apply_full_fix_bundle_atomic_preserves_sequence_indentation(
+    tmp_path: Path,
+) -> None:
+    """Atomic values patch should preserve existing YAML list indentation style."""
+    chart_dir, values_path, _ = _prepare_chart(tmp_path)
+    values_path.write_text(
+        (
+            "resources:\n"
+            "    requests:\n"
+            "      - name: cpu\n"
+            '        value: "100m"\n'
+        ),
+        encoding="utf-8",
+    )
+
+    result = apply_full_fix_bundle_atomic(
+        chart_dir=chart_dir,
+        values_path=values_path,
+        values_patch={"replicaCount": 2},
+        template_patches=[],
+    )
+
+    assert result.ok is True
+    updated = values_path.read_text(encoding="utf-8")
+    assert "    requests:" in updated
+    assert "      - name: cpu" in updated
+    assert 'value: "100m"' in updated
+
+
+def test_apply_full_fix_bundle_atomic_preserves_untouched_top_level_blocks(
+    tmp_path: Path,
+) -> None:
+    """Atomic values patch should not reformat unrelated top-level sections."""
+    chart_dir, values_path, _ = _prepare_chart(tmp_path)
+    values_path.write_text(
+        "replicaCount: 1\n"
+        "\n"
+        "image:\n"
+        "    repository: sample/repo\n"
+        "    pullPolicy: IfNotPresent\n"
+        "\n"
+        "resources:\n"
+        "  requests:\n"
+        '    cpu: "100m"\n',
+        encoding="utf-8",
+    )
+
+    result = apply_full_fix_bundle_atomic(
+        chart_dir=chart_dir,
+        values_path=values_path,
+        values_patch={"resources": {"requests": {"cpu": "200m"}}},
+        template_patches=[],
+    )
+
+    assert result.ok is True
+    updated = values_path.read_text(encoding="utf-8")
+    assert (
+        "image:\n"
+        "    repository: sample/repo\n"
+        "    pullPolicy: IfNotPresent\n"
+    ) in updated
+    assert 'cpu: "200m"' in updated
+
+
+def test_apply_full_fix_bundle_atomic_preserves_nested_ingress_format_on_map_patch(
+    tmp_path: Path,
+) -> None:
+    """Atomic apply should not normalize unrelated nested ingress formatting."""
+    chart_dir, values_path, _ = _prepare_chart(tmp_path)
+    values_path.write_text(
+        "ingress:\n"
+        "  enabled: true\n"
+        '  className: "traefik"\n'
+        "  annotations:\n"
+        "    {}\n"
+        "    # kubernetes.io/ingress.class: nginx\n"
+        '    # kubernetes.io/tls-acme: "true"\n'
+        "  hosts:\n"
+        "    - host: old-host.example.com\n"
+        "      paths:\n"
+        "        - path: /\n"
+        "          service: skeleton-websocket\n"
+        "          servicePort: 4566\n"
+        "  tls: []\n",
+        encoding="utf-8",
+    )
+
+    result = apply_full_fix_bundle_atomic(
+        chart_dir=chart_dir,
+        values_path=values_path,
+        values_patch={
+            "ingress": {
+                "enabled": True,
+                "className": "traefik",
+                "hosts": [
+                    {
+                        "host": "new-host.example.com",
+                        "paths": [
+                            {
+                                "path": "/",
+                                "service": "skeleton-websocket",
+                                "servicePort": 4566,
+                            }
+                        ],
+                    }
+                ],
+            }
+        },
+        template_patches=[],
+    )
+
+    assert result.ok is True
+    updated = values_path.read_text(encoding="utf-8")
+    assert "  enabled: true" in updated
+    assert "  annotations:\n    {}" in updated
+    assert "  tls: []" in updated
+    assert "    - host: new-host.example.com" in updated
+    assert "    enabled: true" not in updated
+
+
+def test_apply_full_fix_bundle_atomic_skips_noop_nested_map_patch(
+    tmp_path: Path,
+) -> None:
+    """No-op nested map payload should not rewrite YAML formatting."""
+    chart_dir, values_path, _ = _prepare_chart(tmp_path)
+    original = (
+        "ingress:\n"
+        "  enabled: true\n"
+        '  className: "traefik"\n'
+        "  annotations:\n"
+        "    {}\n"
+        "    # kubernetes.io/ingress.class: nginx\n"
+        '    # kubernetes.io/tls-acme: "true"\n'
+        "  hosts:\n"
+        "    - host: skeleton-websocket.api.insidethekube.com\n"
+        "      paths:\n"
+        "        - path: /\n"
+        "          service: skeleton-websocket\n"
+        "          servicePort: 4566\n"
+        "  tls: []\n"
+    )
+    values_path.write_text(original, encoding="utf-8")
+
+    result = apply_full_fix_bundle_atomic(
+        chart_dir=chart_dir,
+        values_path=values_path,
+        values_patch={
+            "ingress": {
+                "enabled": True,
+                "className": "traefik",
+                "hosts": [
+                    {
+                        "host": "skeleton-websocket.api.insidethekube.com",
+                        "paths": [
+                            {
+                                "path": "/",
+                                "service": "skeleton-websocket",
+                                "servicePort": 4566,
+                            }
+                        ],
+                    }
+                ],
+            }
+        },
+        template_patches=[],
+    )
+
+    assert result.ok is True
+    assert values_path.read_text(encoding="utf-8") == original
+
+
 def test_apply_full_fix_bundle_atomic_rolls_back_on_failure(tmp_path: Path) -> None:
     """Bundle apply should rollback when template patch fails."""
     chart_dir, values_path, deployment = _prepare_chart(tmp_path)

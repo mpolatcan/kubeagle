@@ -21,6 +21,7 @@ from kubeagle.screens.detail.components.ai_full_fix_bulk_modal import (
 )
 from kubeagle.screens.detail.components.violations_view import (
     ViolationsView,
+    _MinimizedAIFixState,
 )
 
 
@@ -437,3 +438,92 @@ async def test_bulk_show_diff_refresh_updates_open_modal_bundle_state() -> None:
     assert last_call["chart_key"] == "chart-1"
     assert last_call["values_patch_text"] == "replicaCount: 2\n"
     assert "# FILE: templates/deployment.yaml" in str(last_call["template_preview_text"])
+
+
+def _sample_violation() -> ViolationResult:
+    return ViolationResult(
+        id="v-minimized",
+        chart_name="alchemy",
+        rule_name="Replica Count",
+        rule_id="AVL005",
+        category="availability",
+        severity=Severity.WARNING,
+        description="replicaCount should be >= 2",
+        current_value="1",
+        recommended_value="2",
+        fix_available=True,
+    )
+
+
+@pytest.mark.unit
+def test_minimized_single_banner_marks_timeout_status_as_finished() -> None:
+    """Timeout cache entries should complete minimized single-progress banner."""
+    view = ViolationsView()
+    view._provider_signature = lambda: "test-provider"  # type: ignore[method-assign]
+    violation = _sample_violation()
+    chart = SimpleNamespace(chart_name="alchemy")
+    grouped = {"chart-1": (chart, [violation])}
+    run_id = "test-run-1"
+    state = _MinimizedAIFixState(
+        run_id=run_id,
+        dialog_title="Fix Violation",
+        grouped=grouped,
+        total_count=1,
+    )
+    view._minimized_ai_fix_runs[run_id] = state
+    cache_key = view._chart_bundle_ai_full_fix_cache_key(
+        chart_key="chart-1",
+        violations=[violation],
+    )
+    view._ai_full_fix_cache[cache_key] = {
+        "status_text": "AI full-fix flow timed out. LLM stage exceeded time limit.",
+        "can_apply": False,
+    }
+
+    view._refresh_minimized_runs()
+
+    state = view._minimized_ai_fix_runs.get(run_id)
+    assert state is not None
+    assert state.completed_count == 1
+    assert state.is_finished is True
+    assert state.has_error is True
+    assert state.status_text == "AI Fix complete for alchemy (Other): generation failed"
+
+
+@pytest.mark.unit
+def test_minimized_bulk_banner_counts_non_apply_terminal_status_as_complete() -> None:
+    """Resolved cache statuses should complete bulk progress even when apply is unavailable."""
+    view = ViolationsView()
+    view._provider_signature = lambda: "test-provider"  # type: ignore[method-assign]
+    violation = _sample_violation()
+    chart = SimpleNamespace(chart_name="alchemy")
+    grouped = {"chart-1": (chart, [violation])}
+    run_id = "test-run-2"
+    state = _MinimizedAIFixState(
+        run_id=run_id,
+        dialog_title="Fix All",
+        grouped=grouped,
+        total_count=1,
+    )
+    view._minimized_ai_fix_runs[run_id] = state
+    cache_key = view._chart_bundle_ai_full_fix_cache_key(
+        chart_key="chart-1",
+        violations=[violation],
+    )
+    view._ai_full_fix_cache[cache_key] = {
+        "status_text": (
+            "Render Verification: UNRESOLVED\n"
+            "Verification Details: Bundle verification: 0 verified, 2 unresolved, 2 unverified.\n"
+        ),
+        "can_apply": False,
+    }
+
+    view._refresh_minimized_runs()
+
+    state = view._minimized_ai_fix_runs.get(run_id)
+    assert state is not None
+    assert state.completed_count == 1
+    assert state.total_count == 1
+    assert state.is_finished is True
+    assert state.has_error is False
+    assert state.status_text == "AI Fix complete for alchemy (Other)"

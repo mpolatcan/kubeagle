@@ -198,12 +198,6 @@ class TestAppMethodsExist:
         assert hasattr(app, "action_nav_settings")
         assert callable(app.action_nav_settings)
 
-    def test_has_action_nav_recommendations(self) -> None:
-        """App must implement action_nav_recommendations."""
-        app = EKSHelmReporterApp()
-        assert hasattr(app, "action_nav_recommendations")
-        assert callable(app.action_nav_recommendations)
-
     def test_has_action_refresh(self) -> None:
         """App must implement action_refresh."""
         app = EKSHelmReporterApp()

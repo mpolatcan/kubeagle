@@ -9,7 +9,6 @@ import yaml
 
 from kubeagle.optimizer.fixer import (
     FixGenerator,
-    _deep_merge,
     apply_fix,
 )
 
@@ -386,31 +385,6 @@ class TestFixGenerator:
         assert result == "1Gi"
 
 
-class TestDeepMerge:
-    """Tests for _deep_merge function."""
-
-    def test_deep_merge_simple(self) -> None:
-        """Test deep merge with simple dict."""
-        base = {"a": 1, "b": 2}
-        override = {"b": 3, "c": 4}
-
-        result = _deep_merge(base, override)
-
-        assert result["a"] == 1
-        assert result["b"] == 3
-        assert result["c"] == 4
-
-    def test_deep_merge_nested(self) -> None:
-        """Test deep merge with nested dicts."""
-        base = {"resources": {"requests": {"cpu": "100m"}}}
-        override = {"resources": {"limits": {"cpu": "200m"}}}
-
-        result = _deep_merge(base, override)
-
-        assert result["resources"]["requests"]["cpu"] == "100m"
-        assert result["resources"]["limits"]["cpu"] == "200m"
-
-
 class TestApplyFix:
     """Tests for apply_fix function."""
 
@@ -440,6 +414,155 @@ class TestApplyFix:
         data = yaml.safe_load(values_file.read_text())
         assert data["key"] == "value"
         assert data["new_key"] == "new_value"
+
+    def test_apply_fix_preserves_existing_sequence_indentation(
+        self, tmp_path: Path
+    ) -> None:
+        """apply_fix should keep existing list indentation style."""
+        values_file = tmp_path / "values.yaml"
+        values_file.write_text(
+            "resources:\n"
+            "    requests:\n"
+            "      - name: cpu\n"
+            '        value: "100m"\n'
+        )
+
+        result = apply_fix(str(values_file), {"replicaCount": 2})
+
+        assert result is True
+        updated = values_file.read_text()
+        assert "    requests:" in updated
+        assert "      - name: cpu" in updated
+        assert 'value: "100m"' in updated
+
+    def test_apply_fix_preserves_untouched_top_level_blocks(
+        self, tmp_path: Path
+    ) -> None:
+        """apply_fix should not reformat unrelated top-level YAML sections."""
+        values_file = tmp_path / "values.yaml"
+        values_file.write_text(
+            "replicaCount: 1\n"
+            "\n"
+            "image:\n"
+            "    repository: sample/repo\n"
+            "    pullPolicy: IfNotPresent\n"
+            "\n"
+            "resources:\n"
+            "  requests:\n"
+            '    cpu: "100m"\n'
+        )
+
+        result = apply_fix(
+            str(values_file),
+            {"resources": {"requests": {"cpu": "200m"}}},
+        )
+
+        assert result is True
+        updated = values_file.read_text()
+        assert (
+            "image:\n"
+            "    repository: sample/repo\n"
+            "    pullPolicy: IfNotPresent\n"
+        ) in updated
+        assert 'cpu: "200m"' in updated
+
+    def test_apply_fix_preserves_nested_ingress_format_on_map_patch(
+        self, tmp_path: Path
+    ) -> None:
+        """apply_fix should not normalize unrelated nested ingress formatting."""
+        values_file = tmp_path / "values.yaml"
+        values_file.write_text(
+            "ingress:\n"
+            "  enabled: true\n"
+            '  className: "traefik"\n'
+            "  annotations:\n"
+            "    {}\n"
+            "    # kubernetes.io/ingress.class: nginx\n"
+            '    # kubernetes.io/tls-acme: "true"\n'
+            "  hosts:\n"
+            "    - host: old-host.example.com\n"
+            "      paths:\n"
+            "        - path: /\n"
+            "          service: skeleton-websocket\n"
+            "          servicePort: 4566\n"
+            "  tls: []\n"
+        )
+
+        result = apply_fix(
+            str(values_file),
+            {
+                "ingress": {
+                    "enabled": True,
+                    "className": "traefik",
+                    "hosts": [
+                        {
+                            "host": "new-host.example.com",
+                            "paths": [
+                                {
+                                    "path": "/",
+                                    "service": "skeleton-websocket",
+                                    "servicePort": 4566,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            },
+        )
+
+        assert result is True
+        updated = values_file.read_text()
+        assert "  enabled: true" in updated
+        assert "  annotations:\n    {}" in updated
+        assert "  tls: []" in updated
+        assert "    - host: new-host.example.com" in updated
+        assert "    enabled: true" not in updated
+
+    def test_apply_fix_skips_noop_nested_map_patch(self, tmp_path: Path) -> None:
+        """No-op nested map payload should not rewrite YAML formatting."""
+        values_file = tmp_path / "values.yaml"
+        original = (
+            "ingress:\n"
+            "  enabled: true\n"
+            '  className: "traefik"\n'
+            "  annotations:\n"
+            "    {}\n"
+            "    # kubernetes.io/ingress.class: nginx\n"
+            '    # kubernetes.io/tls-acme: "true"\n'
+            "  hosts:\n"
+            "    - host: skeleton-websocket.api.insidethekube.com\n"
+            "      paths:\n"
+            "        - path: /\n"
+            "          service: skeleton-websocket\n"
+            "          servicePort: 4566\n"
+            "  tls: []\n"
+        )
+        values_file.write_text(original)
+
+        result = apply_fix(
+            str(values_file),
+            {
+                "ingress": {
+                    "enabled": True,
+                    "className": "traefik",
+                    "hosts": [
+                        {
+                            "host": "skeleton-websocket.api.insidethekube.com",
+                            "paths": [
+                                {
+                                    "path": "/",
+                                    "service": "skeleton-websocket",
+                                    "servicePort": 4566,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            },
+        )
+
+        assert result is True
+        assert values_file.read_text() == original
 
     def test_apply_fix_file_not_found(self, tmp_path: Path) -> None:
         """Test apply_fix returns False for nonexistent file."""

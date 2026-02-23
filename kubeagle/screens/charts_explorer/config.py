@@ -42,9 +42,6 @@ SORT_OPTIONS: list[tuple[str, SortBy]] = [
 # Tab IDs
 TAB_CHARTS = "tab-charts"
 TAB_VIOLATIONS = "tab-violations"
-# Recommendations are now embedded in the violations view.
-# Keep this alias for navigation/backward compatibility.
-TAB_RECOMMENDATIONS = TAB_VIOLATIONS
 
 
 # =============================================================================

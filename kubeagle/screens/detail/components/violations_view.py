@@ -19,6 +19,7 @@ import tempfile
 import time
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict, cast
 
@@ -27,10 +28,13 @@ from rich.markup import escape
 from rich.text import Text
 from textual import on
 from textual.app import ComposeResult
+from textual.widget import Widget
+from textual.color import Gradient
 from textual.events import Resize
 from textual.message import Message
 from textual.screen import ModalScreen
 from textual.timer import Timer
+from textual.widgets import ProgressBar
 
 from kubeagle.constants.enums import Severity
 from kubeagle.constants.limits import (
@@ -71,14 +75,11 @@ from kubeagle.screens.detail.components.ai_full_fix_bulk_modal import (
 )
 from kubeagle.screens.detail.components.ai_full_fix_modal import (
     AIFullFixModal,
-    AIFullFixModalResult,
+    MODAL_MINIMIZED_SENTINEL,
 )
 from kubeagle.screens.detail.components.fix_details_modal import (
     BundleDiffModal,
     FixDetailsModal,
-)
-from kubeagle.screens.detail.components.recommendations_view import (
-    RecommendationsView,
 )
 from kubeagle.screens.detail.config import (
     OPTIMIZER_HEADER_TOOLTIPS,
@@ -89,8 +90,12 @@ from kubeagle.screens.detail.config import (
     SORT_SEVERITY,
     SORT_TEAM,
 )
+from kubeagle.screens.cluster.cluster_screen import (
+    _ForwardGradientProgressBar,
+)
 from kubeagle.widgets import (
     CustomButton,
+    CustomCollapsible,
     CustomConfirmDialog,
     CustomContainer,
     CustomDataTable,
@@ -3466,6 +3471,99 @@ class _ViolationMeta(NamedTuple):
     severity_rank: int
 
 
+_AI_FIX_BANNER_GRADIENT = Gradient(
+    (0.0, "rgb(220,50,50)"),
+    (0.5, "rgb(220,200,0)"),
+    (1.0, "rgb(50,200,80)"),
+    quality=120,
+)
+
+
+@dataclass
+class _MinimizedAIFixState:
+    """Tracks state of a minimized AI fix modal."""
+
+    run_id: str  # uuid4 hex[:12]
+    dialog_title: str
+    grouped: dict | None = None
+    completed_count: int = 0
+    total_count: int = 1
+    status_text: str = "AI Fix in progress..."
+    is_finished: bool = False
+    has_error: bool = False
+    populate_tasks: list[asyncio.Task] | None = field(default=None, repr=False)
+    bulk_fix_started_at_monotonic: float | None = None
+    bulk_last_elapsed_seconds: float | None = None
+
+
+class _AIFixRunBox(CustomCollapsible):
+    """A collapsible run box for a single minimized AI fix run."""
+
+    def __init__(self, run_id: str, title: str, total: int = 1, subtitle: str = "") -> None:
+        self._run_id = run_id
+        self._total = total
+        self._subtitle = subtitle
+        super().__init__(
+            title=title,
+            collapsed=False,
+            id=f"ai-fix-run-{run_id}",
+            classes="ai-fix-run-box",
+        )
+
+    def compose(self) -> ComposeResult:
+        rid = self._run_id
+        children: list[Widget] = []
+        if self._subtitle:
+            children.append(
+                CustomStatic(
+                    self._subtitle,
+                    id=f"ai-fix-run-subtitle-{rid}",
+                    classes="ai-fix-run-subtitle",
+                )
+            )
+        children.append(
+            CustomStatic(
+                "AI Fix in progress...",
+                id=f"ai-fix-run-status-{rid}",
+                classes="ai-fix-run-status",
+            )
+        )
+        yield CustomVertical(
+            *children,
+            CustomHorizontal(
+                _ForwardGradientProgressBar(
+                    total=max(self._total, 1),
+                    show_percentage=False,
+                    show_eta=False,
+                    gradient=_AI_FIX_BANNER_GRADIENT,
+                    id=f"ai-fix-run-progress-{rid}",
+                    classes="ai-fix-run-progress",
+                ),
+                CustomStatic(
+                    "0.0s",
+                    id=f"ai-fix-run-elapsed-{rid}",
+                    classes="ai-fix-run-elapsed",
+                ),
+                classes="ai-fix-run-progress-row",
+            ),
+            CustomHorizontal(
+                CustomButton(
+                    "Show",
+                    id=f"ai-fix-run-show-{rid}",
+                    classes="ai-fix-run-show-btn",
+                ),
+                CustomButton(
+                    "Dismiss",
+                    id=f"ai-fix-run-dismiss-{rid}",
+                    classes="ai-fix-run-dismiss-btn",
+                    disabled=True,
+                ),
+                classes="ai-fix-run-actions-row",
+            ),
+            classes="ai-fix-run-body",
+        )
+
+
 class ViolationsView(CustomVertical):
     """Violations DataTable + fix preview panel."""
 
@@ -3522,6 +3620,10 @@ class ViolationsView(CustomVertical):
         self._ai_full_fix_cache: dict[str, dict[str, Any]] = {}
         self._ai_full_fix_artifacts: dict[str, AIFullFixStagedArtifact] = {}
         self._background_tasks: set[asyncio.Task[Any]] = set()
+        self._minimized_ai_fix_runs: dict[str, _MinimizedAIFixState] = {}
+        self._reopened_run_state: _MinimizedAIFixState | None = None
+        self._minimized_banner_deferred_timer: Timer | None = None
+        self._minimized_banner_elapsed_timer: Timer | None = None
 
     def _get_optimizer_controller(self) -> UnifiedOptimizerController:
         analysis_source = str(
@@ -3747,9 +3849,16 @@ class ViolationsView(CustomVertical):
                 ),
                 id="violations-left-pane",
             ),
-            RecommendationsView(
-                id="recommendations-view",
-                embedded=True,
+            CustomVertical(
+                CustomStatic("AI Fix Runs", id="ai-fix-pane-title"),
+                CustomVertical(id="ai-fix-runs-container"),
+                CustomHorizontal(
+                    CustomStatic("", id="ai-fix-result-status"),
+                    CustomButton("Dismiss", id="ai-fix-result-dismiss-btn"),
+                    id="ai-fix-result-banner",
+                ),
+                CustomStatic("No active AI fix runs", id="ai-fix-pane-empty"),
+                id="ai-fix-pane",
             ),
             id="optimizer-combined-content",
         )
@@ -3765,7 +3874,6 @@ class ViolationsView(CustomVertical):
         except Exception:
             pass
         self._set_loading_overlay(True, "Loading violations...")
-        self.set_recommendations_loading(True)
         # First-pass UX: fix preview is shown via modal instead of inline side panel.
         with contextlib.suppress(Exception):
             self.query_one("#preview-panel", CustomVertical).display = False
@@ -3867,7 +3975,7 @@ class ViolationsView(CustomVertical):
                 self.populate_violations_table()
 
             self._update_filter_status()
-            self._sync_recommendations_filters()
+
             self._schedule_resize_update()
 
         self.call_later(_do_update)
@@ -3909,7 +4017,7 @@ class ViolationsView(CustomVertical):
                 else:
                     self._show_no_violations_state()
                 self._update_filter_status()
-                self._sync_recommendations_filters()
+    
                 if progress_message:
                     self.update_loading_message(progress_message)
 
@@ -3969,71 +4077,6 @@ class ViolationsView(CustomVertical):
                 self.query_one("#viol-loading-message", CustomStatic).update(message)
         with contextlib.suppress(Exception):
             self.query_one("#viol-loading-overlay", CustomContainer).display = loading
-
-    def set_recommendations_loading(
-        self,
-        loading: bool,
-        message: str = "Loading recommendations...",
-    ) -> None:
-        with contextlib.suppress(Exception):
-            self.query_one("#recommendations-view", RecommendationsView).set_loading(
-                loading,
-                message,
-            )
-
-    def update_recommendations_data(
-        self,
-        recommendations: list[dict[str, Any]],
-        charts: list[Any],
-        *,
-        partial: bool = False,
-    ) -> None:
-        with contextlib.suppress(Exception):
-            rec_view = self.query_one("#recommendations-view", RecommendationsView)
-            if partial:
-                rec_view.update_partial_data(recommendations, charts)
-            else:
-                rec_view.update_data(recommendations, charts)
-        self._sync_recommendations_filters()
-
-    def show_recommendations_error(self, message: str) -> None:
-        with contextlib.suppress(Exception):
-            self.query_one("#recommendations-view", RecommendationsView).show_error(
-                message,
-            )
-
-    def focus_recommendation_sort(self) -> None:
-        with contextlib.suppress(Exception):
-            self.query_one("#recommendations-view", RecommendationsView).focus_sort()
-
-    def cycle_recommendation_severity(self) -> None:
-        with contextlib.suppress(Exception):
-            self.query_one("#recommendations-view", RecommendationsView).cycle_severity()
-
-    def go_to_recommendation_chart(self) -> None:
-        with contextlib.suppress(Exception):
-            self.query_one("#recommendations-view", RecommendationsView).go_to_chart()
-
-    @staticmethod
-    def _map_recommendation_severity_filter(
-        severity_filter: set[str],
-    ) -> set[str]:
-        mapping = {"error": "critical", "warning": "warning", "info": "info"}
-        return {
-            mapped
-            for severity in severity_filter
-            if (mapped := mapping.get(severity))
-        }
-
-    def _sync_recommendations_filters(self) -> None:
-        with contextlib.suppress(Exception):
-            self.query_one("#recommendations-view", RecommendationsView).set_external_filters(
-                search_query=self.search_query,
-                category_filter=set(self.category_filter),
-                severity_filter=self._map_recommendation_severity_filter(
-                    self.severity_filter,
-                ),
-            )
 
     # ------------------------------------------------------------------
     # Chart indexes
@@ -4435,7 +4478,7 @@ class ViolationsView(CustomVertical):
                             key="state-empty",
                         )
                     self._update_filter_status(result)
-                    self._sync_recommendations_filters()
+        
                     self._update_action_states()
             finally:
                 if sequence == self._table_populate_sequence:
@@ -4653,16 +4696,13 @@ class ViolationsView(CustomVertical):
         self._apply_static_filter_select_widths()
 
     def _sync_filter_selection_with_options(self) -> None:
-        for key, selected_values in (
-            ("category", self.category_filter),
-            ("severity", self.severity_filter),
-            ("team", self.team_filter),
-            ("rule", self.rule_filter),
-            ("chart", self.chart_filter),
-            ("values_type", self.values_file_type_filter),
-        ):
-            valid_values = {value for _, value in self._filter_options.get(key, [])}
-            selected_values.intersection_update(valid_values)
+        # NOTE: We intentionally do NOT prune user filter selections when
+        # the available options change.  A selected value that is temporarily
+        # absent from the current violations data should remain sticky so the
+        # user doesn't lose their filter choice on data refresh.  The filter
+        # modal already intersects with available options when it opens, and
+        # the filtering logic in get_filtered_violations() safely handles
+        # stale values (they simply don't match any row).
         valid_column_names = {value for _, value in self._filter_options.get("column", [])}
         self._visible_column_names.intersection_update(valid_column_names)
         self._visible_column_names.update(self._LOCKED_COLUMN_NAMES & valid_column_names)
@@ -5053,17 +5093,13 @@ class ViolationsView(CustomVertical):
         if chart is None:
             self.notify(f"Chart not found for '{violation.chart_name}'", severity="error")
             return
-        _task = asyncio.create_task(self._open_ai_full_fix_modal_for_single_violation(violation, chart))
-        self._background_tasks.add(_task)
-        _task.add_done_callback(self._background_tasks.discard)
+        self._start_bulk_ai_fix_minimized([violation], "Fix Selected Chart")
 
     def _show_fix_preview(self, violation: ViolationResult) -> None:
         if violation.fix_available:
             chart = self._find_chart_for_violation(violation)
             if chart is not None:
-                _task = asyncio.create_task(self._open_ai_full_fix_modal_for_single_violation(violation, chart))
-                self._background_tasks.add(_task)
-                _task.add_done_callback(self._background_tasks.discard)
+                self._start_bulk_ai_fix_minimized([violation], "Fix Selected Chart")
                 return
 
         self._fix_yaml_cache = ""
@@ -5261,7 +5297,7 @@ class ViolationsView(CustomVertical):
     # Fix application
     # ------------------------------------------------------------------
 
-    async def fix_violation(self) -> None:
+    def fix_violation(self) -> None:
         table = self.query_one("#violations-table", CustomDataTable)
         row_key = table.cursor_row
         if row_key is None:
@@ -5279,9 +5315,9 @@ class ViolationsView(CustomVertical):
         if chart is None:
             self.notify(f"Chart not found for '{violation.chart_name}'", severity="error")
             return
-        await self._open_ai_full_fix_bulk_modal([violation], "Fix Selected Chart")
+        self._start_bulk_ai_fix_minimized([violation], "Fix Selected Chart")
 
-    async def fix_all_selected(self) -> None:
+    def fix_all_selected(self) -> None:
         table = self.query_one("#violations-table", CustomDataTable)
         row_key = table.cursor_row
         if row_key is None:
@@ -5299,7 +5335,7 @@ class ViolationsView(CustomVertical):
                 severity="information",
             )
             return
-        await self._open_ai_full_fix_bulk_modal(chart_fixables, "Fix Selected Chart")
+        self._start_bulk_ai_fix_minimized(chart_fixables, "Fix Selected Chart")
 
     @staticmethod
     def _local_chart_paths_from_chart(chart: object | None) -> tuple[Path, Path] | None:
@@ -6225,206 +6261,101 @@ class ViolationsView(CustomVertical):
                 violation.fix_verification_status = verification.status
                 violation.fix_verification_note = verification.note
 
-    async def _open_ai_full_fix_modal_for_single_violation(
+    def _start_bulk_ai_fix_minimized(
         self,
-        violation: ViolationResult,
-        chart: object,
-        *,
-        force_refresh: bool = False,
-        preset_values_patch_text: str | None = None,
-        preset_template_diff_text: str | None = None,
-        preset_status_text: str | None = None,
-        preset_can_apply: bool | None = None,
-        preset_artifact_key: str | None = None,
-        preset_execution_log_text: str | None = None,
+        fixable_violations: list[ViolationResult],
+        dialog_title: str,
     ) -> None:
-        subtitle = (
-            f"{violation.chart_name} | "
-            f"{self._get_violation_team(violation)} | "
-            f"{self._severity_label(violation)}"
+        """Start a bulk AI fix directly in the minimized right pane."""
+        self._hide_fix_result_banner()
+        grouped = self._group_violations_by_chart(
+            fixable_violations,
+            self._find_chart_for_violation,
         )
-        modal = AIFullFixModal(
-            title=f"{violation.rule_name} · AI Full Fix",
-            subtitle=subtitle,
-            values_patch_text=preset_values_patch_text or "{}\n",
-            template_diff_text=preset_template_diff_text or "",
-            status_text=preset_status_text or self._pending_ai_generation_status(),
-            can_apply=bool(preset_can_apply),
-            artifact_key=preset_artifact_key or "",
-            execution_log_text=preset_execution_log_text or "",
+        if not grouped:
+            self.notify("No local chart bundles available for AI full fix", severity="warning")
+            return
+        if len(grouped) == 1:
+            only_chart = next(iter(grouped.values()))[0]
+            dialog_title = self._bulk_chart_display_name(only_chart)
+        run_id = uuid.uuid4().hex[:12]
+        total = len(grouped)
+        status_text = self._bulk_minimized_status_text(grouped, completed=0, total=total)
+        state = _MinimizedAIFixState(
+            run_id=run_id,
+            dialog_title=dialog_title,
+            grouped=grouped,
+            total_count=total,
+            status_text=status_text,
+            bulk_fix_started_at_monotonic=time.monotonic(),
         )
+        self._minimized_ai_fix_runs[run_id] = state
+        self._mount_ai_fix_run_box(state)
+        self._force_show_ai_fix_run(run_id)
 
-        def _on_dismiss(result: AIFullFixModalResult | None) -> None:
-            if result is None:
-                cache_key = self._single_ai_full_fix_cache_key(violation)
-                cached_entry = self._ai_full_fix_cache.get(cache_key)
-                if isinstance(cached_entry, dict) and bool(cached_entry.get("artifact_cleanup_on_close", False)):
-                    artifact_key = str(cached_entry.get("artifact_key", "")).strip()
-                    if artifact_key:
-                        self._cleanup_ai_full_fix_artifact(artifact_key)
-                    self._ai_full_fix_cache.pop(cache_key, None)
-                return
-            _task = asyncio.create_task(self._handle_single_ai_full_fix_action(violation, chart, result))
-            self._background_tasks.add(_task)
-            _task.add_done_callback(self._background_tasks.discard)
+        semaphore = asyncio.Semaphore(self._ai_fix_bulk_parallelism())
 
-        self.app.push_screen(modal, _on_dismiss)
-        if preset_status_text is None:
-            chart_name = str(
-                getattr(chart, "chart_name", "")
-                or getattr(chart, "name", "")
-                or violation.chart_name
-            )
-
-            def _status_update(text: str) -> None:
-                modal.set_status(
-                    self._status_with_provider_model(text),
-                    can_apply=False,
+        async def _populate_bundle(chart_key: str, chart: object, violations: list[ViolationResult]) -> None:
+            async with semaphore:
+                cache_key = self._chart_bundle_ai_full_fix_cache_key(
+                    chart_key=chart_key,
+                    violations=violations,
                 )
-
-            flow_timeout_seconds = max(300, self._render_timeout_seconds() * 8)
-            try:
-                entry = await asyncio.wait_for(
-                    self._build_single_ai_full_fix_entry(
-                        violation=violation,
-                        chart=chart,
-                        force_refresh=force_refresh,
-                        status_callback=_status_update,
-                    ),
-                    timeout=flow_timeout_seconds,
-                )
-            except asyncio.TimeoutError:
-                timeout_message = (
-                    "AI full-fix flow timed out. "
-                    "LLM stage exceeded time limit."
-                )
-                modal.set_status(
-                    self._status_with_provider_model(timeout_message),
-                    can_apply=False,
-                )
-                self.notify(
-                    f"AI full-fix flow timed out for '{chart_name}'",
-                    severity="error",
-                )
-                return
-            except Exception as exc:
-                logger.exception(
-                    "AI full-fix single generation failed for chart %s",
-                    chart_name,
-                )
-                modal.set_status(
-                    self._status_with_provider_model(
+                chart_name = self._bulk_chart_display_name(chart)
+                flow_timeout_seconds = max(300, self._render_timeout_seconds() * 8)
+                try:
+                    await asyncio.wait_for(
+                        self._build_chart_ai_full_fix_entry(
+                            chart_key=chart_key,
+                            chart=chart,
+                            violations=violations,
+                        ),
+                        timeout=flow_timeout_seconds,
+                    )
+                except asyncio.TimeoutError:
+                    timeout_status = self._status_with_provider_model(
+                        "AI full-fix flow timed out. LLM stage exceeded time limit."
+                    )
+                    self._ai_full_fix_cache[cache_key] = {
+                        "values_patch_text": "{}\n",
+                        "template_diff_text": "",
+                        "status_text": timeout_status,
+                        "can_apply": False,
+                        "artifact_key": "",
+                        "execution_log_text": "",
+                    }
+                    self.notify(
+                        f"AI full-fix timed out for '{chart_name}'",
+                        severity="error",
+                    )
+                except Exception as exc:
+                    logger.exception(
+                        "AI full-fix bulk generation failed for %s", chart_name,
+                    )
+                    failure_status = self._status_with_provider_model(
                         f"AI full-fix flow failed: {exc!s}",
-                    ),
-                    can_apply=False,
-                )
-                self.notify(
-                    f"AI full-fix flow failed for '{chart_name}': {exc!s}",
-                    severity="error",
-                )
-                return
-            modal.set_values_patch_text(str(entry.get("values_patch_text", "{}\n")))
-            modal.set_template_diff_text(str(entry.get("template_diff_text", "")))
-            modal.set_status(
-                str(entry.get("status_text", "AI full fix generation completed.")),
-                can_apply=bool(entry.get("can_apply", False)),
-            )
-            modal.set_execution_context(
-                artifact_key=str(entry.get("artifact_key", "")),
-                execution_log_text=str(entry.get("execution_log_text", "")),
-            )
+                    )
+                    self._ai_full_fix_cache[cache_key] = {
+                        "values_patch_text": "{}\n",
+                        "template_diff_text": "",
+                        "status_text": failure_status,
+                        "can_apply": False,
+                        "artifact_key": "",
+                        "execution_log_text": "",
+                    }
+                    self.notify(
+                        f"AI full-fix failed for '{chart_name}': {exc!s}",
+                        severity="error",
+                    )
+                self._refresh_minimized_runs()
 
-    async def _handle_single_ai_full_fix_action(
-        self,
-        violation: ViolationResult,
-        chart: object,
-        result: AIFullFixModalResult,
-    ) -> None:
-        action = str(result.get("action", "")).strip()
-        values_patch_text = str(result.get("values_patch_text", "{}\n"))
-        template_diff_text = str(result.get("template_diff_text", ""))
-        artifact_key = str(result.get("artifact_key", "")).strip()
-        execution_log_text = str(result.get("execution_log_text", "")).strip()
-        if action == "regenerate":
-            cache_key = self._single_ai_full_fix_cache_key(violation)
-            cached_entry = self._ai_full_fix_cache.pop(cache_key, None)
-            if isinstance(cached_entry, dict):
-                stale_artifact_key = str(cached_entry.get("artifact_key", "")).strip()
-                if stale_artifact_key:
-                    self._cleanup_ai_full_fix_artifact(stale_artifact_key)
-            await self._open_ai_full_fix_modal_for_single_violation(
-                violation,
-                chart,
-                force_refresh=True,
-            )
-            return
-        if action == "reverify":
-            can_apply = True
-            status_text = "Verification removed. Bundle is ready to apply."
-            await self._open_ai_full_fix_modal_for_single_violation(
-                violation,
-                chart,
-                preset_values_patch_text=values_patch_text,
-                preset_template_diff_text=template_diff_text,
-                preset_status_text=status_text,
-                preset_can_apply=can_apply,
-                preset_artifact_key=artifact_key,
-                preset_execution_log_text=execution_log_text,
-            )
-            return
-        if action != "apply":
-            return
-        can_apply, status_note, values_patch, template_patches, verification = await self._verify_editor_bundle(
-            chart=chart,
-            violations=[violation],
-            values_patch_text=values_patch_text,
-            template_diff_text=template_diff_text,
-            artifact_key="",
-        )
-        if not can_apply:
-            hint = _bundle_verification_hint(status_note)
-            blocked_status = f"Apply blocked: {status_note}"
-            if hint:
-                blocked_status = f"{blocked_status}\nHint: {hint}"
-            await self._open_ai_full_fix_modal_for_single_violation(
-                violation,
-                chart,
-                preset_values_patch_text=values_patch_text,
-                preset_template_diff_text=template_diff_text,
-                preset_status_text=blocked_status,
-                preset_can_apply=False,
-                preset_artifact_key=artifact_key,
-                preset_execution_log_text=execution_log_text,
-            )
-            return
-        ok, note = await self._apply_editor_bundle(
-            chart=chart,
-            violations=[violation],
-            values_patch=values_patch,
-            template_patches=template_patches,
-            verification=verification,
-            artifact_key="",
-        )
-        if not ok:
-            await self._open_ai_full_fix_modal_for_single_violation(
-                violation,
-                chart,
-                preset_values_patch_text=values_patch_text,
-                preset_template_diff_text=template_diff_text,
-                preset_status_text=f"Apply failed: {note}",
-                preset_can_apply=False,
-                preset_artifact_key=artifact_key,
-                preset_execution_log_text=execution_log_text,
-            )
-            return
-        if artifact_key:
-            self._cleanup_ai_full_fix_artifact(artifact_key)
-        self._ai_full_fix_cache.pop(self._single_ai_full_fix_cache_key(violation), None)
-        self.notify(
-            f"Applied AI full fix for '{violation.rule_name}' on '{violation.chart_name}'",
-            severity="information",
-        )
-        self.post_message(ViolationRefreshRequested())
+        populate_tasks: list[asyncio.Task[None]] = []
+        for chart_key, (chart, violations) in grouped.items():
+            task = asyncio.create_task(_populate_bundle(chart_key, chart, violations))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
+            populate_tasks.append(task)
+        state.populate_tasks = populate_tasks
 
     @staticmethod
     def _group_violations_by_chart(
@@ -6451,6 +6382,7 @@ class ViolationsView(CustomVertical):
         fixable_violations: list[ViolationResult],
         dialog_title: str,
     ) -> None:
+        self._hide_fix_result_banner()
         grouped = self._group_violations_by_chart(
             fixable_violations,
             self._find_chart_for_violation,
@@ -6458,6 +6390,10 @@ class ViolationsView(CustomVertical):
         if not grouped:
             self.notify("No local chart bundles available for AI full fix", severity="warning")
             return
+        # Use chart display name as title when single chart
+        if len(grouped) == 1:
+            only_chart = next(iter(grouped.values()))[0]
+            dialog_title = self._bulk_chart_display_name(only_chart)
         bundles: list[ChartBundleEditorState] = []
         for chart_key, (chart, violations) in grouped.items():
             chart_name = self._bulk_chart_display_name(chart)
@@ -6488,18 +6424,42 @@ class ViolationsView(CustomVertical):
 
         populate_tasks: list[asyncio.Task[None]] = []
 
-        def _on_dismiss(result: AIFullFixBulkModalResult | None) -> None:
+        def _on_dismiss(result: AIFullFixBulkModalResult | str | None) -> None:
+            reopened = self._reopened_run_state
+            self._reopened_run_state = None
+            if result == MODAL_MINIMIZED_SENTINEL:
+                run_id = uuid.uuid4().hex[:12]
+                total = len(grouped)
+                status_text = self._bulk_minimized_status_text(grouped, completed=0, total=total)
+                state = _MinimizedAIFixState(
+                    run_id=run_id,
+                    dialog_title=dialog_title,
+                    grouped=grouped,
+                    total_count=total,
+                    status_text=status_text,
+                    populate_tasks=list(populate_tasks),
+                    bulk_fix_started_at_monotonic=modal._bulk_fix_started_at_monotonic,
+                    bulk_last_elapsed_seconds=modal._bulk_last_elapsed_seconds,
+                )
+                self._minimized_ai_fix_runs[run_id] = state
+                self._mount_ai_fix_run_box(state)
+                self._force_show_ai_fix_run(run_id)
+                return
             if result is None:
+                if reopened is not None:
+                    self._restore_reopened_run(reopened)
+                    return
                 # Keep in-flight generation running after close so users can continue
                 # working elsewhere while cache hydration finishes in the background.
                 self._cleanup_success_ai_full_fix_artifacts()
                 return
-            for task in populate_tasks:
-                if not task.done():
-                    task.cancel()
-            _task = asyncio.create_task(self._handle_bulk_ai_full_fix_action(grouped, dialog_title, result))
-            self._background_tasks.add(_task)
-            _task.add_done_callback(self._background_tasks.discard)
+            if isinstance(result, dict):
+                for task in populate_tasks:
+                    if not task.done():
+                        task.cancel()
+                _task = asyncio.create_task(self._handle_bulk_ai_full_fix_action(grouped, dialog_title, result))
+                self._background_tasks.add(_task)
+                _task.add_done_callback(self._background_tasks.discard)
 
         self.app.push_screen(modal, _on_dismiss)
 
@@ -6508,6 +6468,10 @@ class ViolationsView(CustomVertical):
         async def _populate_bundle(chart_key: str, chart: object, violations: list[ViolationResult]) -> None:
             async with semaphore:
                 chart_name = self._bulk_chart_display_name(chart)
+                cache_key = self._chart_bundle_ai_full_fix_cache_key(
+                    chart_key=chart_key,
+                    violations=violations,
+                )
                 modal.set_bundle_status(
                     chart_key=chart_key,
                     status_text=self._pending_ai_generation_status(),
@@ -6559,29 +6523,60 @@ class ViolationsView(CustomVertical):
                         status_text=base_status,
                         can_apply=bool(entry.get("can_apply", False)),
                     )
-                    cache_key = self._chart_bundle_ai_full_fix_cache_key(
-                        chart_key=chart_key,
-                        violations=violations,
-                    )
                     self._ai_full_fix_cache[cache_key] = entry
                     modal.end_loading()
                     loading_ended = True
+                    self._refresh_minimized_banner_if_active()
                 except asyncio.TimeoutError:
+                    timeout_status = self._status_with_provider_model(
+                        "AI full-fix flow timed out. "
+                        "LLM stage exceeded time limit.",
+                    )
                     modal.set_bundle_status(
                         chart_key=chart_key,
-                        status_text=(
-                            "AI full-fix flow timed out. "
-                            "LLM stage exceeded time limit."
-                        ),
+                        status_text=timeout_status,
                         can_apply=False,
                     )
+                    self._ai_full_fix_cache[cache_key] = {
+                        "values_patch_text": "{}\n",
+                        "template_diff_text": "",
+                        "template_patches_json": "[]",
+                        "raw_llm_output_text": "",
+                        "sent_prompt_text": "",
+                        "artifact_key": "",
+                        "execution_log_text": "",
+                        "values_preview_text": "{}\n",
+                        "template_preview_text": "",
+                        "values_diff_text": "",
+                        "status_text": timeout_status,
+                        "can_apply": False,
+                    }
+                    self._refresh_minimized_banner_if_active()
                 except Exception as exc:
                     logger.exception("AI full-fix bundle generation failed for chart %s", chart_name)
+                    failed_status = self._status_with_provider_model(
+                        f"AI full-fix flow failed: {exc!s}",
+                    )
                     modal.set_bundle_status(
                         chart_key=chart_key,
-                        status_text=f"AI full-fix flow failed: {exc!s}",
+                        status_text=failed_status,
                         can_apply=False,
                     )
+                    self._ai_full_fix_cache[cache_key] = {
+                        "values_patch_text": "{}\n",
+                        "template_diff_text": "",
+                        "template_patches_json": "[]",
+                        "raw_llm_output_text": "",
+                        "sent_prompt_text": "",
+                        "artifact_key": "",
+                        "execution_log_text": "",
+                        "values_preview_text": "{}\n",
+                        "template_preview_text": "",
+                        "values_diff_text": "",
+                        "status_text": failed_status,
+                        "can_apply": False,
+                    }
+                    self._refresh_minimized_banner_if_active()
                 finally:
                     if not loading_ended:
                         modal.end_loading()
@@ -6797,6 +6792,7 @@ class ViolationsView(CustomVertical):
         skipped = 0
         failed = 0
         skipped_reasons: list[str] = []
+        failed_details: list[str] = []
         for chart_key, (chart, violations) in grouped.items():
             payload = payload_bundles.get(chart_key, {})
             chart_name = str(getattr(chart, "chart_name", "") or getattr(chart, "name", "") or "chart")
@@ -6847,20 +6843,15 @@ class ViolationsView(CustomVertical):
                 failed += 1
                 payload["status_text"] = f"Apply failed: {apply_note}"
                 payload["can_apply"] = "false"
+                failed_details.append(f"{chart_name}: {apply_note}")
         summary = (
             f"AI full fix bulk apply: {success} chart(s) applied"
             + (f", {skipped} skipped" if skipped else "")
             + (f", {failed} failed" if failed else "")
         )
-        if skipped and skipped_reasons:
-            first_reason = skipped_reasons[0]
-            if len(first_reason) > 180:
-                first_reason = f"{first_reason[:177].rstrip()}..."
-            summary = f"{summary}. First skip: {first_reason}"
-        self.notify(
-            summary,
-            severity="information" if failed == 0 and skipped == 0 else "warning",
-        )
+        all_details = failed_details + [f"Skipped: {r}" for r in skipped_reasons]
+        severity = "error" if failed else ("warning" if skipped else "success")
+        self._show_fix_result_banner(summary, all_details, severity)
         if success > 0:
             self.post_message(ViolationRefreshRequested())
 
@@ -6869,11 +6860,16 @@ class ViolationsView(CustomVertical):
         grouped: dict[str, tuple[object, list[ViolationResult]]],
         dialog_title: str,
         payload_bundles: dict[str, dict[str, str]],
+        *,
+        restore_bulk_fix_started_at: float | None = None,
+        restore_bulk_last_elapsed: float | None = None,
     ) -> None:
         bundles: list[ChartBundleEditorState] = []
+        still_generating_keys: list[str] = []
         for chart_key, (chart, violations) in grouped.items():
             payload = payload_bundles.get(chart_key, {})
             chart_name = self._bulk_chart_display_name(chart)
+            has_payload = chart_key in payload_bundles
             bundles.append(
                 ChartBundleEditorState(
                     chart_key=chart_key,
@@ -6893,15 +6889,19 @@ class ViolationsView(CustomVertical):
                         payload.get("template_preview_text", payload.get("template_diff_text", ""))
                     ),
                     values_diff_text=str(payload.get("values_diff_text", "")),
-                    status_text=str(payload.get("status_text", "Pending")),
+                    status_text=str(payload.get("status_text", "Generating..." if not has_payload else "Pending")),
                     can_apply=str(payload.get("can_apply", "false")).strip().lower() == "true",
-                    is_processing=str(payload.get("is_processing", "false")).strip().lower() == "true",
+                    is_processing=not has_payload or str(payload.get("is_processing", "false")).strip().lower() == "true",
                     is_waiting=str(payload.get("is_waiting", "false")).strip().lower() == "true",
                 )
             )
+            if not has_payload:
+                still_generating_keys.append(chart_key)
         modal = AIFullFixBulkModal(
             title=dialog_title,
             bundles=bundles,
+            restore_bulk_fix_started_at=restore_bulk_fix_started_at,
+            restore_bulk_last_elapsed=restore_bulk_last_elapsed,
         )
 
         async def _handle_inline_action(result: AIFullFixBulkModalResult) -> None:
@@ -6915,15 +6915,88 @@ class ViolationsView(CustomVertical):
 
         modal.set_inline_action_handler(_handle_inline_action)
 
-        def _on_dismiss(result: AIFullFixBulkModalResult | None) -> None:
+        def _on_dismiss(result: AIFullFixBulkModalResult | str | None) -> None:
+            reopened = self._reopened_run_state
+            self._reopened_run_state = None
+            if result == MODAL_MINIMIZED_SENTINEL:
+                if reopened is not None:
+                    self._restore_reopened_run(reopened)
+                    return
+                run_id = uuid.uuid4().hex[:12]
+                total = len(grouped)
+                status_text = self._bulk_minimized_status_text(grouped, completed=0, total=total)
+                state = _MinimizedAIFixState(
+                    run_id=run_id,
+                    dialog_title=dialog_title,
+                    grouped=grouped,
+                    total_count=total,
+                    status_text=status_text,
+                    bulk_fix_started_at_monotonic=modal._bulk_fix_started_at_monotonic,
+                    bulk_last_elapsed_seconds=modal._bulk_last_elapsed_seconds,
+                )
+                self._minimized_ai_fix_runs[run_id] = state
+                self._mount_ai_fix_run_box(state)
+                self._force_show_ai_fix_run(run_id)
+                return
             if result is None:
+                if reopened is not None:
+                    self._restore_reopened_run(reopened)
+                    return
                 self._cleanup_success_ai_full_fix_artifacts()
                 return
-            _task = asyncio.create_task(self._handle_bulk_ai_full_fix_action(grouped, dialog_title, result))
-            self._background_tasks.add(_task)
-            _task.add_done_callback(self._background_tasks.discard)
+            if isinstance(result, dict):
+                _task = asyncio.create_task(self._handle_bulk_ai_full_fix_action(grouped, dialog_title, result))
+                self._background_tasks.add(_task)
+                _task.add_done_callback(self._background_tasks.discard)
 
         self.app.push_screen(modal, _on_dismiss)
+
+        if still_generating_keys:
+            for chart_key in still_generating_keys:
+                violations = grouped[chart_key][1]
+                task = asyncio.create_task(
+                    self._monitor_cache_for_bundle(modal, chart_key, violations)
+                )
+                self._background_tasks.add(task)
+                task.add_done_callback(self._background_tasks.discard)
+
+    async def _monitor_cache_for_bundle(
+        self,
+        modal: AIFullFixBulkModal,
+        chart_key: str,
+        violations: list[ViolationResult],
+    ) -> None:
+        """Poll the cache until a bundle entry appears, then update the modal."""
+        cache_key = self._chart_bundle_ai_full_fix_cache_key(
+            chart_key=chart_key,
+            violations=violations,
+        )
+        while True:
+            await asyncio.sleep(1.0)
+            cached = self._ai_full_fix_cache.get(cache_key)
+            if not isinstance(cached, dict):
+                continue
+            try:
+                modal.set_bundle_state(
+                    chart_key=chart_key,
+                    values_patch_text=str(cached.get("values_patch_text", "{}\n")),
+                    template_diff_text=str(cached.get("template_diff_text", "")),
+                    template_patches_json=str(cached.get("template_patches_json", "[]")),
+                    raw_llm_output_text=str(cached.get("raw_llm_output_text", "")),
+                    sent_prompt_text=str(cached.get("sent_prompt_text", "")),
+                    artifact_key=str(cached.get("artifact_key", "")),
+                    execution_log_text=str(cached.get("execution_log_text", "")),
+                    values_preview_text=str(cached.get("values_preview_text", "{}\n")),
+                    template_preview_text=str(cached.get("template_preview_text", "")),
+                    values_diff_text=str(cached.get("values_diff_text", "")),
+                    status_text=str(cached.get("status_text", "Ready")),
+                    can_apply=bool(cached.get("can_apply", False)),
+                )
+                modal.end_loading()
+            except Exception:
+                pass
+            self._refresh_minimized_banner_if_active()
+            return
 
     async def _open_bulk_diff_view_modal(
         self,
@@ -7057,9 +7130,391 @@ class ViolationsView(CustomVertical):
         if not fixable:
             self.notify("No fixable violations found", severity="information")
             return
-        _task = asyncio.create_task(self._open_ai_full_fix_bulk_modal(fixable, "Fix All"))
-        self._background_tasks.add(_task)
-        _task.add_done_callback(self._background_tasks.discard)
+        self._start_bulk_ai_fix_minimized(fixable, "Fix All")
+
+    # ------------------------------------------------------------------
+    # AI Fix progress banner (minimize-to-background)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_ai_fix_error_status(status_text: str) -> bool:
+        normalized = str(status_text or "").lower()
+        if not normalized.strip():
+            return False
+        return any(
+            token in normalized
+            for token in (
+                "ai full-fix flow failed",
+                "apply failed",
+                "failed",
+                "error",
+                "timed out",
+                "timeout",
+                "blocked",
+            )
+        )
+
+    def _is_ai_fix_terminal_status(
+        self,
+        status_text: str,
+        *,
+        can_apply: bool,
+    ) -> bool:
+        if can_apply:
+            return True
+        normalized = str(status_text or "").lower()
+        if not normalized.strip():
+            return False
+        if AIFullFixBulkModal._is_waiting_status(status_text):
+            return False
+        if AIFullFixModal._is_processing_status(status_text):
+            return False
+        if AIFullFixBulkModal._is_processing_status(status_text):
+            return False
+        if AIFullFixBulkModal._is_completed_status(status_text):
+            return True
+        return any(
+            token in normalized
+            for token in (
+                "render verification:",
+                "re-verify:",
+                "verification removed",
+                "applied:",
+                "apply skipped:",
+                "apply blocked:",
+                "ready to apply",
+            )
+        )
+
+    def _refresh_minimized_runs(self) -> None:
+        """Compute completed/total counts from cache and update all minimized runs."""
+        if not self._minimized_ai_fix_runs:
+            return
+        for run_id, state in list(self._minimized_ai_fix_runs.items()):
+            self._refresh_single_run_state(state)
+            self._update_ai_fix_run_display(run_id)
+
+    def _refresh_single_run_state(self, state: _MinimizedAIFixState) -> None:
+        """Recompute a single run's progress from the cache."""
+        try:
+            state.is_finished = False
+            state.has_error = False
+            if state.grouped:
+                total = len(state.grouped)
+                completed = 0
+                errors = 0
+                for chart_key, (_chart, violations) in state.grouped.items():
+                    cache_key = self._chart_bundle_ai_full_fix_cache_key(
+                        chart_key=chart_key,
+                        violations=violations,
+                    )
+                    cached = self._ai_full_fix_cache.get(cache_key)
+                    if isinstance(cached, dict):
+                        cached_status = str(cached.get("status_text", ""))
+                        can_apply = bool(cached.get("can_apply", False))
+                        if self._is_ai_fix_terminal_status(
+                            cached_status,
+                            can_apply=can_apply,
+                        ):
+                            completed += 1
+                            if not can_apply and self._is_ai_fix_error_status(cached_status):
+                                errors += 1
+                state.completed_count = completed
+                state.total_count = total
+                state.has_error = errors > 0
+                state.is_finished = completed >= total and total > 0
+                state.status_text = self._bulk_minimized_status_text(
+                    state.grouped,
+                    completed=completed,
+                    total=total,
+                    errors=errors,
+                    is_finished=state.is_finished,
+                )
+        finally:
+            # Freeze elapsed time at the moment the fix finishes (only once)
+            if (
+                state.is_finished
+                and state.bulk_fix_started_at_monotonic is not None
+                and state.bulk_last_elapsed_seconds is None
+            ):
+                state.bulk_last_elapsed_seconds = max(
+                    0.0, time.monotonic() - state.bulk_fix_started_at_monotonic
+                )
+
+    # Keep old name as alias for callers that still reference it (e.g. _monitor_cache_for_bundle)
+    def _refresh_minimized_banner_if_active(self) -> None:
+        self._refresh_minimized_runs()
+
+    def _mount_ai_fix_run_box(self, state: _MinimizedAIFixState) -> None:
+        """Create and mount an _AIFixRunBox into the runs container."""
+        try:
+            container = self.query_one("#ai-fix-runs-container")
+            subtitle = self._build_run_box_subtitle(state)
+            box = _AIFixRunBox(
+                run_id=state.run_id,
+                title=state.dialog_title,
+                total=state.total_count,
+                subtitle=subtitle,
+            )
+            container.mount(box)
+            self._update_runs_container_visibility()
+        except Exception:
+            logger.debug("Failed to mount ai-fix-run-box for %s", state.run_id)
+
+    @staticmethod
+    def _build_run_box_subtitle(state: _MinimizedAIFixState) -> str:
+        """Build subtitle showing violation details for single-violation runs."""
+        if state.grouped and len(state.grouped) == 1:
+            violations = next(iter(state.grouped.values()))[1]
+            if len(violations) == 1:
+                v = violations[0]
+                return f"{v.rule_id}: {v.rule_name}"
+        return ""
+
+    def _update_ai_fix_run_display(self, run_id: str) -> None:
+        """Sync a single run box's widgets with its state."""
+        state = self._minimized_ai_fix_runs.get(run_id)
+        if state is None:
+            return
+        try:
+            box = self.query_one(f"#ai-fix-run-{run_id}", _AIFixRunBox)
+        except Exception:
+            return
+        try:
+            self.query_one(f"#ai-fix-run-status-{run_id}", CustomStatic).update(state.status_text)
+        except Exception:
+            pass
+        try:
+            pbar = self.query_one(f"#ai-fix-run-progress-{run_id}", ProgressBar)
+            pbar.update(total=max(state.total_count, 1), progress=state.completed_count)
+        except Exception:
+            pass
+        try:
+            elapsed_secs = self._run_elapsed_seconds(state)
+            self.query_one(f"#ai-fix-run-elapsed-{run_id}", CustomStatic).update(f"{elapsed_secs:.1f}s")
+        except Exception:
+            pass
+        if state.is_finished:
+            if state.has_error:
+                box.add_class("error")
+                box.remove_class("completed")
+            else:
+                box.add_class("completed")
+                box.remove_class("error")
+        else:
+            box.remove_class("completed")
+            box.remove_class("error")
+        try:
+            dismiss_btn = self.query_one(f"#ai-fix-run-dismiss-{run_id}", CustomButton)
+            dismiss_btn.disabled = not state.is_finished
+        except Exception:
+            pass
+        # Manage elapsed timer
+        has_active = any(not s.is_finished for s in self._minimized_ai_fix_runs.values())
+        if has_active:
+            self._start_banner_elapsed_timer()
+        else:
+            self._stop_banner_elapsed_timer()
+
+    def _update_runs_container_visibility(self) -> None:
+        """Show/hide runs container and empty state in the AI fix pane."""
+        has_runs = bool(self._minimized_ai_fix_runs)
+        try:
+            container = self.query_one("#ai-fix-runs-container")
+            container.display = has_runs
+        except Exception:
+            pass
+        try:
+            empty = self.query_one("#ai-fix-pane-empty")
+            empty.display = not has_runs
+        except Exception:
+            pass
+
+    def _run_elapsed_seconds(self, state: _MinimizedAIFixState) -> float:
+        """Compute elapsed seconds for a specific run."""
+        if state.bulk_fix_started_at_monotonic is None:
+            return 0.0
+        if state.is_finished and state.bulk_last_elapsed_seconds is not None:
+            return state.bulk_last_elapsed_seconds
+        return max(0.0, time.monotonic() - state.bulk_fix_started_at_monotonic)
+
+    def _start_banner_elapsed_timer(self) -> None:
+        """Start 1-second interval to tick elapsed time for all runs."""
+        if self._minimized_banner_elapsed_timer is not None:
+            return  # already running
+        self._minimized_banner_elapsed_timer = self.set_interval(
+            1.0, self._tick_banner_elapsed
+        )
+
+    def _stop_banner_elapsed_timer(self) -> None:
+        """Stop the elapsed time interval."""
+        timer = self._minimized_banner_elapsed_timer
+        if timer is not None:
+            timer.stop()
+            self._minimized_banner_elapsed_timer = None
+
+    def _tick_banner_elapsed(self) -> None:
+        """Called every 1s to update elapsed time labels for all active runs."""
+        if not self._minimized_ai_fix_runs:
+            self._stop_banner_elapsed_timer()
+            return
+        has_active = False
+        for run_id, state in self._minimized_ai_fix_runs.items():
+            if state.is_finished:
+                continue
+            has_active = True
+            try:
+                elapsed_secs = self._run_elapsed_seconds(state)
+                self.query_one(f"#ai-fix-run-elapsed-{run_id}", CustomStatic).update(f"{elapsed_secs:.1f}s")
+            except Exception:
+                pass
+        if not has_active:
+            self._stop_banner_elapsed_timer()
+
+    def _force_show_ai_fix_run(self, run_id: str) -> None:
+        """Show a specific run box using multiple strategies to survive modal dismiss.
+
+        Called from _on_dismiss callbacks — must NEVER raise, otherwise Textual's
+        screen stack can get stuck and block future modal pushes.
+        """
+        try:
+            self._update_ai_fix_run_display(run_id)
+        except Exception:
+            pass
+        try:
+            self.set_timer(0.05, lambda: self._update_ai_fix_run_display(run_id))
+        except Exception:
+            pass
+        try:
+            self._schedule_minimized_banner_refresh()
+        except Exception:
+            pass
+
+    def _schedule_minimized_banner_refresh(self) -> None:
+        """Deferred cache-check so the initial 'in progress' text renders first."""
+        timer = getattr(self, '_minimized_banner_deferred_timer', None)
+        if timer is not None:
+            timer.stop()
+        self._minimized_banner_deferred_timer = self.set_timer(
+            0.5, self._deferred_minimized_banner_refresh
+        )
+
+    def _deferred_minimized_banner_refresh(self) -> None:
+        self._minimized_banner_deferred_timer = None
+        self._refresh_minimized_runs()
+
+    async def _reopen_minimized_ai_fix_modal(self, run_id: str) -> None:
+        """Reopen a minimized modal from cache state."""
+        state = self._minimized_ai_fix_runs.get(run_id)
+        if state is None or not state.grouped:
+            return
+        # Refresh state from cache before reopening so status is current
+        self._refresh_single_run_state(state)
+        # Save so _on_dismiss can restore the run if user just closes the dialog
+        self._reopened_run_state = state
+        payload_bundles: dict[str, dict[str, str]] = {}
+        for chart_key, (_, violations) in state.grouped.items():
+            cache_key = self._chart_bundle_ai_full_fix_cache_key(
+                chart_key=chart_key,
+                violations=violations,
+            )
+            cached = self._ai_full_fix_cache.get(cache_key)
+            if isinstance(cached, dict):
+                payload_bundles[chart_key] = {
+                    k: str(v) for k, v in cached.items()
+                    if isinstance(k, str)
+                }
+        await self._reopen_bulk_modal_from_payload(
+            state.grouped,
+            state.dialog_title,
+            payload_bundles,
+            restore_bulk_fix_started_at=state.bulk_fix_started_at_monotonic,
+            restore_bulk_last_elapsed=state.bulk_last_elapsed_seconds,
+        )
+
+    def _dismiss_ai_fix_run(self, run_id: str) -> None:
+        """Dismiss a single minimized run."""
+        self._minimized_ai_fix_runs.pop(run_id, None)
+        self._remove_run_box_widget(run_id)
+        self._update_runs_container_visibility()
+        if not self._minimized_ai_fix_runs:
+            self._stop_banner_elapsed_timer()
+
+    def _remove_run_box_widget(self, run_id: str) -> None:
+        """Remove the run box widget from the DOM."""
+        try:
+            box = self.query_one(f"#ai-fix-run-{run_id}", _AIFixRunBox)
+            box.remove()
+        except Exception:
+            pass
+
+    def _restore_reopened_run(self, state: _MinimizedAIFixState) -> None:
+        """No-op restore — run box stays visible and state stays in dict."""
+        pass
+
+    def _bulk_minimized_status_text(
+        self,
+        grouped: dict,
+        *,
+        completed: int,
+        total: int,
+        errors: int = 0,
+        is_finished: bool = False,
+    ) -> str:
+        """Build status text for a bulk minimized run, using chart name when single-chart."""
+        if total == 1:
+            chart_obj = next(iter(grouped.values()))[0]
+            display_name = self._bulk_chart_display_name(chart_obj)
+            if is_finished:
+                if errors > 0:
+                    return f"AI Fix complete for {display_name}: generation failed"
+                return f"AI Fix complete for {display_name}"
+            return f"AI Fix in progress for {display_name}..."
+        if is_finished:
+            if errors > 0:
+                return f"AI Fix complete: {completed}/{total} charts ({errors} failed)"
+            return f"AI Fix complete: {completed}/{total} charts"
+        return f"AI Fix in progress... {completed}/{total} charts"
+
+    def _clear_all_ai_fix_runs(self) -> None:
+        """Clear all minimized runs and hide the container."""
+        timer = getattr(self, '_minimized_banner_deferred_timer', None)
+        if timer is not None:
+            timer.stop()
+            self._minimized_banner_deferred_timer = None
+        self._stop_banner_elapsed_timer()
+        for run_id in list(self._minimized_ai_fix_runs):
+            self._remove_run_box_widget(run_id)
+        self._minimized_ai_fix_runs.clear()
+        self._update_runs_container_visibility()
+
+    # ------------------------------------------------------------------
+    # AI Fix result banner (persistent error/success reporting)
+    # ------------------------------------------------------------------
+
+    def _show_fix_result_banner(
+        self,
+        summary: str,
+        details: list[str],
+        severity: str,
+    ) -> None:
+        """Show the persistent result banner with fix outcome details."""
+        with contextlib.suppress(Exception):
+            banner = self.query_one("#ai-fix-result-banner")
+            banner.remove_class("severity-error", "severity-warning", "severity-success")
+            banner.add_class(f"severity-{severity}")
+            banner.add_class("visible")
+            text_lines = [summary]
+            for detail in details[:10]:
+                text_lines.append(f"  {detail}")
+            with contextlib.suppress(Exception):
+                self.query_one("#ai-fix-result-status", CustomStatic).update("\n".join(text_lines))
+
+    def _hide_fix_result_banner(self) -> None:
+        """Hide the result banner."""
+        with contextlib.suppress(Exception):
+            banner = self.query_one("#ai-fix-result-banner")
+            banner.remove_class("visible")
 
     async def _apply_all_fixes(
         self,
@@ -7092,11 +7547,13 @@ class ViolationsView(CustomVertical):
         self.update_loading_message(f"Applying fix 1/{total}...")
         optimizer = self._get_optimizer_controller()
         success, errors, skipped = 0, 0, 0
+        failed_details: list[str] = []
         for i, violation in enumerate(fixable, 1):
             if self._cancel_fixes:
                 self.notify(f"Cancelled after {success} fixes applied", severity="warning")
                 break
             self.update_loading_message(f"Applying fix {i}/{total}...")
+            chart = None
             try:
                 chart = self._find_chart_for_violation(violation)
                 if not chart:
@@ -7140,20 +7597,29 @@ class ViolationsView(CustomVertical):
                     success += 1
                 else:
                     skipped += 1
-            except Exception:
+            except Exception as exc:
                 errors += 1
+                chart_name = getattr(chart, "chart_name", violation.chart_name) if chart else violation.chart_name
+                failed_details.append(f"{chart_name} ({violation.rule_id}): {exc}")
         self._applying_fixes = False
         self.set_table_loading(False)
         self._update_action_states()
-        if success > 0:
-            self.notify(
-                f"Applied {success} fixes"
-                + (f", {skipped} skipped" if skipped else "")
-                + (f", {errors} failed" if errors else ""),
-                severity="information" if errors == 0 else "warning")
-            self.post_message(ViolationRefreshRequested())
+        summary = (
+            f"Applied {success} fixes"
+            + (f", {skipped} skipped" if skipped else "")
+            + (f", {errors} failed" if errors else "")
+        )
+        if success > 0 or errors > 0:
+            severity = "error" if errors else ("warning" if skipped else "success")
+            self._show_fix_result_banner(summary, failed_details, severity)
+            if success > 0:
+                self.post_message(ViolationRefreshRequested())
         else:
-            self.notify(f"No fixes applied: {skipped} skipped, {errors} failed", severity="warning")
+            self._show_fix_result_banner(
+                f"No fixes applied: {skipped} skipped, {errors} failed",
+                failed_details,
+                "warning",
+            )
 
     def copy_yaml(self) -> None:
         if not self._fix_yaml_cache:
@@ -7168,12 +7634,23 @@ class ViolationsView(CustomVertical):
 
     async def on_button_pressed(self, event: CustomButton.Pressed) -> None:
         btn = event.button.id
+        if btn and btn.startswith("ai-fix-run-show-"):
+            run_id = btn.removeprefix("ai-fix-run-show-")
+            await self._reopen_minimized_ai_fix_modal(run_id)
+            return
+        if btn and btn.startswith("ai-fix-run-dismiss-"):
+            run_id = btn.removeprefix("ai-fix-run-dismiss-")
+            self._dismiss_ai_fix_run(run_id)
+            return
+        if btn == "ai-fix-result-dismiss-btn":
+            self._hide_fix_result_banner()
+            return
         if btn == "apply-all-btn":
             self.apply_all()
         elif btn == "fix-selected-btn":
-            await self.fix_violation()
+            self.fix_violation()
         elif btn == "fix-all-selected-btn":
-            await self.fix_all_selected()
+            self.fix_all_selected()
         elif btn == "preview-fix-btn":
             self.preview_fix()
         elif btn == "retry-btn":

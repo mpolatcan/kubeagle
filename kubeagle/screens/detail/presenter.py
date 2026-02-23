@@ -31,7 +31,6 @@ class OptimizerDataLoaded(Message):
     def __init__(
         self,
         violations: list[ViolationResult],
-        recommendations: list[dict[str, Any]],
         charts: list,
         total_charts: int,
         duration_ms: float,
@@ -39,7 +38,6 @@ class OptimizerDataLoaded(Message):
     ) -> None:
         super().__init__()
         self.violations = violations
-        self.recommendations = recommendations
         self.charts = charts
         self.total_charts = total_charts
         self.duration_ms = duration_ms

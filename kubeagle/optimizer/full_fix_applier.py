@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
-import io
 import os
 import re
 import shutil
@@ -16,10 +15,9 @@ from threading import Lock
 from typing import Any
 
 import yaml
-from ruamel.yaml import YAML
-from ruamel.yaml.comments import CommentedMap
 
 from kubeagle.optimizer.llm_patch_protocol import FullFixTemplatePatch
+from kubeagle.optimizer.yaml_patcher import apply_values_yaml_patch
 
 _HUNK_HEADER_PATTERN = re.compile(
     r"^@@ -(?P<old_start>\d+)(?:,(?P<old_count>\d+))? \+(?P<new_start>\d+)(?:,(?P<new_count>\d+))? @@"
@@ -177,23 +175,10 @@ def apply_full_fix_bundle_atomic(
             # Values patch
             if values_patch:
                 raw_values = values_path.read_text(encoding="utf-8")
-                ryaml = YAML()
-                ryaml.preserve_quotes = True
-                ryaml.width = 4096  # prevent long-line wrapping
-                ryaml.best_map_indent = 2
-                ryaml.best_sequence_indent = 2
-                ryaml.best_sequence_dash_offset = 0
-                parsed_values = ryaml.load(raw_values)
-                if parsed_values is None:
-                    parsed_values = CommentedMap()
-                if not isinstance(parsed_values, dict):
-                    raise ValueError("values.yaml root must be mapping to apply values patch.")
-                _deep_merge_roundtrip(parsed_values, values_patch)
+                updated_values = apply_values_yaml_patch(raw_values, values_patch)
                 if values_path not in snapshots:
                     snapshots[values_path] = values_path.read_bytes()
-                buf = io.StringIO()
-                ryaml.dump(parsed_values, buf)
-                values_path.write_text(buf.getvalue(), encoding="utf-8")
+                values_path.write_text(updated_values, encoding="utf-8")
                 touched_files.append(str(values_path))
 
             return FullFixApplyResult(
@@ -537,19 +522,6 @@ def _validate_relative_template_path(rel_path: str) -> None:
         raise ValueError(f"Path traversal is not allowed: {rel_path}")
     if not rel_path.startswith("templates/"):
         raise ValueError(f"Only templates/ files are allowed: {rel_path}")
-
-
-def _deep_merge_roundtrip(base: dict[str, Any], override: dict[str, Any]) -> None:
-    """Deep-merge *override* into a ruamel.yaml round-trip mapping in-place.
-
-    Preserves the existing CommentedMap structure (quotes, comments, blank
-    lines) while recursively adding/updating keys from the patch.
-    """
-    for key, value in override.items():
-        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
-            _deep_merge_roundtrip(base[key], value)
-        else:
-            base[key] = value
 
 
 def _chart_lock(chart_dir: Path) -> Lock:

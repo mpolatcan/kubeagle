@@ -314,8 +314,7 @@ The optimizer is a **separate module** (not part of controllers) that handles ch
 | `llm_cli_runner.py` | Non-interactive LLM CLI integration (Codex/Claude) | `LLMProvider`, `LLMCLIResult`, `LLMDirectEditResult`, `run_llm_direct_edit` |
 | `llm_patch_protocol.py` | Structured prompt/response contract for LLM patches | `StructuredPatchResponse`, `FullFixResponse`, `FullFixTemplatePatch`, `FullFixViolationCoverage` |
 | `rendered_rule_input.py` | Convert rendered manifests to optimizer rule input payloads | `build_rule_inputs_from_rendered` |
-| `template_patch_suggester.py` | Suggestion-only template patch hints for wiring mismatches | `build_template_patch_suggestions` |
-| `wiring_diagnoser.py` | Template wiring issue diagnosis for unresolved fix outcomes | `diagnose_template_wiring` |
+| `template_patch_suggester.py` | Suggestion-only template patch hints for wiring mismatches | `format_wiring_suggestions_markdown` |
 | `resource_impact_calculator.py` | Calculate resource impact of optimization fixes | Resource impact estimation |
 
 **Optimizer Internal Architecture:**

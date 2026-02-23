@@ -248,6 +248,29 @@ def test_single_modal_actions_locked_while_generating() -> None:
 
 
 @pytest.mark.unit
+def test_single_modal_close_uses_minimize_when_button_label_is_minimize() -> None:
+    """Close click should still minimize when the rendered button label says Minimize."""
+    modal = AIFullFixModal(
+        title="AI Full Fix",
+        subtitle="demo",
+        status_text="Render Verification: VERIFIED",
+        can_apply=False,
+    )
+    dismissed: list[object] = []
+
+    def _capture_dismiss(payload: object) -> None:
+        dismissed.append(payload)
+
+    modal.dismiss = _capture_dismiss  # type: ignore[method-assign]
+    modal.query_one = lambda *_args, **_kwargs: SimpleNamespace(label="Minimize")  # type: ignore[method-assign]
+
+    event = SimpleNamespace(button=SimpleNamespace(id="ai-full-fix-close"))
+    modal.on_button_pressed(event)  # type: ignore[arg-type]
+
+    assert dismissed == [ai_full_fix_modal_module.MODAL_MINIMIZED_SENTINEL]
+
+
+@pytest.mark.unit
 def test_chip_display_value_compacts_verification_details_counts() -> None:
     """Verification details chip should stay compact to avoid oversized card height."""
     compact = AIFullFixBulkModal._chip_display_value(
@@ -601,3 +624,25 @@ def test_diff_actions_run_inline_without_dismissing_modal(
 
     assert captured_inline == [expected_action]
     assert dismissed == []
+
+
+@pytest.mark.unit
+def test_bulk_close_uses_minimize_when_button_label_is_minimize() -> None:
+    """Bulk close click should minimize when user-visible label is Minimize."""
+    modal = _build_modal()
+    modal._active_loading_jobs = 0
+    modal._bundles["chart-1"].is_processing = False
+    modal._bundles["chart-1"].is_waiting = False
+
+    dismissed: list[object] = []
+
+    def _capture_dismiss(payload: object) -> None:
+        dismissed.append(payload)
+
+    modal.dismiss = _capture_dismiss  # type: ignore[method-assign]
+    modal.query_one = lambda *_args, **_kwargs: SimpleNamespace(label="Minimize")  # type: ignore[method-assign]
+
+    event = SimpleNamespace(button=SimpleNamespace(id="ai-full-fix-bulk-close"))
+    modal.on_button_pressed(event)  # type: ignore[arg-type]
+
+    assert dismissed == [ai_full_fix_modal_module.MODAL_MINIMIZED_SENTINEL]

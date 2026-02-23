@@ -6,10 +6,12 @@ from kubeagle.screens.detail.components.ai_full_fix_modal import (
     AIFullFixBulkModal,
     AIFullFixBulkModalResult,
     ChartBundleEditorState,
+    MODAL_MINIMIZED_SENTINEL,
 )
 
 __all__ = [
     "AIFullFixBulkModal",
     "AIFullFixBulkModalResult",
     "ChartBundleEditorState",
+    "MODAL_MINIMIZED_SENTINEL",
 ]

@@ -158,7 +158,6 @@ class TestNavigationModuleImports:
             navigate_to_export,
             navigate_to_home,
             navigate_to_optimizer,
-            navigate_to_recommendations,
             navigate_to_settings,
         )
 
@@ -168,7 +167,6 @@ class TestNavigationModuleImports:
         assert navigate_to_optimizer is not None
         assert navigate_to_export is not None
         assert navigate_to_settings is not None
-        assert navigate_to_recommendations is not None
 
     def test_keybindings_import(self):
         """Test all keybinding constants can be imported from keyboard module."""
@@ -236,7 +234,6 @@ class TestScreensPackageExports:
             "navigate_to_optimizer",
             "navigate_to_export",
             "navigate_to_settings",
-            "navigate_to_recommendations",
         ]
 
         for name in expected_navigation:
@@ -368,18 +365,6 @@ class TestNavigationFunctionsSignature:
         params = list(sig.parameters.keys())
         assert "app" in params
 
-    def test_navigate_to_recommendations_signature(self):
-        """Test navigate_to_recommendations takes app parameter."""
-        import inspect
-
-        from kubeagle.keyboard.navigation import (
-            navigate_to_recommendations,
-        )
-
-        sig = inspect.signature(navigate_to_recommendations)
-        params = list(sig.parameters.keys())
-        assert "app" in params
-
 
 
 # =============================================================================
@@ -439,14 +424,6 @@ class TestScreenNavigatorActionMethods:
         navigator = ScreenNavigator()
         assert hasattr(navigator, "action_nav_settings")
         assert callable(navigator.action_nav_settings)
-
-    def test_action_nav_recommendations_exists(self):
-        """Test action_nav_recommendations method exists on ScreenNavigator."""
-        from kubeagle.keyboard.navigation import ScreenNavigator
-
-        navigator = ScreenNavigator()
-        assert hasattr(navigator, "action_nav_recommendations")
-        assert callable(navigator.action_nav_recommendations)
 
     def test_action_show_help_exists(self):
         """Test action_show_help method exists on ScreenNavigator."""

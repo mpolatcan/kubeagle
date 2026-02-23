@@ -1,8 +1,8 @@
-"""Smoke tests for OptimizerScreen - unified violations + recommendations view.
+"""Smoke tests for OptimizerScreen - unified violations view.
 
 This module tests:
 - Screen class attributes and properties
-- Widget composition verification (ViolationsView, RecommendationsView, impact-analysis-btn)
+- Widget composition verification (ViolationsView, impact-analysis-btn)
 - Keybinding verification
 - Loading state management
 - View switching
@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from kubeagle.screens.detail import OptimizerScreen
 from kubeagle.screens.detail.components import (
-    RecommendationsView,
     ViolationsView,
 )
 from kubeagle.screens.detail.config import (
@@ -59,17 +58,10 @@ class TestOptimizerScreenWidgetComposition:
         assert screen is not None
         assert screen.team_filter == "team-alpha"
 
-    def test_screen_default_initial_view_is_violations(self) -> None:
-        """Test that default initial_view is 'violations'."""
+    def test_screen_default_view_is_violations(self) -> None:
+        """Test that default view is 'violations'."""
         screen = OptimizerScreen(testing=True)
-        assert screen._initial_view == "violations"
         assert screen._current_view == "violations"
-
-    def test_screen_initial_view_recommendations(self) -> None:
-        """Test that initial_view can be set to 'recommendations'."""
-        screen = OptimizerScreen(testing=True, initial_view="recommendations")
-        assert screen._initial_view == "recommendations"
-        assert screen._current_view == "recommendations"
 
     def test_screen_include_cluster_default(self) -> None:
         """Test that include_cluster defaults to True."""
@@ -116,15 +108,14 @@ class TestOptimizerScreenCompose:
         vv_matches = [w for w in all_widgets if isinstance(w, ViolationsView)]
         assert len(vv_matches) == 0
 
-    def test_violations_view_compose_includes_recommendations(self) -> None:
-        """Test that ViolationsView compose yields a RecommendationsView with id='recommendations-view'."""
+    def test_violations_view_compose_includes_ai_fix_pane(self) -> None:
+        """Test that ViolationsView compose yields an AI fix pane with id='ai-fix-pane'."""
         vv = ViolationsView(id="violations-view")
         inner_widgets = self._flatten(list(vv.compose()))
         matches = [
             w
             for w in inner_widgets
-            if isinstance(w, RecommendationsView)
-            and w.id == "recommendations-view"
+            if getattr(w, "id", None) == "ai-fix-pane"
         ]
         assert len(matches) == 1
 
@@ -356,12 +347,6 @@ class TestOptimizerScreenViewSwitching:
         assert hasattr(screen, "action_view_violations")
         assert callable(screen.action_view_violations)
 
-    def test_has_action_view_recommendations(self) -> None:
-        """Test that action_view_recommendations method exists."""
-        screen = OptimizerScreen(testing=True)
-        assert hasattr(screen, "action_view_recommendations")
-        assert callable(screen.action_view_recommendations)
-
 
 
 # =============================================================================
@@ -413,18 +398,6 @@ class TestOptimizerScreenActionMethods:
         screen = OptimizerScreen(testing=True)
         assert hasattr(screen, "action_focus_sort")
         assert callable(screen.action_focus_sort)
-
-    def test_has_action_cycle_severity(self) -> None:
-        """Test that action_cycle_severity method exists."""
-        screen = OptimizerScreen(testing=True)
-        assert hasattr(screen, "action_cycle_severity")
-        assert callable(screen.action_cycle_severity)
-
-    def test_has_action_go_to_chart(self) -> None:
-        """Test that action_go_to_chart method exists."""
-        screen = OptimizerScreen(testing=True)
-        assert hasattr(screen, "action_go_to_chart")
-        assert callable(screen.action_go_to_chart)
 
     def test_has_action_pop_screen(self) -> None:
         """Test that action_pop_screen method exists."""
