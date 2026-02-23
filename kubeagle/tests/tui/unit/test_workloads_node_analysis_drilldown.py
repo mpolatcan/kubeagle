@@ -158,8 +158,10 @@ def test_node_details_modal_compose_includes_live_plot_tab() -> None:
     source = inspect.getsource(_WorkloadAssignedNodesDetailModal.compose)
     assert "Tables" in source
     assert "Live Plot" in source
-    assert "workloads-node-details-cpu-plot" in source
-    assert "workloads-node-details-memory-plot" in source
+    assert "workloads-node-details-pod-cpu-plot" in source
+    assert "workloads-node-details-pod-memory-plot" in source
+    assert "workloads-node-details-node-cpu-plot" in source
+    assert "workloads-node-details-node-memory-plot" in source
 
 
 def test_node_details_modal_tab_change_triggers_polling_state(
@@ -213,17 +215,23 @@ def test_node_details_modal_history_caps_at_720() -> None:
         live_sample_provider=_provider,
     )
     for idx in range(modal._LIVE_HISTORY_LIMIT + 5):
-        modal._live_timestamps.append(float(idx))
-        modal._live_cpu_timestamps.append(float(idx))
-        modal._live_cpu_values.append(float(idx))
-        modal._live_memory_timestamps.append(float(idx))
-        modal._live_memory_values.append(float(idx))
+        modal._pod_cpu_series.timestamps.append(float(idx))
+        modal._pod_cpu_series.values.append(float(idx))
+        modal._pod_memory_series.timestamps.append(float(idx))
+        modal._pod_memory_series.values.append(float(idx))
+        modal._node_cpu_series.timestamps.append(float(idx))
+        modal._node_cpu_series.values.append(float(idx))
+        modal._node_memory_series.timestamps.append(float(idx))
+        modal._node_memory_series.values.append(float(idx))
 
-    assert len(modal._live_timestamps) == modal._LIVE_HISTORY_LIMIT
-    assert len(modal._live_cpu_timestamps) == modal._LIVE_HISTORY_LIMIT
-    assert len(modal._live_cpu_values) == modal._LIVE_HISTORY_LIMIT
-    assert len(modal._live_memory_timestamps) == modal._LIVE_HISTORY_LIMIT
-    assert len(modal._live_memory_values) == modal._LIVE_HISTORY_LIMIT
+    assert len(modal._pod_cpu_series.timestamps) == modal._LIVE_HISTORY_LIMIT
+    assert len(modal._pod_cpu_series.values) == modal._LIVE_HISTORY_LIMIT
+    assert len(modal._pod_memory_series.timestamps) == modal._LIVE_HISTORY_LIMIT
+    assert len(modal._pod_memory_series.values) == modal._LIVE_HISTORY_LIMIT
+    assert len(modal._node_cpu_series.timestamps) == modal._LIVE_HISTORY_LIMIT
+    assert len(modal._node_cpu_series.values) == modal._LIVE_HISTORY_LIMIT
+    assert len(modal._node_memory_series.timestamps) == modal._LIVE_HISTORY_LIMIT
+    assert len(modal._node_memory_series.values) == modal._LIVE_HISTORY_LIMIT
 
 
 def test_node_details_modal_enqueue_triggers_animation_start_when_idle(
@@ -298,11 +306,91 @@ def test_node_details_modal_commit_active_animation_sample_updates_history() -> 
 
     modal._commit_active_animation_sample()
 
-    assert modal._live_timestamps[-1] == 25.0
-    assert modal._live_cpu_timestamps[-1] == 25.0
-    assert modal._live_cpu_values[-1] == 333.0
-    assert modal._live_memory_timestamps[-1] == 25.0
-    assert modal._live_memory_values[-1] == 777.0
+    assert modal._pod_cpu_series.timestamps[-1] == 25.0
+    assert modal._pod_cpu_series.values[-1] == 333.0
+    assert modal._pod_memory_series.timestamps[-1] == 25.0
+    assert modal._pod_memory_series.values[-1] == 777.0
+
+
+def test_node_details_modal_commit_populates_node_series() -> None:
+    """Committing a sample with node breakdowns should populate node series."""
+
+    async def _provider() -> WorkloadLiveUsageSampleInfo:
+        return WorkloadLiveUsageSampleInfo(
+            timestamp_epoch=1.0,
+            namespace="team-a",
+            workload_kind="Deployment",
+            workload_name="api",
+        )
+
+    modal = _WorkloadAssignedNodesDetailModal(
+        workload_name="api",
+        workload_namespace="team-a",
+        workload_kind="Deployment",
+        node_rows=[],
+        pod_rows=[],
+        live_sample_provider=_provider,
+    )
+    modal._live_animation_active = WorkloadLiveUsageSampleInfo(
+        timestamp_epoch=30.0,
+        namespace="team-a",
+        workload_kind="Deployment",
+        workload_name="api",
+        workload_cpu_mcores=100.0,
+        workload_memory_bytes=200.0,
+        node_usage_breakdown={
+            "node-a": {"cpu_mcores": 500.0, "memory_bytes": 1000.0},
+            "node-b": {"cpu_mcores": 300.0, "memory_bytes": 800.0},
+        },
+        node_names=["node-a", "node-b"],
+    )
+
+    modal._commit_active_animation_sample()
+
+    assert modal._node_cpu_series.timestamps[-1] == 30.0
+    assert modal._node_cpu_series.values[-1] == 800.0  # 500 + 300
+    assert modal._node_memory_series.timestamps[-1] == 30.0
+    assert modal._node_memory_series.values[-1] == 1800.0  # 1000 + 800
+
+
+def test_dropdown_selection_clears_series_history() -> None:
+    """Changing dropdown selection should clear relevant series history."""
+
+    async def _provider() -> WorkloadLiveUsageSampleInfo:
+        return WorkloadLiveUsageSampleInfo(
+            timestamp_epoch=1.0,
+            namespace="team-a",
+            workload_kind="Deployment",
+            workload_name="api",
+        )
+
+    modal = _WorkloadAssignedNodesDetailModal(
+        workload_name="api",
+        workload_namespace="team-a",
+        workload_kind="Deployment",
+        node_rows=[],
+        pod_rows=[],
+        live_sample_provider=_provider,
+    )
+    # Populate series with some data
+    modal._pod_cpu_series.timestamps.append(1.0)
+    modal._pod_cpu_series.values.append(100.0)
+    modal._pod_memory_series.timestamps.append(1.0)
+    modal._pod_memory_series.values.append(200.0)
+
+    # Simulate pod selection change
+    from kubeagle.screens.workloads.workloads_screen import _ALL_PODS
+    modal._selected_pod = "pod-a"
+    modal._pod_cpu_series.clear()
+    modal._pod_memory_series.clear()
+
+    assert len(modal._pod_cpu_series.timestamps) == 0
+    assert len(modal._pod_cpu_series.values) == 0
+    assert len(modal._pod_memory_series.timestamps) == 0
+    assert len(modal._pod_memory_series.values) == 0
+
+    # Reset back to all
+    modal._selected_pod = _ALL_PODS
 
 
 def test_node_details_modal_stops_polling_on_cancel(

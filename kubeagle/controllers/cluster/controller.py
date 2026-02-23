@@ -2183,6 +2183,36 @@ class ClusterController(BaseController):
             sample.workload_cpu_mcores = sum(pod_cpu_values)
         if pod_memory_values:
             sample.workload_memory_bytes = sum(pod_memory_values)
+
+        pod_breakdown: dict[str, dict[str, float]] = {}
+        for pod in workload_pods:
+            metadata = pod.get("metadata", {})
+            pod_namespace = str(metadata.get("namespace", effective_namespace) or effective_namespace)
+            pod_name = str(metadata.get("name", "") or "").strip()
+            if not pod_name:
+                continue
+            usage = top_pod_usage_by_key.get((pod_namespace, pod_name))
+            if usage is None:
+                continue
+            pod_breakdown[pod_name] = {
+                "cpu_mcores": float(usage.get("cpu_mcores", 0.0) or 0.0),
+                "memory_bytes": float(usage.get("memory_bytes", 0.0) or 0.0),
+            }
+        sample.pod_usage_breakdown = pod_breakdown
+        sample.pod_names = sorted(pod_breakdown.keys())
+
+        node_breakdown: dict[str, dict[str, float]] = {}
+        for node_name in node_names:
+            usage = top_node_usage_by_name.get(node_name)
+            if usage is None:
+                continue
+            node_breakdown[node_name] = {
+                "cpu_mcores": float(usage.get("cpu_mcores", 0.0) or 0.0),
+                "memory_bytes": float(usage.get("memory_bytes", 0.0) or 0.0),
+            }
+        sample.node_usage_breakdown = node_breakdown
+        sample.node_names = sorted(node_breakdown.keys())
+
         return sample
 
     async def _build_node_utilization_lookup_for_pods(

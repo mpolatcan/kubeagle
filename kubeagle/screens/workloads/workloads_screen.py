@@ -7,6 +7,7 @@ import time
 from collections import deque
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, TypedDict, cast
 
@@ -624,6 +625,60 @@ class _WorkloadsFiltersModal(ModalScreen[_WorkloadsFilterState | None]):
         self.dismiss(state)
 
 
+_ALL_PODS = "__all_pods__"
+_ALL_NODES = "__all_nodes__"
+
+
+@dataclass
+class _PlotSeries:
+    """Encapsulates timestamps/values deques + animation state for one chart series."""
+
+    timestamps: deque[float] = field(default_factory=lambda: deque(maxlen=720))
+    values: deque[float] = field(default_factory=lambda: deque(maxlen=720))
+    anim_from_value: float | None = None
+    anim_to_value: float | None = None
+    anim_from_time: float | None = None
+    anim_to_time: float | None = None
+
+    def setup_animation(self, target_value: float | None, target_time: float) -> None:
+        self.anim_to_value = target_value
+        self.anim_from_value = (
+            self.values[-1] if self.values else self.anim_to_value
+        )
+        self.anim_to_time = target_time
+        self.anim_from_time = (
+            self.timestamps[-1] if self.timestamps else self.anim_to_time
+        )
+        if self.anim_to_value is None:
+            self.anim_from_value = None
+            self.anim_from_time = None
+            self.anim_to_time = None
+
+    def commit(self, timestamp: float, value: float | None) -> None:
+        if value is not None:
+            self.timestamps.append(timestamp)
+            self.values.append(value)
+
+    def clear(self) -> None:
+        self.timestamps.clear()
+        self.values.clear()
+        self.stop_animation()
+
+    def stop_animation(self) -> None:
+        self.anim_from_value = None
+        self.anim_to_value = None
+        self.anim_from_time = None
+        self.anim_to_time = None
+
+
+_PLOT_CONFIGS: list[tuple[str, str, str, str, str]] = [
+    ("workloads-node-details-pod-cpu-plot", "_pod_cpu_series", "Pod CPU (mcores)", "cyan", "mcores"),
+    ("workloads-node-details-pod-memory-plot", "_pod_memory_series", "Pod Memory (bytes)", "magenta", "bytes"),
+    ("workloads-node-details-node-cpu-plot", "_node_cpu_series", "Node CPU (mcores)", "green", "mcores"),
+    ("workloads-node-details-node-memory-plot", "_node_memory_series", "Node Memory (bytes)", "yellow", "bytes"),
+]
+
+
 class _WorkloadAssignedNodesDetailModal(ModalScreen[None]):
     """Modal showing per-node and per-pod runtime detail for one workload."""
 
@@ -681,23 +736,30 @@ class _WorkloadAssignedNodesDetailModal(ModalScreen[None]):
         self._live_polling_enabled = False
         self._live_poll_in_flight = False
         self._live_poll_timer: Any | None = None
-        self._live_timestamps: deque[float] = deque(maxlen=self._LIVE_HISTORY_LIMIT)
-        self._live_cpu_timestamps: deque[float] = deque(maxlen=self._LIVE_HISTORY_LIMIT)
-        self._live_cpu_values: deque[float] = deque(maxlen=self._LIVE_HISTORY_LIMIT)
-        self._live_memory_timestamps: deque[float] = deque(maxlen=self._LIVE_HISTORY_LIMIT)
-        self._live_memory_values: deque[float] = deque(maxlen=self._LIVE_HISTORY_LIMIT)
         self._live_animation_timer: Any | None = None
         self._live_animation_queue: deque[WorkloadLiveUsageSampleInfo] = deque()
         self._live_animation_active: WorkloadLiveUsageSampleInfo | None = None
         self._live_animation_step = 0
-        self._live_animation_cpu_from: float | None = None
-        self._live_animation_cpu_to: float | None = None
-        self._live_animation_cpu_time_from: float | None = None
-        self._live_animation_cpu_time_to: float | None = None
-        self._live_animation_memory_from: float | None = None
-        self._live_animation_memory_to: float | None = None
-        self._live_animation_memory_time_from: float | None = None
-        self._live_animation_memory_time_to: float | None = None
+        self._pod_cpu_series = _PlotSeries(
+            timestamps=deque(maxlen=self._LIVE_HISTORY_LIMIT),
+            values=deque(maxlen=self._LIVE_HISTORY_LIMIT),
+        )
+        self._pod_memory_series = _PlotSeries(
+            timestamps=deque(maxlen=self._LIVE_HISTORY_LIMIT),
+            values=deque(maxlen=self._LIVE_HISTORY_LIMIT),
+        )
+        self._node_cpu_series = _PlotSeries(
+            timestamps=deque(maxlen=self._LIVE_HISTORY_LIMIT),
+            values=deque(maxlen=self._LIVE_HISTORY_LIMIT),
+        )
+        self._node_memory_series = _PlotSeries(
+            timestamps=deque(maxlen=self._LIVE_HISTORY_LIMIT),
+            values=deque(maxlen=self._LIVE_HISTORY_LIMIT),
+        )
+        self._selected_pod: str = _ALL_PODS
+        self._selected_node: str = _ALL_NODES
+        self._known_pod_names: list[str] = []
+        self._known_node_names: list[str] = []
 
     def compose(self) -> ComposeResult:
         with CustomContainer(
@@ -763,34 +825,80 @@ class _WorkloadAssignedNodesDetailModal(ModalScreen[None]):
                         classes="workloads-node-details-live-status",
                         markup=False,
                     )
-                    with CustomVertical(classes="workloads-node-details-live-chart-panel"):
-                        yield CustomStatic(
-                            "Workload CPU Usage (mcores)",
-                            classes="workloads-node-details-modal-panel-title selection-modal-list-title",
-                            markup=False,
+                    with CustomHorizontal(classes="workloads-node-details-live-dropdowns"):
+                        yield Select[str](
+                            [("All Pods", _ALL_PODS)],
+                            value=_ALL_PODS,
+                            id="workloads-node-details-pod-select",
+                            classes="workloads-node-details-live-select",
+                            allow_blank=False,
                         )
-                        if PlotextPlot is not None:
-                            yield PlotextPlot(id="workloads-node-details-cpu-plot")
-                        else:
-                            yield CustomStatic(
-                                "Live plot dependency unavailable: textual-plotext",
-                                id="workloads-node-details-cpu-plot-fallback",
-                                markup=False,
-                            )
-                    with CustomVertical(classes="workloads-node-details-live-chart-panel"):
-                        yield CustomStatic(
-                            "Workload Memory Usage (bytes)",
-                            classes="workloads-node-details-modal-panel-title selection-modal-list-title",
-                            markup=False,
+                        yield Select[str](
+                            [("All Nodes", _ALL_NODES)],
+                            value=_ALL_NODES,
+                            id="workloads-node-details-node-select",
+                            classes="workloads-node-details-live-select",
+                            allow_blank=False,
                         )
-                        if PlotextPlot is not None:
-                            yield PlotextPlot(id="workloads-node-details-memory-plot")
-                        else:
-                            yield CustomStatic(
-                                "Live plot dependency unavailable: textual-plotext",
-                                id="workloads-node-details-memory-plot-fallback",
-                                markup=False,
-                            )
+                    with CustomVertical(classes="workloads-node-details-live-grid"):
+                        with CustomHorizontal(classes="workloads-node-details-live-grid-row"):
+                            with CustomVertical(classes="workloads-node-details-live-chart-panel"):
+                                yield CustomStatic(
+                                    "Pod CPU Usage (mcores)",
+                                    classes="workloads-node-details-modal-panel-title selection-modal-list-title",
+                                    markup=False,
+                                )
+                                if PlotextPlot is not None:
+                                    yield PlotextPlot(id="workloads-node-details-pod-cpu-plot")
+                                else:
+                                    yield CustomStatic(
+                                        "Live plot dependency unavailable: textual-plotext",
+                                        id="workloads-node-details-pod-cpu-plot-fallback",
+                                        markup=False,
+                                    )
+                            with CustomVertical(classes="workloads-node-details-live-chart-panel"):
+                                yield CustomStatic(
+                                    "Pod Memory Usage (bytes)",
+                                    classes="workloads-node-details-modal-panel-title selection-modal-list-title",
+                                    markup=False,
+                                )
+                                if PlotextPlot is not None:
+                                    yield PlotextPlot(id="workloads-node-details-pod-memory-plot")
+                                else:
+                                    yield CustomStatic(
+                                        "Live plot dependency unavailable: textual-plotext",
+                                        id="workloads-node-details-pod-memory-plot-fallback",
+                                        markup=False,
+                                    )
+                        with CustomHorizontal(classes="workloads-node-details-live-grid-row"):
+                            with CustomVertical(classes="workloads-node-details-live-chart-panel"):
+                                yield CustomStatic(
+                                    "Node CPU Usage (mcores)",
+                                    classes="workloads-node-details-modal-panel-title selection-modal-list-title",
+                                    markup=False,
+                                )
+                                if PlotextPlot is not None:
+                                    yield PlotextPlot(id="workloads-node-details-node-cpu-plot")
+                                else:
+                                    yield CustomStatic(
+                                        "Live plot dependency unavailable: textual-plotext",
+                                        id="workloads-node-details-node-cpu-plot-fallback",
+                                        markup=False,
+                                    )
+                            with CustomVertical(classes="workloads-node-details-live-chart-panel"):
+                                yield CustomStatic(
+                                    "Node Memory Usage (bytes)",
+                                    classes="workloads-node-details-modal-panel-title selection-modal-list-title",
+                                    markup=False,
+                                )
+                                if PlotextPlot is not None:
+                                    yield PlotextPlot(id="workloads-node-details-node-memory-plot")
+                                else:
+                                    yield CustomStatic(
+                                        "Live plot dependency unavailable: textual-plotext",
+                                        id="workloads-node-details-node-memory-plot-fallback",
+                                        markup=False,
+                                    )
             with CustomHorizontal(
                 classes="workloads-node-details-modal-actions selection-modal-actions"
             ):
@@ -927,7 +1035,88 @@ class _WorkloadAssignedNodesDetailModal(ModalScreen[None]):
             f"({sample.pods_with_metrics}/{sample.pod_count} pods, "
             f"{sample.nodes_with_metrics}/{sample.node_count} nodes with metrics)."
         )
+        self._update_dropdown_options(sample)
         self._enqueue_live_sample_for_animation(sample)
+
+    def _update_dropdown_options(self, sample: WorkloadLiveUsageSampleInfo) -> None:
+        new_pod_names = sample.pod_names
+        if new_pod_names != self._known_pod_names:
+            self._known_pod_names = list(new_pod_names)
+            options: list[tuple[str, str]] = [("All Pods", _ALL_PODS)]
+            options.extend((name, name) for name in new_pod_names)
+            with suppress(Exception):
+                pod_select = self.query_one(
+                    "#workloads-node-details-pod-select", Select
+                )
+                pod_select.set_options(options)
+                if self._selected_pod != _ALL_PODS and self._selected_pod not in new_pod_names:
+                    self._selected_pod = _ALL_PODS
+                    pod_select.value = _ALL_PODS
+                    self._pod_cpu_series.clear()
+                    self._pod_memory_series.clear()
+
+        new_node_names = sample.node_names
+        if new_node_names != self._known_node_names:
+            self._known_node_names = list(new_node_names)
+            node_options: list[tuple[str, str]] = [("All Nodes", _ALL_NODES)]
+            node_options.extend((name, name) for name in new_node_names)
+            with suppress(Exception):
+                node_select = self.query_one(
+                    "#workloads-node-details-node-select", Select
+                )
+                node_select.set_options(node_options)
+                if self._selected_node != _ALL_NODES and self._selected_node not in new_node_names:
+                    self._selected_node = _ALL_NODES
+                    node_select.value = _ALL_NODES
+                    self._node_cpu_series.clear()
+                    self._node_memory_series.clear()
+
+    @on(Select.Changed, "#workloads-node-details-pod-select")
+    def _on_pod_select_changed(self, event: Select.Changed) -> None:
+        if event.value is Select.BLANK:
+            return
+        self._selected_pod = str(event.value)
+        self._pod_cpu_series.clear()
+        self._pod_memory_series.clear()
+        self._render_live_plots()
+
+    @on(Select.Changed, "#workloads-node-details-node-select")
+    def _on_node_select_changed(self, event: Select.Changed) -> None:
+        if event.value is Select.BLANK:
+            return
+        self._selected_node = str(event.value)
+        self._node_cpu_series.clear()
+        self._node_memory_series.clear()
+        self._render_live_plots()
+
+    def _extract_pod_metric(
+        self,
+        sample: WorkloadLiveUsageSampleInfo,
+        metric_key: str,
+    ) -> float | None:
+        if self._selected_pod == _ALL_PODS:
+            if metric_key == "cpu_mcores":
+                return sample.workload_cpu_mcores
+            return sample.workload_memory_bytes
+        pod_data = sample.pod_usage_breakdown.get(self._selected_pod)
+        if pod_data is None:
+            return None
+        return pod_data.get(metric_key)
+
+    def _extract_node_metric(
+        self,
+        sample: WorkloadLiveUsageSampleInfo,
+        metric_key: str,
+    ) -> float | None:
+        if self._selected_node == _ALL_NODES:
+            breakdown = sample.node_usage_breakdown
+            if not breakdown:
+                return None
+            return sum(node.get(metric_key, 0.0) for node in breakdown.values())
+        node_data = sample.node_usage_breakdown.get(self._selected_node)
+        if node_data is None:
+            return None
+        return node_data.get(metric_key)
 
     def _enqueue_live_sample_for_animation(
         self,
@@ -946,39 +1135,22 @@ class _WorkloadAssignedNodesDetailModal(ModalScreen[None]):
         self._live_animation_active = sample
         self._live_animation_step = 0
 
-        self._live_animation_cpu_to = sample.workload_cpu_mcores
-        self._live_animation_cpu_from = (
-            self._live_cpu_values[-1]
-            if self._live_cpu_values
-            else self._live_animation_cpu_to
+        self._pod_cpu_series.setup_animation(
+            self._extract_pod_metric(sample, "cpu_mcores"),
+            sample.timestamp_epoch,
         )
-        self._live_animation_cpu_time_to = sample.timestamp_epoch
-        self._live_animation_cpu_time_from = (
-            self._live_cpu_timestamps[-1]
-            if self._live_cpu_timestamps
-            else self._live_animation_cpu_time_to
+        self._pod_memory_series.setup_animation(
+            self._extract_pod_metric(sample, "memory_bytes"),
+            sample.timestamp_epoch,
         )
-        if self._live_animation_cpu_to is None:
-            self._live_animation_cpu_from = None
-            self._live_animation_cpu_time_from = None
-            self._live_animation_cpu_time_to = None
-
-        self._live_animation_memory_to = sample.workload_memory_bytes
-        self._live_animation_memory_from = (
-            self._live_memory_values[-1]
-            if self._live_memory_values
-            else self._live_animation_memory_to
+        self._node_cpu_series.setup_animation(
+            self._extract_node_metric(sample, "cpu_mcores"),
+            sample.timestamp_epoch,
         )
-        self._live_animation_memory_time_to = sample.timestamp_epoch
-        self._live_animation_memory_time_from = (
-            self._live_memory_timestamps[-1]
-            if self._live_memory_timestamps
-            else self._live_animation_memory_time_to
+        self._node_memory_series.setup_animation(
+            self._extract_node_metric(sample, "memory_bytes"),
+            sample.timestamp_epoch,
         )
-        if self._live_animation_memory_to is None:
-            self._live_animation_memory_from = None
-            self._live_animation_memory_time_from = None
-            self._live_animation_memory_time_to = None
 
         if self._live_animation_timer is None:
             self._live_animation_timer = self.set_interval(
@@ -996,14 +1168,9 @@ class _WorkloadAssignedNodesDetailModal(ModalScreen[None]):
             self._live_animation_queue.clear()
         self._live_animation_active = None
         self._live_animation_step = 0
-        self._live_animation_cpu_from = None
-        self._live_animation_cpu_to = None
-        self._live_animation_cpu_time_from = None
-        self._live_animation_cpu_time_to = None
-        self._live_animation_memory_from = None
-        self._live_animation_memory_to = None
-        self._live_animation_memory_time_from = None
-        self._live_animation_memory_time_to = None
+        for _plot_id, series_attr, _title, _color, _ylabel in _PLOT_CONFIGS:
+            series: _PlotSeries = getattr(self, series_attr)
+            series.stop_animation()
 
     def _interpolate(
         self,
@@ -1035,96 +1202,61 @@ class _WorkloadAssignedNodesDetailModal(ModalScreen[None]):
         sample = self._live_animation_active
         if sample is None:
             return
-        self._live_timestamps.append(sample.timestamp_epoch)
-        if sample.workload_cpu_mcores is not None:
-            self._live_cpu_timestamps.append(sample.timestamp_epoch)
-            self._live_cpu_values.append(sample.workload_cpu_mcores)
-        if sample.workload_memory_bytes is not None:
-            self._live_memory_timestamps.append(sample.timestamp_epoch)
-            self._live_memory_values.append(sample.workload_memory_bytes)
+        self._pod_cpu_series.commit(
+            sample.timestamp_epoch,
+            self._extract_pod_metric(sample, "cpu_mcores"),
+        )
+        self._pod_memory_series.commit(
+            sample.timestamp_epoch,
+            self._extract_pod_metric(sample, "memory_bytes"),
+        )
+        self._node_cpu_series.commit(
+            sample.timestamp_epoch,
+            self._extract_node_metric(sample, "cpu_mcores"),
+        )
+        self._node_memory_series.commit(
+            sample.timestamp_epoch,
+            self._extract_node_metric(sample, "memory_bytes"),
+        )
         self._render_live_plots()
 
     def _render_active_animation_frame(self, *, progress: float) -> None:
-        cpu_x_values = list(self._live_cpu_timestamps)
-        cpu_y_values = list(self._live_cpu_values)
-        if (
-            self._live_animation_cpu_to is not None
-            and self._live_animation_cpu_from is not None
-            and self._live_animation_cpu_time_to is not None
-            and self._live_animation_cpu_time_from is not None
-        ):
-            cpu_x_values.append(
-                self._interpolate(
-                    self._live_animation_cpu_time_from,
-                    self._live_animation_cpu_time_to,
-                    progress,
+        for plot_id, series_attr, title, color, y_label in _PLOT_CONFIGS:
+            series: _PlotSeries = getattr(self, series_attr)
+            x_values = list(series.timestamps)
+            y_values = list(series.values)
+            if (
+                series.anim_to_value is not None
+                and series.anim_from_value is not None
+                and series.anim_to_time is not None
+                and series.anim_from_time is not None
+            ):
+                x_values.append(
+                    self._interpolate(series.anim_from_time, series.anim_to_time, progress)
                 )
-            )
-            cpu_y_values.append(
-                self._interpolate(
-                    self._live_animation_cpu_from,
-                    self._live_animation_cpu_to,
-                    progress,
+                y_values.append(
+                    self._interpolate(series.anim_from_value, series.anim_to_value, progress)
                 )
+            self._render_single_plot(
+                plot_id=f"#{plot_id}",
+                x_values=x_values,
+                y_values=y_values,
+                title=title,
+                color=color,
+                y_label=y_label,
             )
-
-        memory_x_values = list(self._live_memory_timestamps)
-        memory_y_values = list(self._live_memory_values)
-        if (
-            self._live_animation_memory_to is not None
-            and self._live_animation_memory_from is not None
-            and self._live_animation_memory_time_to is not None
-            and self._live_animation_memory_time_from is not None
-        ):
-            memory_x_values.append(
-                self._interpolate(
-                    self._live_animation_memory_time_from,
-                    self._live_animation_memory_time_to,
-                    progress,
-                )
-            )
-            memory_y_values.append(
-                self._interpolate(
-                    self._live_animation_memory_from,
-                    self._live_animation_memory_to,
-                    progress,
-                )
-            )
-
-        self._render_single_plot(
-            plot_id="#workloads-node-details-cpu-plot",
-            x_values=cpu_x_values,
-            y_values=cpu_y_values,
-            title="Workload CPU (mcores)",
-            color="cyan",
-            y_label="mcores",
-        )
-        self._render_single_plot(
-            plot_id="#workloads-node-details-memory-plot",
-            x_values=memory_x_values,
-            y_values=memory_y_values,
-            title="Workload Memory (bytes)",
-            color="magenta",
-            y_label="bytes",
-        )
 
     def _render_live_plots(self) -> None:
-        self._render_single_plot(
-            plot_id="#workloads-node-details-cpu-plot",
-            x_values=list(self._live_cpu_timestamps),
-            y_values=list(self._live_cpu_values),
-            title="Workload CPU (mcores)",
-            color="cyan",
-            y_label="mcores",
-        )
-        self._render_single_plot(
-            plot_id="#workloads-node-details-memory-plot",
-            x_values=list(self._live_memory_timestamps),
-            y_values=list(self._live_memory_values),
-            title="Workload Memory (bytes)",
-            color="magenta",
-            y_label="bytes",
-        )
+        for plot_id, series_attr, title, color, y_label in _PLOT_CONFIGS:
+            series: _PlotSeries = getattr(self, series_attr)
+            self._render_single_plot(
+                plot_id=f"#{plot_id}",
+                x_values=list(series.timestamps),
+                y_values=list(series.values),
+                title=title,
+                color=color,
+                y_label=y_label,
+            )
 
     def _render_single_plot(
         self,

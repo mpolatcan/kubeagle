@@ -53,6 +53,10 @@ class WorkloadLiveUsageSampleInfo(BaseModel):
     nodes_with_metrics: int = 0
     workload_cpu_mcores: float | None = None
     workload_memory_bytes: float | None = None
+    pod_usage_breakdown: dict[str, dict[str, float]] = Field(default_factory=dict)
+    node_usage_breakdown: dict[str, dict[str, float]] = Field(default_factory=dict)
+    pod_names: list[str] = Field(default_factory=list)
+    node_names: list[str] = Field(default_factory=list)
 
 
 class WorkloadInventoryInfo(BaseModel):
