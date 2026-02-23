@@ -29,6 +29,11 @@ class Kubeagle < Formula
     sha256 "109f59885041b14ee9569bf0bb3f98579c3fa0652317b355669939e5fc5ede53"
   end
 
+  resource "claude-agent-sdk" do
+    url "https://files.pythonhosted.org/packages/1e/26/8890529d9bf2415836fff55bbec1860a1b676abe06bd99632d5c568f9b68/claude_agent_sdk-0.1.38-py3-none-macosx_11_0_arm64.whl", using: :nounzip
+    sha256 "77a4ba1a78bb16c67152c35692e7d070e7e09d311f95abdc02e913f762109910"
+  end
+
   # --- Pure-Python sdist resources ---
 
   resource "annotated-doc" do
@@ -150,7 +155,7 @@ class Kubeagle < Formula
     venv = virtualenv_create(libexec, "python3.13")
 
     # Install pure-Python resources from sdist (skip native wheel resources)
-    wheel_resources = %w[pydantic-core-arm pydantic-core-intel orjson ujson-arm ujson-intel]
+    wheel_resources = %w[pydantic-core-arm pydantic-core-intel orjson ujson-arm ujson-intel claude-agent-sdk]
     sdist_resources = resources.reject { |r| wheel_resources.include?(r.name) }
     venv.pip_install sdist_resources
     venv.pip_install_and_link buildpath
@@ -182,11 +187,13 @@ class Kubeagle < Formula
       system pip, "-m", "pip", "install", "--no-deps", "--no-compile", whl
     end
 
-    # claude-agent-sdk + all transitive deps (mcp, httpx, cryptography, etc.)
-    # Installed via pip to handle the deep dependency tree (~20+ packages).
-    # ARM Mac only — no Intel Mac wheel is published for the SDK.
+    # claude-agent-sdk (ARM Mac only — no Intel Mac wheel is published for the SDK)
+    # Transitive deps (anyio, mcp, httpx, etc.) are satisfied via --system-site-packages.
     if Hardware::CPU.arm?
-      system pip, "-m", "pip", "install", "--no-compile", "claude-agent-sdk==0.1.38"
+      resource("claude-agent-sdk").stage do
+        whl = Dir["*.whl"].first
+        system pip, "-m", "pip", "install", "--no-deps", "--no-compile", whl
+      end
     end
   end
 
