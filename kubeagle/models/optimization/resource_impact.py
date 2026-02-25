@@ -9,14 +9,17 @@ class ChartResourceSnapshot(BaseModel):
     """Per-chart resource snapshot (before or after optimization)."""
 
     name: str
+    parent_chart: str = ""
     team: str
-    values_file_type: str = ""
-    replicas: int
+    replicas: int  # total replicas across all releases
+    release_count: int = 1  # number of deployed releases for this chart
+    min_replicas: int = 0  # min replicas across releases (0 = unknown)
+    max_replicas: int = 0  # max replicas across releases (0 = unknown)
     cpu_request_per_replica: float  # millicores
     cpu_limit_per_replica: float  # millicores
     memory_request_per_replica: float  # bytes
     memory_limit_per_replica: float  # bytes
-    cpu_request_total: float  # millicores
+    cpu_request_total: float  # millicores (per_replica × replicas × release_count)
     cpu_limit_total: float  # millicores
     memory_request_total: float  # bytes
     memory_limit_total: float  # bytes
@@ -31,6 +34,7 @@ class FleetResourceSummary(BaseModel):
     memory_limit_total: float  # bytes
     chart_count: int
     total_replicas: int
+    total_releases: int = 0
 
 
 class ResourceDelta(BaseModel):

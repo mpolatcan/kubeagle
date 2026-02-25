@@ -3795,6 +3795,19 @@ class ClusterScreen(MainNavigationTabsMixin, WorkerMixin, ScreenNavigator, Scree
                     restored_row_index = previous_selected_row
                 if restored_row_index is not None:
                     table.cursor_row = restored_row_index
+                # Force scroll to top after population to prevent
+                # auto-scroll to bottom during data load.
+                dt = table.data_table
+                if dt is not None:
+                    dt.scroll_y = 0
+                    dt.scroll_target_y = 0
+
+                    def _reset_scroll(widget: Any = dt) -> None:
+                        with suppress(Exception):
+                            widget.scroll_y = 0
+                            widget.scroll_target_y = 0
+
+                    dt.call_after_refresh(_reset_scroll)
                 self._table_row_signatures[table_id] = rows_signature
             if table_id == "node-groups-table":
                 self._stretch_table_columns(table)

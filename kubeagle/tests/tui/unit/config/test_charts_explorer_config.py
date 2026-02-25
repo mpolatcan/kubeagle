@@ -83,9 +83,9 @@ class TestViewTabOptions:
 class TestExplorerTableColumns:
     """Test EXPLORER_TABLE_COLUMNS definitions."""
 
-    def test_has_12_columns(self) -> None:
-        """Test EXPLORER_TABLE_COLUMNS has exactly 12 columns."""
-        assert len(EXPLORER_TABLE_COLUMNS) == 12
+    def test_has_13_columns(self) -> None:
+        """Test EXPLORER_TABLE_COLUMNS has exactly 13 columns."""
+        assert len(EXPLORER_TABLE_COLUMNS) == 13
 
     def test_all_tuples_with_correct_types(self) -> None:
         """Test each column is a (str, int) tuple."""
@@ -109,17 +109,21 @@ class TestExplorerTableColumns:
         """Test first column is Chart."""
         assert EXPLORER_TABLE_COLUMNS[0][0] == "Chart"
 
-    def test_third_column_is_team(self) -> None:
-        """Test third column is Team."""
-        assert EXPLORER_TABLE_COLUMNS[2][0] == "Team"
+    def test_second_column_is_parent_chart(self) -> None:
+        """Test second column is Parent Chart."""
+        assert EXPLORER_TABLE_COLUMNS[1][0] == "Parent Chart"
 
-    def test_fourth_column_is_values_file_type(self) -> None:
-        """Test fourth column is Values File Type."""
-        assert EXPLORER_TABLE_COLUMNS[3][0] == "Values File Type"
+    def test_fourth_column_is_team(self) -> None:
+        """Test fourth column is Team."""
+        assert EXPLORER_TABLE_COLUMNS[3][0] == "Team"
 
-    def test_fifth_column_is_qos(self) -> None:
-        """Test fifth column is QoS."""
-        assert EXPLORER_TABLE_COLUMNS[4][0] == "QoS"
+    def test_fifth_column_is_values_file_type(self) -> None:
+        """Test fifth column is Values File Type."""
+        assert EXPLORER_TABLE_COLUMNS[4][0] == "Values File Type"
+
+    def test_sixth_column_is_qos(self) -> None:
+        """Test sixth column is QoS."""
+        assert EXPLORER_TABLE_COLUMNS[5][0] == "QoS"
 
     def test_last_column_is_chart_path(self) -> None:
         """Test last column is Chart Path."""

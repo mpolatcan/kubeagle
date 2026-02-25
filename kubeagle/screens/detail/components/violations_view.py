@@ -1006,6 +1006,7 @@ class _ViolationsFiltersState(TypedDict):
     team_filter: set[str]
     visible_column_names: set[str]
     rule_filter: set[str]
+    parent_chart_filter: set[str]
     chart_filter: set[str]
     values_type_filter: set[str]
 
@@ -1024,6 +1025,7 @@ class _ViolationsFiltersModal(ModalScreen[_ViolationsFiltersState | None]):
         "team",
         "column",
         "rule",
+        "parent_chart",
         "chart",
         "values_type",
     )
@@ -1033,6 +1035,7 @@ class _ViolationsFiltersModal(ModalScreen[_ViolationsFiltersState | None]):
         "team": "team",
         "column": "column",
         "rule": "rule",
+        "parent_chart": "parent-chart",
         "chart": "chart",
         "values_type": "values-type",
     }
@@ -1042,6 +1045,7 @@ class _ViolationsFiltersModal(ModalScreen[_ViolationsFiltersState | None]):
         "team": "Team",
         "column": "Columns",
         "rule": "Rule",
+        "parent_chart": "Parent Chart",
         "chart": "Chart",
         "values_type": "Values Type",
     }
@@ -1215,6 +1219,31 @@ class _ViolationsFiltersModal(ModalScreen[_ViolationsFiltersState | None]):
                 with CustomVertical(classes="viol-filters-modal-list-column"):
                     with CustomVertical(classes="selection-modal-list-panel"):
                         yield CustomStatic(
+                            "Parent Chart",
+                            id="viol-filters-modal-parent-chart-title",
+                            classes="viol-filters-modal-list-title selection-modal-list-title",
+                            markup=False,
+                        )
+                        yield CustomSelectionList[str](
+                            id="viol-filters-modal-parent-chart-list",
+                            classes="viol-filters-modal-list selection-modal-list",
+                        )
+                    with CustomHorizontal(classes="viol-filters-modal-list-actions"):
+                        yield CustomButton(
+                            "All",
+                            id="viol-filters-modal-parent-chart-all",
+                            compact=True,
+                            classes="selection-modal-action-btn",
+                        )
+                        yield CustomButton(
+                            "Clear",
+                            id="viol-filters-modal-parent-chart-clear",
+                            compact=True,
+                            classes="selection-modal-action-btn",
+                        )
+                with CustomVertical(classes="viol-filters-modal-list-column"):
+                    with CustomVertical(classes="selection-modal-list-panel"):
+                        yield CustomStatic(
                             "Chart",
                             id="viol-filters-modal-chart-title",
                             classes="viol-filters-modal-list-title selection-modal-list-title",
@@ -1372,6 +1401,7 @@ class _ViolationsFiltersModal(ModalScreen[_ViolationsFiltersState | None]):
             "team_filter": set(),
             "visible_column_names": set(),
             "rule_filter": set(),
+            "parent_chart_filter": set(),
             "chart_filter": set(),
             "values_type_filter": set(),
         }
@@ -1381,6 +1411,7 @@ class _ViolationsFiltersModal(ModalScreen[_ViolationsFiltersState | None]):
             "team": "team_filter",
             "column": "visible_column_names",
             "rule": "rule_filter",
+            "parent_chart": "parent_chart_filter",
             "chart": "chart_filter",
             "values_type": "values_type_filter",
         }
@@ -3599,6 +3630,7 @@ class ViolationsView(CustomVertical):
         self.severity_filter: set[str] = set()
         self.rule_filter: set[str] = set()
         self.chart_filter: set[str] = set()
+        self.parent_chart_filter: set[str] = set()
         self.values_file_type_filter: set[str] = set()
         self.search_query: str = ""
         self.sort_field: str = SORT_CHART
@@ -4258,10 +4290,11 @@ class ViolationsView(CustomVertical):
         cat_f = self.category_filter
         sev_f = self.severity_filter
         rule_f = self.rule_filter
+        pc_f = self.parent_chart_filter
         chart_f = self.chart_filter
         vft_f = self.values_file_type_filter
         q = self.search_query.strip().lower() if self.search_query else ""
-        has_any = team_f or cat_f or sev_f or rule_f or chart_f or vft_f or q
+        has_any = team_f or cat_f or sev_f or rule_f or pc_f or chart_f or vft_f or q
         if not has_any:
             return violations
         result: list[ViolationResult] = []
@@ -4275,6 +4308,10 @@ class ViolationsView(CustomVertical):
                 continue
             if rule_f and v.rule_name not in rule_f:
                 continue
+            if pc_f:
+                parent = v.parent_chart if v.parent_chart else "-"
+                if parent not in pc_f:
+                    continue
             if chart_f and meta.chart_key not in chart_f:
                 continue
             if vft_f and meta.values_file_type.lower() not in vft_f:
@@ -4479,8 +4516,20 @@ class ViolationsView(CustomVertical):
                             key="state-empty",
                         )
                     self._update_filter_status(result)
-        
+
                     self._update_action_states()
+                    # Force scroll to top after population to prevent
+                    # auto-scroll to bottom during data load.
+                    if dt is not None:
+                        dt.scroll_y = 0
+                        dt.scroll_target_y = 0
+
+                        def _reset_scroll() -> None:
+                            with contextlib.suppress(Exception):
+                                dt.scroll_y = 0
+                                dt.scroll_target_y = 0
+
+                        dt.call_after_refresh(_reset_scroll)
             finally:
                 if sequence == self._table_populate_sequence:
                     table.set_loading(False)
@@ -4509,8 +4558,10 @@ class ViolationsView(CustomVertical):
     def _build_violation_table_row(self, violation: ViolationResult) -> tuple[str | Text, ...]:
         """Build one canonical violations row aligned with OPTIMIZER_TABLE_COLUMNS order."""
         meta = self._meta(violation)
+        parent_chart = f"☂︎ {violation.parent_chart}" if violation.parent_chart else "-"
         return (
             violation.chart_name,
+            parent_chart,
             meta.team,
             meta.values_file_type,
             _SEV_TEXT.get(violation.severity, _SEV_TEXT_UNKNOWN),
@@ -4661,6 +4712,15 @@ class ViolationsView(CustomVertical):
             for rule_name in unique_rules
         ]
 
+        unique_parent_charts = sorted({
+            v.parent_chart if v.parent_chart else "-"
+            for v in self.violations
+        })
+        parent_chart_options = [
+            (self._truncate_option_label(pc), pc)
+            for pc in unique_parent_charts
+        ]
+
         chart_options = sorted(
             {
                 (
@@ -4688,6 +4748,7 @@ class ViolationsView(CustomVertical):
             "team": team_options,
             "column": column_options,
             "rule": rule_options,
+            "parent_chart": parent_chart_options,
             "chart": chart_options,
             "values_type": values_file_type_options,
         }
@@ -4719,6 +4780,8 @@ class ViolationsView(CustomVertical):
             return self.team_filter
         if key == "rule":
             return self.rule_filter
+        if key == "parent_chart":
+            return self.parent_chart_filter
         if key == "chart":
             return self.chart_filter
         if key == "values_type":
@@ -4734,6 +4797,8 @@ class ViolationsView(CustomVertical):
             self.team_filter = values
         elif key == "rule":
             self.rule_filter = values
+        elif key == "parent_chart":
+            self.parent_chart_filter = values
         elif key == "chart":
             self.chart_filter = values
         elif key == "values_type":
@@ -4752,6 +4817,7 @@ class ViolationsView(CustomVertical):
                 self.severity_filter,
                 self.team_filter,
                 self.rule_filter,
+                self.parent_chart_filter,
                 self.chart_filter,
                 self.values_file_type_filter,
             )
@@ -4800,10 +4866,12 @@ class ViolationsView(CustomVertical):
             elif not values_file and name in violation_names:
                 filtered_charts.append(c)
         controller = self._get_optimizer_controller()
+        cluster_context = getattr(self.app, "context", None)
         dialog = ImpactAnalysisDialog(
             charts=filtered_charts,
             violations=filtered_violations,
             optimizer_controller=controller,
+            cluster_context=cluster_context,
         )
         self.app.push_screen(dialog)
 
@@ -4820,6 +4888,7 @@ class ViolationsView(CustomVertical):
                 "team": set(self.team_filter),
                 "column": set(self._visible_column_names),
                 "rule": set(self.rule_filter),
+                "parent_chart": set(self.parent_chart_filter),
                 "chart": set(self.chart_filter),
                 "values_type": set(self.values_file_type_filter),
             },
@@ -4845,6 +4914,7 @@ class ViolationsView(CustomVertical):
             else {column_name for column_name, _ in OPTIMIZER_TABLE_COLUMNS}
         )
         self.rule_filter = set(result["rule_filter"])
+        self.parent_chart_filter = set(result["parent_chart_filter"])
         self.chart_filter = set(result["chart_filter"])
         self.values_file_type_filter = set(result["values_type_filter"])
         self._sync_filter_selection_with_options()

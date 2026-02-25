@@ -80,8 +80,8 @@ class TestDetailConfigColumns:
         assert len(FIXES_TABLE_COLUMNS) == 3
 
     def test_optimizer_table_columns_count(self) -> None:
-        """Test OPTIMIZER_TABLE_COLUMNS has 8 columns."""
-        assert len(OPTIMIZER_TABLE_COLUMNS) == 8
+        """Test OPTIMIZER_TABLE_COLUMNS has 9 columns."""
+        assert len(OPTIMIZER_TABLE_COLUMNS) == 9
 
     def test_all_columns_are_tuples(self) -> None:
         """Test each column is a (str, int) tuple."""
@@ -140,6 +140,7 @@ class TestDetailConfigColumns:
         names = [col[0] for col in OPTIMIZER_TABLE_COLUMNS]
         assert names == [
             "Chart",
+            "Parent Chart",
             "Team",
             "Values File Type",
             "Severity",

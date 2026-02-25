@@ -445,7 +445,7 @@ def test_tree_elapsed_label_skips_queued_waiting_state() -> None:
     bundle.status_text = "Queued: waiting for fix worker..."
 
     assert modal._tree_elapsed_label(bundle) == ""
-    assert modal._chart_marker(bundle) in modal._PULSE_FRAMES
+    assert modal._chart_marker(bundle) == "⏳"
 
 
 @pytest.mark.unit

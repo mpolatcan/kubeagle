@@ -940,6 +940,18 @@ class _WorkloadAssignedNodesDetailModal(ModalScreen[None]):
                     table.add_column(name, key=f"col-{index}")
                 if rows:
                     table.add_rows(rows)
+                # Force scroll to top after population.
+                dt = table.data_table
+                if dt is not None:
+                    dt.scroll_y = 0
+                    dt.scroll_target_y = 0
+
+                    def _reset_scroll(widget: Any = dt) -> None:
+                        with suppress(Exception):
+                            widget.scroll_y = 0
+                            widget.scroll_target_y = 0
+
+                    dt.call_after_refresh(_reset_scroll)
 
     def _on_detail_tab_changed(self, tab_id: str) -> None:
         with suppress(Exception):
@@ -2311,6 +2323,19 @@ class WorkloadsScreen(MainNavigationTabsMixin, WorkerMixin, ScreenNavigator, Scr
                     table.clear(columns=False)
                 if rows:
                     table.add_rows(rows)
+                # Force scroll to top after population to prevent
+                # auto-scroll to bottom during data load.
+                dt = table.data_table
+                if dt is not None:
+                    dt.scroll_y = 0
+                    dt.scroll_target_y = 0
+
+                    def _reset_scroll(widget: Any = dt) -> None:
+                        with suppress(Exception):
+                            widget.scroll_y = 0
+                            widget.scroll_target_y = 0
+
+                    dt.call_after_refresh(_reset_scroll)
             self._table_content_sig_by_id[table_id] = content_sig
             if selected_identity is not None:
                 restored_index = identity_to_index.get(selected_identity)

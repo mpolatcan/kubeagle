@@ -128,6 +128,7 @@ class ChartsExplorerPresenter:
                 and q not in c.team.lower()
                 and q not in c.values_file.lower()
                 and q not in c.qos_class.value.lower()
+                and (c.parent_chart is None or q not in c.parent_chart.lower())
             ):
                 continue
 
@@ -198,19 +199,26 @@ class ChartsExplorerPresenter:
     def format_chart_row(self, chart: ChartInfo) -> tuple[str, ...]:
         """Format a single chart into a row tuple.
 
-        Columns: Chart, Namespace, Team, Values File Type, QoS, CPU R/L,
-                 Mem R/L, Replicas, Probes, Affinity, PDB, Chart Path
+        Columns: Chart, Parent Chart, Namespace, Team, Values File Type,
+                 QoS, CPU R/L, Mem R/L, Replicas, Probes, Affinity, PDB,
+                 Chart Path
         """
+        chart_name = self._format_chart_name(chart)
+        parent_chart = f"☂︎ {chart.parent_chart}" if chart.parent_chart else "-"
+        namespace = chart.namespace or "-"
+
         probes_str = self._build_probes_str(chart)
         values_file_type = self._classify_values_file_type(chart.values_file)
-        namespace = chart.namespace or "-"
 
         affinity = "Anti" if chart.has_anti_affinity else "No"
         if chart.has_topology_spread:
             affinity += "+Topology"
 
         pdb = "Yes" if chart.pdb_enabled else "No"
-        replicas = str(chart.replicas) if chart.replicas is not None else "N/A"
+        if chart.replicas is not None:
+            replicas = str(chart.replicas)
+        else:
+            replicas = "N/A"
 
         cpu_req = f"{chart.cpu_request:.0f}m" if chart.cpu_request else "-"
         cpu_lim = f"{chart.cpu_limit:.0f}m" if chart.cpu_limit else "-"
@@ -222,11 +230,11 @@ class ChartsExplorerPresenter:
         mem_ratio_str = self._format_ratio(chart.memory_request, chart.memory_limit)
         mem_req_lim = self._format_req_lim_with_ratio(mem_req, mem_lim, mem_ratio_str)
 
-        chart_name = self._format_chart_name(chart)
         chart_path_display = self._format_chart_path(chart.values_file)
 
         return (
             chart_name,
+            parent_chart,
             namespace,
             chart.team,
             values_file_type,
@@ -252,6 +260,8 @@ class ChartsExplorerPresenter:
         """Build numeric summary metrics for KPI-style summary rows.
 
         Uses a single pass over filtered_charts for all per-chart accumulators.
+        Sub-charts are excluded from totals and resource accumulators to avoid
+        double-counting (umbrella parents already carry aggregated values).
         """
         total = len(all_charts)
         shown = len(filtered_charts)
@@ -382,7 +392,7 @@ class ChartsExplorerPresenter:
 
     @staticmethod
     def _format_chart_name(chart: ChartInfo) -> str:
-        """Render chart name with Helm marker prefix."""
+        """Render chart name with Helm marker."""
         return f"⎈ {chart.name}"
 
     @classmethod

@@ -1794,7 +1794,7 @@ Select.cluster-tab-order {
     height: 1fr;
     min-height: 0;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: auto;
     padding: 1;
 }
 
@@ -1908,11 +1908,41 @@ Select.cluster-tab-order {
     margin-bottom: 0;
 }
 
+/* --- Impact Controls Row (search + sort) --- */
+
+.impact-chart-controls-row {
+    height: auto;
+    max-height: 3;
+    margin-bottom: 1;
+    padding: 0;
+}
+
+#impact-search-input {
+    width: 30;
+}
+
+#impact-search-btn {
+    margin-right: 1;
+}
+
+#impact-clear-btn {
+    margin-right: 1;
+}
+
+#impact-sort-select {
+    width: 30;
+}
+
+#impact-sort-order-select {
+    width: 12;
+}
+
 /* --- Impact Table Containers --- */
 
 #impact-chart-table-container {
     height: 1fr;
     min-height: 12;
+    overflow-x: auto;
 }
 
 /* --- Impact Tables --- */
@@ -1964,7 +1994,7 @@ Select.cluster-tab-order {
 /* --- Impact Filters Modal --- */
 
 .impact-filters-modal-shell {
-    max-width: 120;
+    max-width: 148;
     height: 1fr;
 }
 
@@ -1974,8 +2004,8 @@ Select.cluster-tab-order {
 
 .impact-filters-modal-lists-row {
     layout: grid;
-    grid-size: 2 1;
-    grid-columns: 1fr 1fr;
+    grid-size: 3 1;
+    grid-columns: 1fr 1fr 1fr;
     grid-gutter: 1 0;
     width: 1fr;
     height: 1fr;

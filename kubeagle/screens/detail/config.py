@@ -26,6 +26,7 @@ VIOLATIONS_TABLE_COLUMNS: list[tuple[str, int]] = [
 # Full violations table columns (optimizer screen)
 OPTIMIZER_TABLE_COLUMNS: list[tuple[str, int]] = [
     ("Chart", 22),
+    ("Parent Chart", 18),
     ("Team", 18),
     ("Values File Type", 18),
     ("Severity", 12),
@@ -37,6 +38,7 @@ OPTIMIZER_TABLE_COLUMNS: list[tuple[str, int]] = [
 
 OPTIMIZER_HEADER_TOOLTIPS: dict[str, str] = {
     "Chart": "Helm chart name where the violation was detected.",
+    "Parent Chart": "Umbrella parent chart name for sub-charts.",
     "Team": "Owning team mapped from CODEOWNERS/chart metadata.",
     "Values File Type": "Source kind for values (service/default/shared/other).",
     "Severity": "Violation impact level (Error, Warning, or Info).",
@@ -76,15 +78,41 @@ IMPACT_NODE_TABLE_COLUMNS: list[tuple[str, int]] = [
     ("Cost Δ/mo", 14),
 ]
 
+IMPACT_SORT_CHART = "chart"
+IMPACT_SORT_TEAM = "team"
+IMPACT_SORT_RELEASES = "releases"
+IMPACT_SORT_REPLICAS = "replicas"
+IMPACT_SORT_CPU_REQ = "cpu_req"
+IMPACT_SORT_CPU_LIM = "cpu_lim"
+IMPACT_SORT_MEM_REQ = "mem_req"
+IMPACT_SORT_MEM_LIM = "mem_lim"
+
+IMPACT_SORT_OPTIONS: list[tuple[str, str]] = [
+    ("Chart", IMPACT_SORT_CHART),
+    ("Team", IMPACT_SORT_TEAM),
+    ("Releases", IMPACT_SORT_RELEASES),
+    ("Total Replicas", IMPACT_SORT_REPLICAS),
+    ("CPU Request", IMPACT_SORT_CPU_REQ),
+    ("CPU Limit", IMPACT_SORT_CPU_LIM),
+    ("Mem Request", IMPACT_SORT_MEM_REQ),
+    ("Mem Limit", IMPACT_SORT_MEM_LIM),
+]
+
 IMPACT_CHART_TABLE_COLUMNS: list[tuple[str, int]] = [
     ("Chart", 22),
+    ("Parent Chart", 18),
     ("Team", 16),
-    ("Values File", 14),
-    ("CPU Req B->A", 20),
-    ("CPU Lim B->A", 20),
-    ("Mem Req B->A", 20),
-    ("Mem Lim B->A", 20),
-    ("Replicas", 14),
+    ("Releases", 10),
+    ("Total Replicas", 14),
+    ("Min Rep", 10),
+    ("Max Rep", 10),
+    ("CPU Req B->A", 28),
+    ("CPU Lim B->A", 28),
+    ("Mem Req B->A", 28),
+    ("Mem Lim B->A", 28),
+    ("CPU Req Total", 26),
+    ("Mem Req Total", 26),
+    ("Replicas B->A", 22),
 ]
 
 IMPACT_CLUSTER_NODE_TABLE_COLUMNS: list[tuple[str, int]] = [

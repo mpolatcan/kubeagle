@@ -68,7 +68,6 @@ class FetchStatus:
     last_updated: datetime | None = None
 
 
-
 class ClusterController(BaseController):
     """EKS cluster data operations with parallel fetching.
 
@@ -106,9 +105,15 @@ class ClusterController(BaseController):
 
     _fetch_semaphore: asyncio.Semaphore | None = None
     _semaphore_max_concurrent: int = 3
-    _global_kubectl_cache: OrderedDict[tuple[str, tuple[str, ...]], tuple[float, str]] = OrderedDict()
-    _global_helm_cache: OrderedDict[tuple[str, tuple[str, ...]], tuple[float, str]] = OrderedDict()
-    _GLOBAL_COMMAND_CACHE_MAX_ENTRIES = 256  # Generous limit — avoids evicting useful entries
+    _global_kubectl_cache: OrderedDict[
+        tuple[str, tuple[str, ...]], tuple[float, str]
+    ] = OrderedDict()
+    _global_helm_cache: OrderedDict[tuple[str, tuple[str, ...]], tuple[float, str]] = (
+        OrderedDict()
+    )
+    _GLOBAL_COMMAND_CACHE_MAX_ENTRIES = (
+        256  # Generous limit — avoids evicting useful entries
+    )
 
     @classmethod
     def get_semaphore(cls, max_concurrent: int | None = None) -> asyncio.Semaphore:
@@ -213,7 +218,9 @@ class ClusterController(BaseController):
         return resolved or None
 
     @classmethod
-    async def resolve_current_context_async(cls, timeout_seconds: int = 8) -> str | None:
+    async def resolve_current_context_async(
+        cls, timeout_seconds: int = 8
+    ) -> str | None:
         """Async wrapper for :meth:`resolve_current_context`."""
         return await asyncio.to_thread(cls.resolve_current_context, timeout_seconds)
 
@@ -221,6 +228,8 @@ class ClusterController(BaseController):
     def _should_emit_partial_update(cls, completed: int, total: int) -> bool:
         """Throttle partial callbacks to avoid UI/event-loop update storms."""
         if total <= 0 or completed >= total:
+            return True
+        if completed == 1:
             return True
         interval = max(1, math.ceil(total / cls._PARTIAL_UPDATE_TARGET_EMITS))
         return completed % interval == 0
@@ -333,9 +342,7 @@ class ClusterController(BaseController):
     def _build_warning_events_args(cls, args: tuple[str, ...]) -> tuple[str, ...]:
         """Build a warning-only events query from a full events query."""
         normalized: list[str] = [
-            part
-            for part in args
-            if not part.startswith("--request-timeout=")
+            part for part in args if not part.startswith("--request-timeout=")
         ]
         normalized.append("--field-selector=type=Warning")
         normalized.append("--chunk-size=200")
@@ -349,7 +356,7 @@ class ClusterController(BaseController):
         for part in args:
             if not part.startswith(prefix):
                 continue
-            value = part[len(prefix):].strip().lower()
+            value = part[len(prefix) :].strip().lower()
             if value.endswith("s"):
                 value = value[:-1]
             if not value:
@@ -406,7 +413,9 @@ class ClusterController(BaseController):
         if self.context:
             cmd.extend(["--context", self.context])
         cmd.extend(args)
-        effective_timeout = timeout if timeout is not None else self._kubectl_timeout_for_args(args)
+        effective_timeout = (
+            timeout if timeout is not None else self._kubectl_timeout_for_args(args)
+        )
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=effective_timeout
         )
@@ -473,7 +482,9 @@ class ClusterController(BaseController):
             self._kubectl_cache[args] = result
             self._global_kubectl_cache[global_key] = (time.monotonic(), result)
             # Evict least-recently-used entry when cache exceeds max size
-            while len(self._global_kubectl_cache) > self._GLOBAL_COMMAND_CACHE_MAX_ENTRIES:
+            while (
+                len(self._global_kubectl_cache) > self._GLOBAL_COMMAND_CACHE_MAX_ENTRIES
+            ):
                 self._global_kubectl_cache.popitem(last=False)
             return result
         finally:
@@ -758,7 +769,12 @@ class ClusterController(BaseController):
             if effective_mem_lim > 0:
                 effective_mem_lim += overhead_mem
 
-        return effective_cpu_req, effective_cpu_lim, effective_mem_req, effective_mem_lim
+        return (
+            effective_cpu_req,
+            effective_cpu_lim,
+            effective_mem_req,
+            effective_mem_lim,
+        )
 
     @classmethod
     def _iter_pod_container_statuses(cls, pod_status: Any) -> list[dict[str, Any]]:
@@ -796,7 +812,9 @@ class ClusterController(BaseController):
         terminated_state = current_state.get("terminated", {})
         terminated = terminated_state if isinstance(terminated_state, dict) else {}
         last_waiting_state = previous_state.get("waiting", {})
-        last_waiting = last_waiting_state if isinstance(last_waiting_state, dict) else {}
+        last_waiting = (
+            last_waiting_state if isinstance(last_waiting_state, dict) else {}
+        )
         last_terminated_state = previous_state.get("terminated", {})
         last_terminated = (
             last_terminated_state if isinstance(last_terminated_state, dict) else {}
@@ -958,7 +976,9 @@ class ClusterController(BaseController):
             target["memory_limits"] = float(target["memory_limits"]) + float(
                 values.get("memory_limits", 0.0)
             )
-            target["pod_count"] = int(target["pod_count"]) + int(values.get("pod_count", 0))
+            target["pod_count"] = int(target["pod_count"]) + int(
+                values.get("pod_count", 0)
+            )
 
     @staticmethod
     def _apply_node_resource_totals(
@@ -1051,7 +1071,9 @@ class ClusterController(BaseController):
                 except Exception as exc:
                     return namespace, [], exc
 
-        tasks = [asyncio.create_task(_fetch_namespace(namespace)) for namespace in namespaces]
+        tasks = [
+            asyncio.create_task(_fetch_namespace(namespace)) for namespace in namespaces
+        ]
         try:
             for future in asyncio.as_completed(tasks):
                 namespace, namespace_pods, error = await future
@@ -1136,7 +1158,9 @@ class ClusterController(BaseController):
                 except Exception as exc:
                     return namespace, [], exc
 
-        tasks = [asyncio.create_task(_fetch_namespace(namespace)) for namespace in namespaces]
+        tasks = [
+            asyncio.create_task(_fetch_namespace(namespace)) for namespace in namespaces
+        ]
         try:
             for future in asyncio.as_completed(tasks):
                 namespace, namespace_events, error = await future
@@ -1299,11 +1323,7 @@ class ClusterController(BaseController):
                 .get("labels", {})
             )
         else:
-            raw_labels = (
-                spec.get("template", {})
-                .get("metadata", {})
-                .get("labels", {})
-            )
+            raw_labels = spec.get("template", {}).get("metadata", {}).get("labels", {})
 
         if not isinstance(raw_labels, dict):
             return {}
@@ -1446,11 +1466,15 @@ class ClusterController(BaseController):
         if kind in {"Deployment", "StatefulSet"}:
             desired_replicas = cls._coerce_int(spec.get("replicas"), 1)
             ready_replicas = cls._coerce_int(status.get("readyReplicas"), 0)
-            status_text = cls._replica_status_from_counts(desired_replicas, ready_replicas)
+            status_text = cls._replica_status_from_counts(
+                desired_replicas, ready_replicas
+            )
         elif kind == "DaemonSet":
             desired_replicas = cls._coerce_int(status.get("desiredNumberScheduled"), 0)
             ready_replicas = cls._coerce_int(status.get("numberReady"), 0)
-            status_text = cls._replica_status_from_counts(desired_replicas, ready_replicas)
+            status_text = cls._replica_status_from_counts(
+                desired_replicas, ready_replicas
+            )
         elif kind == "Job":
             desired_replicas = cls._coerce_int(spec.get("parallelism"), 1)
             active = cls._coerce_int(status.get("active"), 0)
@@ -1547,7 +1571,8 @@ class ClusterController(BaseController):
 
     async def _fetch_pdbs_incremental(
         self,
-        on_namespace_loaded: Callable[[str, list[PDBInfo], int, int], Any] | None = None,
+        on_namespace_loaded: Callable[[str, list[PDBInfo], int, int], Any]
+        | None = None,
     ) -> list[PDBInfo]:
         """Fetch PDBs namespace-by-namespace and emit partial updates."""
         namespaces = await self._list_cluster_namespaces()
@@ -1566,7 +1591,9 @@ class ClusterController(BaseController):
                 attempts = self._PDB_NAMESPACE_RETRY_ATTEMPTS + 1
                 for attempt_index in range(attempts):
                     try:
-                        raw = await self._cluster_fetcher.fetch_pdbs_for_namespace(namespace)
+                        raw = await self._cluster_fetcher.fetch_pdbs_for_namespace(
+                            namespace
+                        )
                         return namespace, self._parse_pdb_items(raw), None
                     except Exception as exc:
                         should_retry = (
@@ -1577,15 +1604,23 @@ class ClusterController(BaseController):
                             return namespace, [], exc
                         await asyncio.sleep(0.15 * (attempt_index + 1))
 
-                return namespace, [], RuntimeError("PDB namespace fetch retry exhausted")
+                return (
+                    namespace,
+                    [],
+                    RuntimeError("PDB namespace fetch retry exhausted"),
+                )
 
-        tasks = [asyncio.create_task(_fetch_namespace(namespace)) for namespace in namespaces]
+        tasks = [
+            asyncio.create_task(_fetch_namespace(namespace)) for namespace in namespaces
+        ]
         try:
             for future in asyncio.as_completed(tasks):
                 namespace, namespace_pdbs, error = await future
                 completed += 1
                 if error is not None:
-                    logger.warning("Namespace PDB fetch failed for %s: %s", namespace, error)
+                    logger.warning(
+                        "Namespace PDB fetch failed for %s: %s", namespace, error
+                    )
                 elif namespace_pdbs:
                     all_pdbs.extend(namespace_pdbs)
 
@@ -1655,14 +1690,18 @@ class ClusterController(BaseController):
         ) -> tuple[str, list[HelmReleaseInfo], Exception | None]:
             async with semaphore:
                 try:
-                    releases = await self._cluster_fetcher.fetch_helm_releases_for_namespace(
-                        namespace
+                    releases = (
+                        await self._cluster_fetcher.fetch_helm_releases_for_namespace(
+                            namespace
+                        )
                     )
                     return namespace, releases, None
                 except Exception as exc:
                     return namespace, [], exc
 
-        tasks = [asyncio.create_task(_fetch_namespace(namespace)) for namespace in namespaces]
+        tasks = [
+            asyncio.create_task(_fetch_namespace(namespace)) for namespace in namespaces
+        ]
         try:
             for future in asyncio.as_completed(tasks):
                 namespace, namespace_releases, error = await future
@@ -1703,7 +1742,8 @@ class ClusterController(BaseController):
         self,
         items: list[dict[str, Any]],
         pdb_selectors_by_namespace: dict[str, list[dict[str, str]]],
-        template_labels_by_key: dict[tuple[str, str, str], dict[str, str]] | None = None,
+        template_labels_by_key: dict[tuple[str, str, str], dict[str, str]]
+        | None = None,
     ) -> list[WorkloadInventoryInfo]:
         """Convert raw workload item list to inventory model list."""
         rows: list[WorkloadInventoryInfo] = []
@@ -2164,7 +2204,9 @@ class ClusterController(BaseController):
         matched_pod_count = 0
         for pod in workload_pods:
             metadata = pod.get("metadata", {})
-            pod_namespace = str(metadata.get("namespace", effective_namespace) or effective_namespace)
+            pod_namespace = str(
+                metadata.get("namespace", effective_namespace) or effective_namespace
+            )
             pod_name = str(metadata.get("name", "") or "").strip()
             if not pod_name:
                 continue
@@ -2187,7 +2229,9 @@ class ClusterController(BaseController):
         pod_breakdown: dict[str, dict[str, float]] = {}
         for pod in workload_pods:
             metadata = pod.get("metadata", {})
-            pod_namespace = str(metadata.get("namespace", effective_namespace) or effective_namespace)
+            pod_namespace = str(
+                metadata.get("namespace", effective_namespace) or effective_namespace
+            )
             pod_name = str(metadata.get("name", "") or "").strip()
             if not pod_name:
                 continue
@@ -2283,9 +2327,9 @@ class ClusterController(BaseController):
                 continue
             for kind, workload_name in self._pod_workload_keys(pod):
                 canonical_kind = self._canonical_workload_kind(kind)
-                workload_pods.setdefault((namespace, canonical_kind, workload_name), []).append(
-                    pod
-                )
+                workload_pods.setdefault(
+                    (namespace, canonical_kind, workload_name), []
+                ).append(pod)
         return workload_pods
 
     def _apply_workload_runtime_stats_with_lookup(
@@ -2325,9 +2369,9 @@ class ClusterController(BaseController):
                 for reason, count in self._extract_pod_restart_reason_counts(
                     pod.get("status", {})
                 ).items():
-                    row.restart_reason_counts[reason] = (
-                        int(row.restart_reason_counts.get(reason, 0)) + int(count)
-                    )
+                    row.restart_reason_counts[reason] = int(
+                        row.restart_reason_counts.get(reason, 0)
+                    ) + int(count)
             assigned_node_names = {
                 str(pod.get("spec", {}).get("nodeName", "") or "").strip()
                 for pod in row_pods
@@ -2340,7 +2384,9 @@ class ClusterController(BaseController):
                 metadata = pod.get("metadata", {})
                 status = pod.get("status", {})
                 spec = pod.get("spec", {})
-                pod_namespace = str(metadata.get("namespace", row.namespace) or row.namespace)
+                pod_namespace = str(
+                    metadata.get("namespace", row.namespace) or row.namespace
+                )
                 pod_name = str(metadata.get("name", "") or "").strip()
                 node_name = str(spec.get("nodeName", "") or "").strip() or "-"
                 pod_phase = str(status.get("phase", "Unknown") or "Unknown")
@@ -2390,7 +2436,9 @@ class ClusterController(BaseController):
                             node_cpu_allocatable if node_cpu_allocatable > 0 else None
                         ),
                         node_memory_allocatable_bytes=(
-                            node_memory_allocatable if node_memory_allocatable > 0 else None
+                            node_memory_allocatable
+                            if node_memory_allocatable > 0
+                            else None
                         ),
                         pod_cpu_pct_of_node_allocatable=cpu_pct,
                         pod_memory_pct_of_node_allocatable=memory_pct,
@@ -2596,7 +2644,11 @@ class ClusterController(BaseController):
                 row.node_real_cpu_avg,
                 row.node_real_cpu_p95,
             ) = self._combine_stats_with_percentage(
-                (node_real_cpu_max_value, node_real_cpu_avg_value, node_real_cpu_p95_value),
+                (
+                    node_real_cpu_max_value,
+                    node_real_cpu_avg_value,
+                    node_real_cpu_p95_value,
+                ),
                 (node_real_cpu_max_pct, node_real_cpu_avg_pct, node_real_cpu_p95_pct),
             )
 
@@ -2645,7 +2697,11 @@ class ClusterController(BaseController):
                 row.pod_real_cpu_avg,
                 row.pod_real_cpu_p95,
             ) = self._combine_stats_with_percentage(
-                (pod_real_cpu_max_value, pod_real_cpu_avg_value, pod_real_cpu_p95_value),
+                (
+                    pod_real_cpu_max_value,
+                    pod_real_cpu_avg_value,
+                    pod_real_cpu_p95_value,
+                ),
                 (pod_real_cpu_max_pct, pod_real_cpu_avg_pct, pod_real_cpu_p95_pct),
             )
 
@@ -2678,7 +2734,6 @@ class ClusterController(BaseController):
                     pod_real_memory_p95_pct,
                 ),
             )
-
 
     async def _prefetch_workload_runtime_stats_inputs(
         self,
@@ -2771,7 +2826,9 @@ class ClusterController(BaseController):
         top_pods_rows: list[dict[str, Any]] = []
 
         if isinstance(pods_result, Exception):
-            logger.warning("Unable to fetch pods for workload enrichment: %s", pods_result)
+            logger.warning(
+                "Unable to fetch pods for workload enrichment: %s", pods_result
+            )
         elif isinstance(pods_result, list):
             pods = pods_result
             if pods:
@@ -2911,7 +2968,9 @@ class ClusterController(BaseController):
                 except Exception as exc:
                     return namespace, [], exc
 
-        tasks = [asyncio.create_task(_fetch_namespace(namespace)) for namespace in namespaces]
+        tasks = [
+            asyncio.create_task(_fetch_namespace(namespace)) for namespace in namespaces
+        ]
         try:
             for future in asyncio.as_completed(tasks):
                 namespace, namespace_rows, error = await future
@@ -3033,7 +3092,9 @@ class ClusterController(BaseController):
                 except Exception as exc:
                     return namespace, [], exc
 
-        tasks = [asyncio.create_task(_fetch_namespace(namespace)) for namespace in namespaces]
+        tasks = [
+            asyncio.create_task(_fetch_namespace(namespace)) for namespace in namespaces
+        ]
         try:
             for future in asyncio.as_completed(tasks):
                 namespace, namespace_rows, error = await future
@@ -3085,7 +3146,9 @@ class ClusterController(BaseController):
 
         try:
             semaphore = self.get_semaphore()
-            await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
+            await asyncio.wait_for(
+                semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT
+            )
 
             try:
                 self._notify_progress(progress_callback, self.SOURCE_NODES, 0, 1)
@@ -3190,14 +3253,21 @@ class ClusterController(BaseController):
 
         try:
             semaphore = self.get_semaphore()
-            await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
+            await asyncio.wait_for(
+                semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT
+            )
 
             try:
-                self._notify_progress(progress_callback, self.SOURCE_NODE_RESOURCES, 0, 1)
+                self._notify_progress(
+                    progress_callback, self.SOURCE_NODE_RESOURCES, 0, 1
+                )
 
                 # Fetch nodes and pods in parallel when cache is cold
                 if self._pods_cache:
-                    nodes_items, pods_data = await self._node_fetcher.fetch_nodes_raw(), self._pods_cache
+                    nodes_items, pods_data = (
+                        await self._node_fetcher.fetch_nodes_raw(),
+                        self._pods_cache,
+                    )
                 else:
                     nodes_items, pods_data = await asyncio.gather(
                         self._node_fetcher.fetch_nodes_raw(),
@@ -3291,7 +3361,9 @@ class ClusterController(BaseController):
         type_counts: dict[str, int] = {}
         for node in nodes:
             if node.instance_type:
-                type_counts[node.instance_type] = type_counts.get(node.instance_type, 0) + 1
+                type_counts[node.instance_type] = (
+                    type_counts.get(node.instance_type, 0) + 1
+                )
         return type_counts
 
     async def get_az_distribution(self) -> dict[str, int]:
@@ -3300,7 +3372,9 @@ class ClusterController(BaseController):
         az_counts: dict[str, int] = {}
         for node in nodes:
             if node.availability_zone:
-                az_counts[node.availability_zone] = az_counts.get(node.availability_zone, 0) + 1
+                az_counts[node.availability_zone] = (
+                    az_counts.get(node.availability_zone, 0) + 1
+                )
         return az_counts
 
     async def get_node_groups_az_matrix(self) -> dict[str, dict[str, int]]:
@@ -3322,15 +3396,21 @@ class ClusterController(BaseController):
         nodes = await self.fetch_nodes()
         high_pod_nodes: list[dict[str, Any]] = []
         for node in nodes:
-            pod_pct = (node.pod_count / node.pod_capacity * 100) if node.pod_capacity > 0 else 0.0
+            pod_pct = (
+                (node.pod_count / node.pod_capacity * 100)
+                if node.pod_capacity > 0
+                else 0.0
+            )
             if pod_pct >= threshold_pct:
-                high_pod_nodes.append({
-                    "name": node.name,
-                    "node_group": node.node_group,
-                    "pod_count": node.pod_count,
-                    "max_pods": node.pod_capacity,
-                    "pod_pct": pod_pct,
-                })
+                high_pod_nodes.append(
+                    {
+                        "name": node.name,
+                        "node_group": node.node_group,
+                        "pod_count": node.pod_count,
+                        "max_pods": node.pod_capacity,
+                        "pod_pct": pod_pct,
+                    }
+                )
         high_pod_nodes.sort(key=lambda x: x["pod_pct"], reverse=True)
         return high_pod_nodes
 
@@ -3346,7 +3426,9 @@ class ClusterController(BaseController):
 
         try:
             semaphore = self.get_semaphore()
-            await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
+            await asyncio.wait_for(
+                semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT
+            )
 
             try:
                 self._notify_progress(
@@ -3434,7 +3516,9 @@ class ClusterController(BaseController):
         """Fetch runtime Kubernetes workload inventory."""
         self._nonfatal_warnings = {}
         semaphore = self.get_semaphore()
-        await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
+        await asyncio.wait_for(
+            semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT
+        )
         prefetch_task: asyncio.Task[tuple[Any, Any, Any, Any]] | None = None
         runtime_lookups_task: asyncio.Task[Any] | None = None
 
@@ -3460,13 +3544,16 @@ class ClusterController(BaseController):
             partial_emit_step = 1
             last_completed = 0
             last_total = 0
-            runtime_lookups: tuple[
-                dict[tuple[str, str, str], list[dict[str, Any]]],
-                dict[str, dict[str, float]],
-                dict[str, dict[str, float | str]],
-                dict[str, dict[str, float]],
-                dict[tuple[str, str], dict[str, float]],
-            ] | None = None
+            runtime_lookups: (
+                tuple[
+                    dict[tuple[str, str, str], list[dict[str, Any]]],
+                    dict[str, dict[str, float]],
+                    dict[str, dict[str, float | str]],
+                    dict[str, dict[str, float]],
+                    dict[tuple[str, str], dict[str, float]],
+                ]
+                | None
+            ) = None
             runtime_rows_backfilled = False
 
             async def _build_stream_runtime_lookups() -> (
@@ -3539,9 +3626,11 @@ class ClusterController(BaseController):
                 if not pods:
                     return None
 
-                node_utilization_by_name = await self._build_node_utilization_lookup_for_pods(
-                    pods,
-                    nodes_items=nodes_items,
+                node_utilization_by_name = (
+                    await self._build_node_utilization_lookup_for_pods(
+                        pods,
+                        nodes_items=nodes_items,
+                    )
                 )
                 return (
                     self._build_workload_pod_lookup(pods),
@@ -3554,7 +3643,9 @@ class ClusterController(BaseController):
                 )
 
             if enrich_runtime_stats:
-                runtime_lookups_task = asyncio.create_task(_build_stream_runtime_lookups())
+                runtime_lookups_task = asyncio.create_task(
+                    _build_stream_runtime_lookups()
+                )
 
             def _on_namespace_loaded(
                 _namespace: str,
@@ -3679,7 +3770,9 @@ class ClusterController(BaseController):
     ) -> list[SingleReplicaWorkloadInfo]:
         """Find workloads with only 1 replica (no HA)."""
         semaphore = self.get_semaphore()
-        await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
+        await asyncio.wait_for(
+            semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT
+        )
 
         try:
             if on_namespace_update is None:
@@ -3766,7 +3859,9 @@ class ClusterController(BaseController):
 
         try:
             semaphore = self.get_semaphore()
-            await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
+            await asyncio.wait_for(
+                semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT
+            )
 
             try:
                 self._notify_progress(progress_callback, self.SOURCE_EVENTS, 0, 1)
@@ -3895,10 +3990,18 @@ class ClusterController(BaseController):
 
         if not events:
             return EventSummary(
-                total_count=0, oom_count=0, node_not_ready_count=0,
-                failed_scheduling_count=0, backoff_count=0, unhealthy_count=0,
-                failed_mount_count=0, evicted_count=0, completed_count=0,
-                normal_count=0, recent_events=[], max_age_hours=max_age_hours,
+                total_count=0,
+                oom_count=0,
+                node_not_ready_count=0,
+                failed_scheduling_count=0,
+                backoff_count=0,
+                unhealthy_count=0,
+                failed_mount_count=0,
+                evicted_count=0,
+                completed_count=0,
+                normal_count=0,
+                recent_events=[],
+                max_age_hours=max_age_hours,
                 desired_healthy=0,
             )
         return await asyncio.to_thread(
@@ -3912,7 +4015,8 @@ class ClusterController(BaseController):
         self,
         max_age_hours: float = _DEFAULT_EVENT_WINDOW_HOURS,
         limit: int = 50,
-        on_namespace_update: Callable[[list[EventDetail], int, int], None] | None = None,
+        on_namespace_update: Callable[[list[EventDetail], int, int], None]
+        | None = None,
         request_timeout: str | None = None,
     ) -> list[EventDetail]:
         """Get recent critical events with full details."""
@@ -3975,12 +4079,12 @@ class ClusterController(BaseController):
 
         try:
             semaphore = self.get_semaphore()
-            await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
+            await asyncio.wait_for(
+                semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT
+            )
 
             try:
-                self._notify_progress(
-                    progress_callback, self.SOURCE_PDBS, 0, 1
-                )
+                self._notify_progress(progress_callback, self.SOURCE_PDBS, 0, 1)
 
                 if on_namespace_update is None:
                     result = await self._fetch_pdbs_incremental()
@@ -4005,9 +4109,7 @@ class ClusterController(BaseController):
                     )
 
                 self._update_fetch_state(self.SOURCE_PDBS, FetchState.SUCCESS)
-                self._notify_progress(
-                    progress_callback, self.SOURCE_PDBS, 1, 1
-                )
+                self._notify_progress(progress_callback, self.SOURCE_PDBS, 1, 1)
                 return result
             finally:
                 semaphore.release()
@@ -4073,11 +4175,14 @@ class ClusterController(BaseController):
     async def get_helm_releases(
         self,
         progress_callback: Callable[[str, int, int], None] | None = None,
-        on_namespace_update: Callable[[list[HelmReleaseInfo], int, int], None] | None = None,
+        on_namespace_update: Callable[[list[HelmReleaseInfo], int, int], None]
+        | None = None,
     ) -> list[HelmReleaseInfo]:
         """Get list of Helm releases from the cluster."""
         semaphore = self.get_semaphore()
-        await asyncio.wait_for(semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT)
+        await asyncio.wait_for(
+            semaphore.acquire(), timeout=self._SEMAPHORE_ACQUIRE_TIMEOUT
+        )
 
         try:
             self._update_fetch_state(self.SOURCE_HELM_RELEASES, FetchState.LOADING)
@@ -4106,7 +4211,9 @@ class ClusterController(BaseController):
                         on_namespace_loaded=_on_namespace_loaded
                     )
                 self._update_fetch_state(self.SOURCE_HELM_RELEASES, FetchState.SUCCESS)
-                self._notify_progress(progress_callback, self.SOURCE_HELM_RELEASES, 1, 1)
+                self._notify_progress(
+                    progress_callback, self.SOURCE_HELM_RELEASES, 1, 1
+                )
                 return releases
             except Exception:
                 logger.exception("Error fetching Helm releases")

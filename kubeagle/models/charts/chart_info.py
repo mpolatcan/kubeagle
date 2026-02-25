@@ -30,6 +30,10 @@ class ChartInfo(BaseModel):
     replicas: int | None
     priority_class: str | None
     deployed_values_content: str | None = None
+    is_umbrella: bool = False
+    sub_chart_count: int = 0
+    parent_chart: str | None = None
+    parent_sub_chart: str | None = None
 
 
 class HelmReleaseInfo(BaseModel):

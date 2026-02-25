@@ -309,8 +309,8 @@ class TestSorting:
             charts, sort_by=SortBy.TEAM, descending=False
         )
         rows = [presenter.format_chart_row(c) for c in sorted_charts]
-        assert rows[0][2] == "alpha"
-        assert rows[1][2] == "zeta"
+        assert rows[0][3] == "alpha"
+        assert rows[1][3] == "zeta"
 
     def test_sort_by_violations_descending(self) -> None:
         """SortBy.VIOLATIONS should place higher violation counts first."""
@@ -358,10 +358,10 @@ class TestSorting:
         rows = [presenter.format_chart_row(c) for c in sorted_charts]
         assert "⎈" in rows[0][0]
         assert "big-req" in rows[0][0]
-        assert "400m / 500m" in rows[0][5]
+        assert "400m / 500m" in rows[0][6]
         assert "⎈" in rows[1][0]
         assert "small-req" in rows[1][0]
-        assert "100m / 900m" in rows[1][5]
+        assert "100m / 900m" in rows[1][6]
 
 
 # =============================================================================
@@ -372,12 +372,12 @@ class TestSorting:
 class TestFormatChartRow:
     """Test ChartsExplorerPresenter.format_chart_row()."""
 
-    def test_returns_12_columns(self) -> None:
-        """Test row tuple has exactly 12 elements."""
+    def test_returns_13_columns(self) -> None:
+        """Test row tuple has exactly 13 elements."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart()
         row = presenter.format_chart_row(chart)
-        assert len(row) == 12
+        assert len(row) == 13
 
     def test_first_column_is_chart_with_helm_icon(self) -> None:
         """Chart column should include Helm icon and chart name."""
@@ -399,141 +399,141 @@ class TestFormatChartRow:
         assert "⎈" in row[0]
         assert "my-chart" in row[0]
 
-    def test_second_column_is_namespace(self) -> None:
-        """Test second column is namespace."""
+    def test_third_column_is_namespace(self) -> None:
+        """Test third column is namespace."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(namespace="team-a")
         row = presenter.format_chart_row(chart)
-        assert row[1] == "team-a"
+        assert row[2] == "team-a"
 
-    def test_third_column_is_team(self) -> None:
-        """Test third column is team."""
+    def test_fourth_column_is_team(self) -> None:
+        """Test fourth column is team."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(team="team-x")
         row = presenter.format_chart_row(chart)
-        assert row[2] == "team-x"
+        assert row[3] == "team-x"
 
-    def test_fourth_column_is_values_file_type(self) -> None:
-        """Test fourth column is values file type."""
+    def test_fifth_column_is_values_file_type(self) -> None:
+        """Test fifth column is values file type."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(values_file="/repo/charts/my-chart/values-automation.yaml")
         row = presenter.format_chart_row(chart)
-        assert row[3] == "Automation"
+        assert row[4] == "Automation"
 
-    def test_fourth_column_is_main_for_values_yaml(self) -> None:
+    def test_fifth_column_is_main_for_values_yaml(self) -> None:
         """Test values.yaml is classified as Main."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(values_file="/repo/charts/my-chart/values.yaml")
         row = presenter.format_chart_row(chart)
-        assert row[3] == "Main"
+        assert row[4] == "Main"
 
-    def test_fourth_column_is_default_for_default_namespace_values(self) -> None:
+    def test_fifth_column_is_default_for_default_namespace_values(self) -> None:
         """Test values-default-namespace.yaml is classified as Default."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(
             values_file="/repo/charts/my-chart/values-default-namespace.yaml"
         )
         row = presenter.format_chart_row(chart)
-        assert row[3] == "Default"
+        assert row[4] == "Default"
 
-    def test_fifth_column_is_qos(self) -> None:
-        """Test fifth column is QoS class value."""
+    def test_sixth_column_is_qos(self) -> None:
+        """Test sixth column is QoS class value."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(qos_class=QoSClass.GUARANTEED)
         row = presenter.format_chart_row(chart)
-        assert row[4] == "Guaranteed"
+        assert row[5] == "Guaranteed"
 
     def test_last_column_is_chart_path(self) -> None:
         """Test last column shows relative chart path with grandparent."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(values_file="/repo/charts/my-chart/values.yaml")
         row = presenter.format_chart_row(chart)
-        assert row[11] == "charts/my-chart/values.yaml"
+        assert row[12] == "charts/my-chart/values.yaml"
 
     def test_cpu_req_lim_compact_formatted(self) -> None:
         """CPU request/limit should include inline ratio."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(cpu_request=100, cpu_limit=500)
         row = presenter.format_chart_row(chart)
-        assert "100m / 500m" in row[5]
-        assert "5.0" in row[5]
+        assert "100m / 500m" in row[6]
+        assert "5.0" in row[6]
 
     def test_replicas_as_string(self) -> None:
         """Test replicas column is string."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(replicas=3)
         row = presenter.format_chart_row(chart)
-        assert row[7] == "3"
+        assert row[8] == "3"
 
     def test_replicas_none_shows_na(self) -> None:
         """Test replicas=None shows N/A."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(replicas=None)
         row = presenter.format_chart_row(chart)
-        assert row[7] == "N/A"
+        assert row[8] == "N/A"
 
     def test_probes_with_all(self) -> None:
         """Test probes column with all probes enabled."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(has_liveness=True, has_readiness=True, has_startup=True)
         row = presenter.format_chart_row(chart)
-        assert row[8] == "L, R, S"
+        assert row[9] == "L, R, S"
 
     def test_probes_with_none(self) -> None:
         """Test probes column with no probes."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(has_liveness=False, has_readiness=False, has_startup=False)
         row = presenter.format_chart_row(chart)
-        assert row[8] == "None"
+        assert row[9] == "None"
 
     def test_affinity_no(self) -> None:
         """Test affinity column without anti-affinity."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(has_anti_affinity=False, has_topology_spread=False)
         row = presenter.format_chart_row(chart)
-        assert row[9] == "No"
+        assert row[10] == "No"
 
     def test_affinity_anti(self) -> None:
         """Test affinity column with anti-affinity."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(has_anti_affinity=True, has_topology_spread=False)
         row = presenter.format_chart_row(chart)
-        assert row[9] == "Anti"
+        assert row[10] == "Anti"
 
     def test_affinity_anti_plus_topology(self) -> None:
         """Test affinity column with both anti-affinity and topology spread."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(has_anti_affinity=True, has_topology_spread=True)
         row = presenter.format_chart_row(chart)
-        assert row[9] == "Anti+Topology"
+        assert row[10] == "Anti+Topology"
 
     def test_pdb_yes(self) -> None:
         """Test PDB column with PDB enabled."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(pdb_enabled=True)
         row = presenter.format_chart_row(chart)
-        assert row[10] == "Yes"
+        assert row[11] == "Yes"
 
     def test_pdb_no(self) -> None:
         """Test PDB column with PDB disabled."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(pdb_enabled=False)
         row = presenter.format_chart_row(chart)
-        assert row[10] == "No"
+        assert row[11] == "No"
 
     def test_zero_cpu_shows_dash(self) -> None:
         """Test zero CPU request shows dash."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(cpu_request=0, cpu_limit=0)
         row = presenter.format_chart_row(chart)
-        assert row[5] == "-"
+        assert row[6] == "-"
 
     def test_zero_memory_shows_dash(self) -> None:
         """Test zero memory request shows dash."""
         presenter = ChartsExplorerPresenter()
         chart = _make_chart(memory_request=0, memory_limit=0)
         row = presenter.format_chart_row(chart)
-        assert row[6] == "-"
+        assert row[7] == "-"
 
 
 # =============================================================================

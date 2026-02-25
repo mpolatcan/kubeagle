@@ -659,7 +659,7 @@ ChartsExplorerScreen {
    CHARTS FILTERS MODAL
    ======================================================================== */
 .charts-filters-modal-shell {
-    max-width: 136;
+    max-width: 172;
     height: 1fr;
 }
 
@@ -669,8 +669,8 @@ ChartsExplorerScreen {
 
 #charts-filters-modal-lists-row {
     layout: grid;
-    grid-size: 4 1;
-    grid-columns: 1fr 1fr 1fr 1fr;
+    grid-size: 5 1;
+    grid-columns: 1fr 1fr 1fr 1fr 1fr;
     grid-gutter: 1 0;
     width: 1fr;
     height: 1fr;
@@ -715,20 +715,16 @@ ChartsExplorerScreen {
 }
 
 .charts-filters-modal-actions {
-    layout: grid;
+    layout: horizontal;
     margin-top: 1;
-    grid-size: 2 1;
-    grid-columns: 1fr 1fr;
-    grid-gutter: 3 0;
-    padding: 0 1;
+    align: center middle;
+    width: 1fr;
+    height: auto;
 }
 
 .charts-filters-modal-actions > CustomButton {
-    margin-right: 1;
-}
-
-.charts-filters-modal-actions > CustomButton:last-child {
-    margin-right: 0;
+    min-width: 16;
+    margin: 0 1;
 }
 
 /* ========================================================================

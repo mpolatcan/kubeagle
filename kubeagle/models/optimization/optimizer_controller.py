@@ -364,6 +364,7 @@ class UnifiedOptimizerController(BaseModel):
         return ViolationResult(
             id=violation.rule_id,
             chart_name=chart.name,
+            parent_chart=chart.parent_chart,
             chart_path=chart.values_file,
             team=chart.team,
             rule_name=violation.name,

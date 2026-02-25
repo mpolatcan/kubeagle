@@ -11,22 +11,36 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, TypedDict
 
+from textual import on
 from textual.app import ComposeResult
+from textual.message import Message
 from textual.screen import ModalScreen
 
 from kubeagle.models.optimization.resource_impact import (
+    ChartResourceSnapshot,
     ResourceImpactResult,
 )
 from kubeagle.screens.detail.config import (
     IMPACT_CHART_TABLE_COLUMNS,
+    IMPACT_SORT_CHART,
+    IMPACT_SORT_CPU_LIM,
+    IMPACT_SORT_CPU_REQ,
+    IMPACT_SORT_MEM_LIM,
+    IMPACT_SORT_MEM_REQ,
+    IMPACT_SORT_OPTIONS,
+    IMPACT_SORT_RELEASES,
+    IMPACT_SORT_REPLICAS,
+    IMPACT_SORT_TEAM,
 )
 from kubeagle.widgets import (
     CustomButton,
     CustomContainer,
     CustomDataTable,
     CustomHorizontal,
+    CustomInput,
     CustomKPI,
     CustomLoadingIndicator,
+    CustomSelect as Select,
     CustomSelectionList,
     CustomStatic,
     CustomVertical,
@@ -85,6 +99,40 @@ def _format_pct(pct: float) -> str:
     return f"{sign}{pct:.1f}%"
 
 
+def _delta_pct_str(before_val: float, after_val: float) -> str:
+    """Format percentage change as a short parenthetical string."""
+    if before_val == 0:
+        return "(+new)" if after_val > 0 else ""
+    pct = ((after_val - before_val) / before_val) * 100.0
+    if pct == 0:
+        return ""
+    sign = "+" if pct > 0 else ""
+    if abs(pct) >= 1000:
+        return f"({sign}{pct:,.0f}%)"
+    return f"({sign}{pct:.1f}%)"
+
+
+def _ba_cpu(before: float, after: float) -> str:
+    """Format CPU B->A with inline delta percentage."""
+    base = f"{_format_cpu(before)} \u2192 {_format_cpu(after)}"
+    pct = _delta_pct_str(before, after)
+    return f"{base} {pct}" if pct else base
+
+
+def _ba_mem(before: float, after: float) -> str:
+    """Format memory B->A with inline delta percentage."""
+    base = f"{_format_memory(before)} \u2192 {_format_memory(after)}"
+    pct = _delta_pct_str(before, after)
+    return f"{base} {pct}" if pct else base
+
+
+def _ba_int(before: int, after: int) -> str:
+    """Format integer B->A with inline delta percentage."""
+    base = f"{before} \u2192 {after}"
+    pct = _delta_pct_str(float(before), float(after))
+    return f"{base} {pct}" if pct else base
+
+
 def _impact_style(value: float, *, invert: bool = False) -> tuple[str, str]:
     """Return (arrow, impact_class) for a metric delta.
 
@@ -113,6 +161,7 @@ def _impact_style(value: float, *, invert: bool = False) -> tuple[str, str]:
 
 class _ImpactFiltersState(TypedDict):
     team_filter: set[str]
+    parent_chart_filter: set[str]
     chart_filter: set[str]
 
 
@@ -125,14 +174,18 @@ class _ImpactFiltersModal(ModalScreen[_ImpactFiltersState | None]):
         self,
         *,
         teams: list[str],
+        parent_charts: list[str],
         charts: list[str],
         selected_teams: set[str],
+        selected_parent_charts: set[str],
         selected_charts: set[str],
     ) -> None:
         super().__init__(classes="impact-filters-modal-screen selection-modal-screen")
         self._all_teams = sorted(set(teams))
+        self._all_parent_charts = sorted(set(parent_charts))
         self._all_charts = sorted(set(charts))
         self._selected_teams = set(selected_teams) if selected_teams else set(self._all_teams)
+        self._selected_parent_charts = set(selected_parent_charts) if selected_parent_charts else set(self._all_parent_charts)
         self._selected_charts = set(selected_charts) if selected_charts else set(self._all_charts)
 
     def compose(self) -> ComposeResult:
@@ -167,6 +220,31 @@ class _ImpactFiltersModal(ModalScreen[_ImpactFiltersState | None]):
                         yield CustomButton(
                             "Clear",
                             id="impact-filters-modal-team-clear",
+                            compact=True,
+                            classes="selection-modal-action-btn",
+                        )
+                with CustomVertical(classes="impact-filters-modal-list-column"):
+                    with CustomVertical(classes="selection-modal-list-panel"):
+                        yield CustomStatic(
+                            "Parent Chart",
+                            id="impact-filters-modal-parent-chart-title",
+                            classes="impact-filters-modal-list-title selection-modal-list-title",
+                            markup=False,
+                        )
+                        yield CustomSelectionList[str](
+                            id="impact-filters-modal-parent-chart-list",
+                            classes="impact-filters-modal-list selection-modal-list",
+                        )
+                    with CustomHorizontal(classes="impact-filters-modal-list-actions"):
+                        yield CustomButton(
+                            "All",
+                            id="impact-filters-modal-parent-chart-all",
+                            compact=True,
+                            classes="selection-modal-action-btn",
+                        )
+                        yield CustomButton(
+                            "Clear",
+                            id="impact-filters-modal-parent-chart-clear",
                             compact=True,
                             classes="selection-modal-action-btn",
                         )
@@ -212,6 +290,7 @@ class _ImpactFiltersModal(ModalScreen[_ImpactFiltersState | None]):
 
     def on_mount(self) -> None:
         self._refresh_team_list()
+        self._refresh_parent_chart_list()
         self._refresh_chart_list()
         self._sync_buttons()
         with contextlib.suppress(Exception):
@@ -226,6 +305,8 @@ class _ImpactFiltersModal(ModalScreen[_ImpactFiltersState | None]):
         selected = {str(v) for v in getattr(control, "selected", [])}
         if control_id == "impact-filters-modal-team-list-inner":
             self._selected_teams = selected
+        elif control_id == "impact-filters-modal-parent-chart-list-inner":
+            self._selected_parent_charts = selected
         elif control_id == "impact-filters-modal-chart-list-inner":
             self._selected_charts = selected
         self._sync_buttons()
@@ -238,6 +319,12 @@ class _ImpactFiltersModal(ModalScreen[_ImpactFiltersState | None]):
         elif bid == "impact-filters-modal-team-clear":
             self._selected_teams.clear()
             self._refresh_team_list()
+        elif bid == "impact-filters-modal-parent-chart-all":
+            self._selected_parent_charts = set(self._all_parent_charts)
+            self._refresh_parent_chart_list()
+        elif bid == "impact-filters-modal-parent-chart-clear":
+            self._selected_parent_charts.clear()
+            self._refresh_parent_chart_list()
         elif bid == "impact-filters-modal-chart-all":
             self._selected_charts = set(self._all_charts)
             self._refresh_chart_list()
@@ -261,6 +348,15 @@ class _ImpactFiltersModal(ModalScreen[_ImpactFiltersState | None]):
                     [(t, t, t in self._selected_teams) for t in self._all_teams]
                 )
 
+    def _refresh_parent_chart_list(self) -> None:
+        with contextlib.suppress(Exception):
+            sl = self.query_one("#impact-filters-modal-parent-chart-list", CustomSelectionList)
+            if sl.selection_list is not None:
+                sl.selection_list.clear_options()
+                sl.selection_list.add_options(
+                    [(pc, pc, pc in self._selected_parent_charts) for pc in self._all_parent_charts]
+                )
+
     def _refresh_chart_list(self) -> None:
         with contextlib.suppress(Exception):
             sl = self.query_one("#impact-filters-modal-chart-list", CustomSelectionList)
@@ -281,6 +377,14 @@ class _ImpactFiltersModal(ModalScreen[_ImpactFiltersState | None]):
             ).disabled = len(self._selected_teams) == 0
         with contextlib.suppress(Exception):
             self.query_one(
+                "#impact-filters-modal-parent-chart-all", CustomButton
+            ).disabled = len(self._selected_parent_charts) >= len(self._all_parent_charts)
+        with contextlib.suppress(Exception):
+            self.query_one(
+                "#impact-filters-modal-parent-chart-clear", CustomButton
+            ).disabled = len(self._selected_parent_charts) == 0
+        with contextlib.suppress(Exception):
+            self.query_one(
                 "#impact-filters-modal-chart-all", CustomButton
             ).disabled = len(self._selected_charts) >= len(self._all_charts)
         with contextlib.suppress(Exception):
@@ -292,10 +396,17 @@ class _ImpactFiltersModal(ModalScreen[_ImpactFiltersState | None]):
         team_filter = (
             set() if self._selected_teams == set(self._all_teams) else set(self._selected_teams)
         )
+        parent_chart_filter = (
+            set() if self._selected_parent_charts == set(self._all_parent_charts) else set(self._selected_parent_charts)
+        )
         chart_filter = (
             set() if self._selected_charts == set(self._all_charts) else set(self._selected_charts)
         )
-        self.dismiss(_ImpactFiltersState(team_filter=team_filter, chart_filter=chart_filter))
+        self.dismiss(_ImpactFiltersState(
+            team_filter=team_filter,
+            parent_chart_filter=parent_chart_filter,
+            chart_filter=chart_filter,
+        ))
 
 
 # ---------------------------------------------------------------------------
@@ -368,6 +479,9 @@ class ImpactMetricCard(CustomVertical):
 class ResourceImpactView(CustomVertical):
     """Resource impact analysis view with savings banner, metric cards, and tables."""
 
+    class RefreshRequested(Message):
+        """Posted when user clicks Refresh — dialog should re-fetch cluster data."""
+
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._result: ResourceImpactResult | None = None
@@ -377,7 +491,13 @@ class ResourceImpactView(CustomVertical):
         self._optimizer_controller: Any | None = None
         # Filter state (empty set = all selected)
         self._team_filter: set[str] = set()
+        self._parent_chart_filter: set[str] = set()
         self._chart_filter: set[str] = set()
+        # Sort state
+        self._sort_field: str = IMPACT_SORT_CHART
+        self._sort_reverse: bool = False
+        # Search state
+        self._search_query: str = ""
 
     def compose(self) -> ComposeResult:
         # Metric cards — row of 5
@@ -392,10 +512,48 @@ class ResourceImpactView(CustomVertical):
 
         # Per-chart resource changes table
         yield CustomVertical(
-            CustomStatic(
-                "[bold]Per-Chart Resource Changes[/bold]",
-                id="impact-chart-header",
-                classes="impact-section-title",
+            CustomHorizontal(
+                CustomInput(
+                    placeholder="Search chart...",
+                    id="impact-search-input",
+                ),
+                CustomButton(
+                    "Search",
+                    id="impact-search-btn",
+                    compact=True,
+                ),
+                CustomButton(
+                    "Clear",
+                    id="impact-clear-btn",
+                    compact=True,
+                ),
+                CustomButton(
+                    "Filters",
+                    id="impact-filters-btn",
+                    compact=True,
+                ),
+                Select(
+                    [(f"Sort: {label}", value) for label, value in IMPACT_SORT_OPTIONS],
+                    value=IMPACT_SORT_CHART,
+                    allow_blank=False,
+                    id="impact-sort-select",
+                    classes="filter-select",
+                ),
+                Select(
+                    [("Asc", "asc"), ("Desc", "desc")],
+                    value="asc",
+                    allow_blank=False,
+                    id="impact-sort-order-select",
+                    classes="filter-select",
+                ),
+                CustomButton(
+                    "Refresh",
+                    id="impact-refresh-btn",
+                    compact=True,
+                    variant="primary",
+                ),
+                id="impact-chart-controls-row",
+                classes="impact-chart-controls-row",
             ),
             CustomContainer(
                 CustomDataTable(
@@ -418,11 +576,7 @@ class ResourceImpactView(CustomVertical):
             ),
             CustomHorizontal(
                 CustomKPI("Charts", "0", id="impact-kpi-s-charts", classes="kpi-inline"),
-                CustomKPI("CPU Req", "0", id="impact-kpi-s-cpu-req", classes="kpi-inline"),
-                CustomKPI("CPU Lim", "0", id="impact-kpi-s-cpu-lim", classes="kpi-inline"),
-                CustomKPI("Mem Req", "0", id="impact-kpi-s-mem-req", classes="kpi-inline"),
-                CustomKPI("Mem Lim", "0", id="impact-kpi-s-mem-lim", classes="kpi-inline"),
-                CustomKPI("Replicas", "0", id="impact-kpi-s-replicas", classes="kpi-inline"),
+                CustomKPI("Releases", "0", id="impact-kpi-s-releases", classes="kpi-inline"),
                 id="impact-summary-bar",
             ),
             id="impact-chart-section",
@@ -465,12 +619,15 @@ class ResourceImpactView(CustomVertical):
         charts: list[ChartInfo],
         violations: list[ViolationResult],
         optimizer_controller: Any | None = None,
+        workload_replica_map: dict[tuple[str, str], int] | None = None,
     ) -> None:
         """Store source data for recomputation and display initial result."""
         self._source_charts = charts
         self._source_violations = violations
         self._optimizer_controller = optimizer_controller
+        self._workload_replica_map = workload_replica_map
         self._team_filter = set()
+        self._parent_chart_filter = set()
         self._chart_filter = set()
         self.set_data(result)
 
@@ -489,12 +646,18 @@ class ResourceImpactView(CustomVertical):
     def open_filters_modal(self) -> None:
         """Open the impact filters modal. Called from the top bar filter button."""
         teams = sorted({getattr(c, "team", "") for c in self._source_charts if getattr(c, "team", "")})
+        parent_charts = sorted({
+            getattr(c, "parent_chart", "") or "-"
+            for c in self._source_charts
+        })
         charts = sorted({getattr(c, "name", "") for c in self._source_charts if getattr(c, "name", "")})
         self.app.push_screen(
             _ImpactFiltersModal(
                 teams=teams,
+                parent_charts=parent_charts,
                 charts=charts,
                 selected_teams=self._team_filter if self._team_filter else set(teams),
+                selected_parent_charts=self._parent_chart_filter if self._parent_chart_filter else set(parent_charts),
                 selected_charts=self._chart_filter if self._chart_filter else set(charts),
             ),
             callback=self._on_filters_dismissed,
@@ -504,6 +667,7 @@ class ResourceImpactView(CustomVertical):
         if state is None:
             return
         self._team_filter = state["team_filter"]
+        self._parent_chart_filter = state["parent_chart_filter"]
         self._chart_filter = state["chart_filter"]
         self._recompute_filtered_impact()
 
@@ -520,6 +684,11 @@ class ResourceImpactView(CustomVertical):
                     c for c in filtered_charts
                     if getattr(c, "team", "") in self._team_filter
                 ]
+            if self._parent_chart_filter:
+                filtered_charts = [
+                    c for c in filtered_charts
+                    if (getattr(c, "parent_chart", "") or "-") in self._parent_chart_filter
+                ]
             if self._chart_filter:
                 filtered_charts = [
                     c for c in filtered_charts
@@ -535,6 +704,7 @@ class ResourceImpactView(CustomVertical):
 
             calculator = ResourceImpactCalculator()
             optimizer_controller = self._optimizer_controller
+            replica_map = getattr(self, "_workload_replica_map", None)
             self.set_loading(True, "Recomputing impact...")
 
             def _do_compute() -> None:
@@ -542,10 +712,81 @@ class ResourceImpactView(CustomVertical):
                     filtered_charts,
                     filtered_violations,
                     optimizer_controller=optimizer_controller,
+                    workload_replica_map=replica_map,
                 )
                 self.app.call_from_thread(self.set_data, result)
 
             self.run_worker(_do_compute, thread=True, name="impact-recompute", exclusive=True)
+
+    # ------------------------------------------------------------------
+    # Search & Sorting
+    # ------------------------------------------------------------------
+
+    def on_button_pressed(self, event: CustomButton.Pressed) -> None:
+        bid = event.button.id or ""
+        if bid == "impact-filters-btn":
+            self.open_filters_modal()
+        elif bid == "impact-refresh-btn":
+            self.post_message(self.RefreshRequested())
+        elif bid == "impact-search-btn":
+            with contextlib.suppress(Exception):
+                inp = self.query_one("#impact-search-input", CustomInput)
+                self._search_query = inp.value.strip().lower()
+                if self._result is not None:
+                    self._update_chart_table(self._result)
+        elif bid == "impact-clear-btn":
+            with contextlib.suppress(Exception):
+                inp = self.query_one("#impact-search-input", CustomInput)
+                inp.value = ""
+            self._search_query = ""
+            if self._result is not None:
+                self._update_chart_table(self._result)
+
+    def on_input_submitted(self, event: CustomInput.Submitted) -> None:
+        if getattr(event, "input", None) and getattr(event.input, "id", "") == "impact-search-input":
+            self._search_query = event.value.strip().lower()
+            if self._result is not None:
+                self._update_chart_table(self._result)
+
+    @on(Select.Changed, "#impact-sort-select")
+    def _on_impact_sort_changed(self, event: Select.Changed) -> None:
+        if event.value is not Select.BLANK:
+            self._sort_field = str(event.value)
+            if self._result is not None:
+                self._update_chart_table(self._result)
+
+    @on(Select.Changed, "#impact-sort-order-select")
+    def _on_impact_sort_order_changed(self, event: Select.Changed) -> None:
+        if event.value is Select.BLANK:
+            return
+        self._sort_reverse = str(event.value) == "desc"
+        if self._result is not None:
+            self._update_chart_table(self._result)
+
+    @staticmethod
+    def _sort_key(
+        before: ChartResourceSnapshot,
+        after: ChartResourceSnapshot,
+        field: str,
+    ) -> tuple[Any, ...]:
+        """Return a sort key tuple for a chart row."""
+        if field == IMPACT_SORT_CHART:
+            return (before.name.lower(),)
+        if field == IMPACT_SORT_TEAM:
+            return (before.team.lower(), before.name.lower())
+        if field == IMPACT_SORT_RELEASES:
+            return (before.release_count, before.name.lower())
+        if field == IMPACT_SORT_REPLICAS:
+            return (before.replicas, before.name.lower())
+        if field == IMPACT_SORT_CPU_REQ:
+            return (after.cpu_request_per_replica - before.cpu_request_per_replica, before.name.lower())
+        if field == IMPACT_SORT_CPU_LIM:
+            return (after.cpu_limit_per_replica - before.cpu_limit_per_replica, before.name.lower())
+        if field == IMPACT_SORT_MEM_REQ:
+            return (after.memory_request_per_replica - before.memory_request_per_replica, before.name.lower())
+        if field == IMPACT_SORT_MEM_LIM:
+            return (after.memory_limit_per_replica - before.memory_limit_per_replica, before.name.lower())
+        return (before.name.lower(),)
 
     # ------------------------------------------------------------------
     # Metric cards
@@ -653,16 +894,11 @@ class ResourceImpactView(CustomVertical):
             table = self.query_one("#impact-chart-table", CustomDataTable)
             table.clear()
 
-            # Use (name, values_file_type) as composite key so each variant
-            # is a separate row in the table.
-            before_map = {
-                (s.name, s.values_file_type): s for s in result.before_charts
-            }
-            after_map = {
-                (s.name, s.values_file_type): s for s in result.after_charts
-            }
+            before_map = {s.name: s for s in result.before_charts}
+            after_map = {s.name: s for s in result.after_charts}
 
-            has_changes = False
+            # Collect rows with changes
+            changed_pairs: list[tuple[ChartResourceSnapshot, ChartResourceSnapshot]] = []
             for key, after in after_map.items():
                 before = before_map.get(key)
                 if before is None:
@@ -677,18 +913,54 @@ class ResourceImpactView(CustomVertical):
                     and before.replicas == after.replicas
                 ):
                     continue
+                changed_pairs.append((before, after))
 
-                has_changes = True
+            # Search filter
+            query = self._search_query
+            if query:
+                changed_pairs = [
+                    (b, a) for b, a in changed_pairs
+                    if query in b.name.lower()
+                    or query in b.team.lower()
+                    or query in b.parent_chart.lower()
+                ]
+
+            # Sort
+            sort_field = self._sort_field
+            changed_pairs.sort(
+                key=lambda pair: self._sort_key(pair[0], pair[1], sort_field),
+                reverse=self._sort_reverse,
+            )
+
+            for before, after in changed_pairs:
+                parent_chart_display = f"☂︎ {after.parent_chart}" if after.parent_chart else "-"
+                # Format min/max replicas: show before→after when changed
+                if before.min_replicas != after.min_replicas:
+                    min_rep_display = f"{before.min_replicas} \u2192 {after.min_replicas}"
+                else:
+                    min_rep_display = str(before.min_replicas)
+                if before.max_replicas != after.max_replicas:
+                    max_rep_display = f"{before.max_replicas} \u2192 {after.max_replicas}"
+                else:
+                    max_rep_display = str(before.max_replicas)
                 table.add_row(
                     after.name,
+                    parent_chart_display,
                     after.team,
-                    after.values_file_type or "Other",
-                    f"{_format_cpu(before.cpu_request_per_replica)} \u2192 {_format_cpu(after.cpu_request_per_replica)}",
-                    f"{_format_cpu(before.cpu_limit_per_replica)} \u2192 {_format_cpu(after.cpu_limit_per_replica)}",
-                    f"{_format_memory(before.memory_request_per_replica)} \u2192 {_format_memory(after.memory_request_per_replica)}",
-                    f"{_format_memory(before.memory_limit_per_replica)} \u2192 {_format_memory(after.memory_limit_per_replica)}",
-                    f"{before.replicas} \u2192 {after.replicas}",
+                    str(before.release_count),
+                    str(before.replicas),
+                    min_rep_display,
+                    max_rep_display,
+                    _ba_cpu(before.cpu_request_per_replica, after.cpu_request_per_replica),
+                    _ba_cpu(before.cpu_limit_per_replica, after.cpu_limit_per_replica),
+                    _ba_mem(before.memory_request_per_replica, after.memory_request_per_replica),
+                    _ba_mem(before.memory_limit_per_replica, after.memory_limit_per_replica),
+                    f"{_format_cpu(before.cpu_request_total)} \u2192 {_format_cpu(after.cpu_request_total)}",
+                    f"{_format_memory(before.memory_request_total)} \u2192 {_format_memory(after.memory_request_total)}",
+                    _ba_int(before.replicas, after.replicas),
                 )
+
+            has_changes = len(changed_pairs) > 0
 
             # Toggle table vs empty state
             with contextlib.suppress(Exception):
@@ -703,28 +975,11 @@ class ResourceImpactView(CustomVertical):
     def _update_summary_bar(self, result: ResourceImpactResult) -> None:
         """Update the summary info bar below the chart table."""
         b = result.before
-        a = result.after
         with contextlib.suppress(Exception):
             self.query_one("#impact-kpi-s-charts", CustomKPI).set_value(
                 str(b.chart_count)
             )
         with contextlib.suppress(Exception):
-            self.query_one("#impact-kpi-s-cpu-req", CustomKPI).set_value(
-                f"{_format_cpu(b.cpu_request_total)} \u2192 {_format_cpu(a.cpu_request_total)}"
-            )
-        with contextlib.suppress(Exception):
-            self.query_one("#impact-kpi-s-cpu-lim", CustomKPI).set_value(
-                f"{_format_cpu(b.cpu_limit_total)} \u2192 {_format_cpu(a.cpu_limit_total)}"
-            )
-        with contextlib.suppress(Exception):
-            self.query_one("#impact-kpi-s-mem-req", CustomKPI).set_value(
-                f"{_format_memory(b.memory_request_total)} \u2192 {_format_memory(a.memory_request_total)}"
-            )
-        with contextlib.suppress(Exception):
-            self.query_one("#impact-kpi-s-mem-lim", CustomKPI).set_value(
-                f"{_format_memory(b.memory_limit_total)} \u2192 {_format_memory(a.memory_limit_total)}"
-            )
-        with contextlib.suppress(Exception):
-            self.query_one("#impact-kpi-s-replicas", CustomKPI).set_value(
-                f"{b.total_replicas:,} \u2192 {a.total_replicas:,}"
+            self.query_one("#impact-kpi-s-releases", CustomKPI).set_value(
+                str(b.total_releases)
             )

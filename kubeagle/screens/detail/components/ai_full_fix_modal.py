@@ -19,7 +19,6 @@ from textual.color import Gradient
 from textual.events import Resize
 from textual.renderables.bar import Bar as RichBarRenderable
 from textual.screen import ModalScreen
-from textual.timer import Timer
 from textual.widgets import RichLog, TextArea
 from textual.widgets._text_area import TREE_SITTER
 
@@ -559,11 +558,6 @@ class AIFullFixModal(ModalScreen[AIFullFixModalResult | str | None]):
     def on_resize(self, _: Resize) -> None:
         self._apply_dynamic_layout()
 
-    def on_unmount(self) -> None:
-        timer = getattr(self, "_pulse_timer", None)
-        if timer is not None:
-            timer.stop()
-
     def action_cancel(self) -> None:
         minimize_intent = False
         with contextlib.suppress(Exception):
@@ -750,7 +744,6 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | str | None]):
     _DIALOG_MIN_HEIGHT = 34
     _DIALOG_MAX_HEIGHT = 49
     _TEMPLATE_EDITOR_ID_PREFIX = "ai-full-fix-bulk-template-file-editor-"
-    _PULSE_FRAMES: tuple[str, ...] = ("◐", "◓", "◑", "◒")
     _BULK_PROGRESS_GRADIENT = Gradient(
         (0.0, "rgb(255,0,0)"),
         (0.5, "rgb(255,255,0)"),
@@ -777,8 +770,6 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | str | None]):
         self._manual_action_lock: bool = False
         self._inline_action_handler: Callable[[AIFullFixBulkModalResult], Awaitable[None]] | None = None
         self._inline_action_task: asyncio.Task[None] | None = None
-        self._pulse_index: int = 0
-        self._pulse_timer: Timer | None = None
         self._bulk_fix_started_at_monotonic: float | None = restore_bulk_fix_started_at
         self._bulk_last_elapsed_seconds: float | None = restore_bulk_last_elapsed
         self._ui_update_seq: int = 0
@@ -871,7 +862,6 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | str | None]):
         self._apply_dynamic_layout()
         self._sync_action_buttons_state()
         self._sync_loading_overlays()
-        self._pulse_timer = self.set_interval(0.24, self._tick_pulse)
         # Defer heavy work so the modal shell renders immediately.
         self.call_later(self._deferred_on_mount)
 
@@ -889,11 +879,6 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | str | None]):
 
     def on_resize(self, _: Resize) -> None:
         self._apply_dynamic_layout()
-
-    def on_unmount(self) -> None:
-        if self._pulse_timer is not None:
-            self._pulse_timer.stop()
-            self._pulse_timer = None
 
     def action_cancel(self) -> None:
         minimize_intent = False
@@ -1487,43 +1472,9 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | str | None]):
         self._manual_action_lock = disabled
         self._sync_action_buttons_state()
 
-    def _tick_pulse(self) -> None:
-        self._pulse_index = (self._pulse_index + 1) % len(self._PULSE_FRAMES)
-        has_active = any(
-            bundle.is_processing or bundle.is_waiting for bundle in self._bundles.values()
-        )
-        if has_active:
-            # Only update tree node labels instead of full rebuild to avoid
-            # destroying and recreating the entire tree 4 times per second.
-            self._update_tree_markers()
-            self._sync_bulk_progress()
-
-    def _update_tree_markers(self) -> None:
-        """Update only the marker text of active tree nodes without rebuilding."""
-        with contextlib.suppress(Exception):
-            tree = self.query_one("#ai-full-fix-bulk-violations-tree", CustomTree)
-            for chart_node in tree.root.children:
-                chart_key = (chart_node.data or {}).get("chart_key")
-                if chart_key is None:
-                    continue
-                bundle = self._bundles.get(chart_key)
-                if bundle is None:
-                    continue
-                if not (bundle.is_processing or bundle.is_waiting):
-                    continue
-                marker = self._chart_marker(bundle)
-                violation_count = len(bundle.violations)
-                violation_label = "violation" if violation_count == 1 else "violations"
-                elapsed_suffix = self._tree_elapsed_label(bundle)
-                new_label = (
-                    f"{marker} {bundle.chart_name} ({violation_count} {violation_label})"
-                    f"{elapsed_suffix}"
-                )
-                chart_node.set_label(Text(new_label, style=self._chart_row_color(bundle)))
-
     def _chart_marker(self, bundle: ChartBundleEditorState) -> str:
         if bundle.is_processing:
-            return self._PULSE_FRAMES[self._pulse_index]
+            return "⟳"
         if self._is_error_status(bundle.status_text):
             return "✗"
         if self._is_success_status(bundle.status_text, can_apply=bundle.can_apply):

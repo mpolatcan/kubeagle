@@ -43,11 +43,13 @@ class ImpactAnalysisDialog(ModalScreen[None]):
         charts: list[ChartInfo],
         violations: list[ViolationResult],
         optimizer_controller: UnifiedOptimizerController,
+        cluster_context: str | None = None,
     ) -> None:
         super().__init__(classes="selection-modal-screen")
         self._charts = charts
         self._violations = violations
         self._optimizer_controller = optimizer_controller
+        self._cluster_context = cluster_context
 
     def compose(self) -> ComposeResult:
         with CustomContainer(
@@ -70,7 +72,7 @@ class ImpactAnalysisDialog(ModalScreen[None]):
         """Start background impact computation."""
         with contextlib.suppress(Exception):
             impact_view = self.query_one("#impact-analysis-view", ResourceImpactView)
-            impact_view.set_loading(True, "Computing impact analysis...")
+            impact_view.set_loading(True, "Fetching cluster workloads...")
         self._compute_impact()
 
     def _compute_impact(self) -> None:
@@ -78,6 +80,7 @@ class ImpactAnalysisDialog(ModalScreen[None]):
         try:
             from kubeagle.optimizer.resource_impact_calculator import (
                 ResourceImpactCalculator,
+                fetch_workload_replica_map,
             )
         except Exception:
             logger.exception("Failed to import ResourceImpactCalculator")
@@ -87,18 +90,48 @@ class ImpactAnalysisDialog(ModalScreen[None]):
         charts = list(self._charts)
         violations = list(self._violations)
         controller = self._optimizer_controller
+        cluster_context = self._cluster_context
 
         def _do_compute() -> None:
+            # Fetch actual replica counts from cluster (lightweight kubectl call).
+            # Always attempt the fetch — for cluster charts the map is keyed by
+            # exact (release, namespace); for local charts _resolve_replicas
+            # aggregates all namespaces matching the chart name.
+            replica_map: dict[tuple[str, str], int] | None = None
+            try:
+                self.app.call_from_thread(
+                    self._update_loading, "Fetching workload replicas..."
+                )
+                replica_map = fetch_workload_replica_map(
+                    context=cluster_context,
+                )
+            except Exception:
+                logger.debug(
+                    "Failed to fetch workload replicas, using values-file defaults",
+                    exc_info=True,
+                )
+
+            self.app.call_from_thread(
+                self._update_loading, "Computing impact analysis..."
+            )
             result = calculator.compute_impact(
                 charts,
                 violations,
                 optimizer_controller=controller,
+                workload_replica_map=replica_map,
             )
             self.app.call_from_thread(
                 self._apply_result, result, charts, violations, controller,
+                replica_map,
             )
 
         self.run_worker(_do_compute, thread=True, name="impact-dialog-compute", exclusive=True)
+
+    def _update_loading(self, message: str) -> None:
+        """Update loading message on the main thread."""
+        with contextlib.suppress(Exception):
+            impact_view = self.query_one("#impact-analysis-view", ResourceImpactView)
+            impact_view.set_loading(True, message)
 
     def _apply_result(
         self,
@@ -106,6 +139,7 @@ class ImpactAnalysisDialog(ModalScreen[None]):
         charts: list[object],
         violations: list[object],
         controller: object,
+        workload_replica_map: dict[tuple[str, str], int] | None,
     ) -> None:
         """Apply the computed result to the impact view on the main thread."""
         with contextlib.suppress(Exception):
@@ -115,11 +149,22 @@ class ImpactAnalysisDialog(ModalScreen[None]):
                 charts=charts,  # type: ignore[arg-type]
                 violations=violations,  # type: ignore[arg-type]
                 optimizer_controller=controller,
+                workload_replica_map=workload_replica_map,
             )
 
     def on_button_pressed(self, event: CustomButton.Pressed) -> None:
         if event.button.id == "impact-dialog-close-btn":
             self.dismiss(None)
+
+    def on_resource_impact_view_refresh_requested(
+        self, event: ResourceImpactView.RefreshRequested,
+    ) -> None:
+        """Handle refresh request from the impact view controls."""
+        event.stop()
+        with contextlib.suppress(Exception):
+            impact_view = self.query_one("#impact-analysis-view", ResourceImpactView)
+            impact_view.set_loading(True, "Refreshing cluster data...")
+        self._compute_impact()
 
     def action_cancel(self) -> None:
         self.dismiss(None)

@@ -407,20 +407,186 @@ class ChartsController(BaseController):
         return charts
 
     def _analyze_single_chart(self, chart_path: Path) -> list[ChartInfo]:
-        """Analyze a single chart for every values file variant."""
+        """Analyze a single chart for every values file variant.
+
+        Overlay values files (values-automation.yaml, values-staging.yaml, etc.)
+        typically inherit resources from values.yaml via Helm merge semantics.
+        When an overlay has no resource definitions, its QoS and resource values
+        are inherited from the main values.yaml result to avoid false BestEffort.
+
+        Umbrella charts are consolidated into a single tree: the parent row
+        (from values.yaml) is followed by overlay variant children and
+        sub-chart children.  Non-umbrella charts keep per-variant top-level
+        rows as before.
+        """
         values_files = self._chart_fetcher.find_values_files(chart_path)
         if not values_files:
             return []
 
-        chart_results: list[ChartInfo] = []
+        # First pass: parse all values files and keep raw values for expansion.
+        parsed: list[tuple[Path, dict[str, Any], ChartInfo]] = []
+        main_chart_info: ChartInfo | None = None
+        main_values: dict[str, Any] | None = None
+
         for values_file in values_files:
             values = self._chart_fetcher.parse_values_file(values_file)
             if values is None:
                 continue
-            chart_results.append(
-                self._chart_parser.parse(chart_path, values, values_file)
+            chart_info = self._chart_parser.parse(chart_path, values, values_file)
+            parsed.append((values_file, values, chart_info))
+            if values_file.name == "values.yaml":
+                main_chart_info = chart_info
+                main_values = values
+
+        # Check whether this chart directory produces an umbrella.
+        is_umbrella_chart = any(ci.is_umbrella for _, _, ci in parsed)
+
+        if is_umbrella_chart and main_chart_info is not None and main_values is not None:
+            return self._build_umbrella_tree(
+                chart_path, parsed, main_chart_info, main_values,
             )
+
+        # Non-umbrella: overlay files with no resources inherit from main.
+        chart_results: list[ChartInfo] = []
+        for values_file, _values, chart_info in parsed:
+            if (
+                values_file.name != "values.yaml"
+                and main_chart_info is not None
+                and self._has_no_resources(chart_info)
+            ):
+                chart_info = chart_info.model_copy(
+                    update={
+                        "cpu_request": main_chart_info.cpu_request,
+                        "cpu_limit": main_chart_info.cpu_limit,
+                        "memory_request": main_chart_info.memory_request,
+                        "memory_limit": main_chart_info.memory_limit,
+                        "qos_class": main_chart_info.qos_class,
+                    }
+                )
+            chart_results.append(chart_info)
+
         return chart_results
+
+    def _build_umbrella_tree(
+        self,
+        chart_path: Path,
+        parsed: list[tuple[Path, dict[str, Any], ChartInfo]],
+        main_chart_info: ChartInfo,
+        main_values: dict[str, Any],
+    ) -> list[ChartInfo]:
+        """Expand an umbrella chart into flat sub-chart rows.
+
+        Each sub-chart produces one row per values-file variant (Main,
+        Automation, Default, etc.).  The umbrella parent itself is NOT
+        included — the Parent Chart column identifies the umbrella.
+        """
+        sub_aliases = self._chart_parser._identify_umbrella_sub_charts(
+            chart_path, main_values,
+        )
+        if not sub_aliases:
+            return [main_chart_info]
+
+        chart_results: list[ChartInfo] = []
+
+        # Collect overlay values files (non-main)
+        overlay_files: list[tuple[Path, dict[str, Any]]] = [
+            (vf, vals) for vf, vals, _ in parsed if vf.name != "values.yaml"
+        ]
+
+        # Expand each sub-chart with its per-variant rows
+        main_sub_charts = self._chart_parser.expand_umbrella_sub_charts(
+            main_chart_info, main_values, sub_aliases, chart_path,
+        )
+
+        for sub_chart in main_sub_charts:
+            # Sub-chart row with Main resources (displayed as umbrella/sub-chart)
+            chart_results.append(sub_chart)
+
+            # Overlay variant rows (Automation, Default, etc.)
+            for overlay_file, overlay_values in overlay_files:
+                variant = self._build_sub_chart_variant(
+                    sub_chart, sub_chart.name, overlay_file, overlay_values,
+                )
+                chart_results.append(variant)
+
+        return chart_results
+
+    def _build_sub_chart_variant(
+        self,
+        main_sub_chart: ChartInfo,
+        alias: str,
+        overlay_file: Path,
+        overlay_values: dict[str, Any],
+    ) -> ChartInfo:
+        """Build a variant row for a sub-chart from an overlay values file.
+
+        If the overlay has resource overrides for this sub-chart alias,
+        those are used.  Otherwise the Main variant resources are inherited.
+        """
+        from kubeagle.utils.resource_parser import (
+            parse_cpu_from_dict,
+            parse_memory_from_dict,
+        )
+
+        cpu_req = 0.0
+        cpu_lim = 0.0
+        mem_req = 0.0
+        mem_lim = 0.0
+        replicas: int | None = None
+        has_resources = False
+
+        sub_values = overlay_values.get(alias)
+        if isinstance(sub_values, dict):
+            cpu_req = parse_cpu_from_dict(sub_values, "requests", "cpu")
+            cpu_lim = parse_cpu_from_dict(sub_values, "limits", "cpu")
+            mem_req = parse_memory_from_dict(sub_values, "requests", "memory")
+            mem_lim = parse_memory_from_dict(sub_values, "limits", "memory")
+            has_resources = cpu_req > 0 or cpu_lim > 0 or mem_req > 0 or mem_lim > 0
+            replicas = self._chart_parser._get_replicas(sub_values)
+
+        if has_resources:
+            qos_class = self._chart_parser._determine_qos(
+                cpu_req, cpu_lim, mem_req, mem_lim,
+            )
+            return ChartInfo(
+                name=alias,
+                team=main_sub_chart.team,
+                values_file=str(overlay_file),
+                namespace=main_sub_chart.namespace,
+                cpu_request=cpu_req,
+                cpu_limit=cpu_lim,
+                memory_request=mem_req,
+                memory_limit=mem_lim,
+                qos_class=qos_class,
+                has_liveness=main_sub_chart.has_liveness,
+                has_readiness=main_sub_chart.has_readiness,
+                has_startup=main_sub_chart.has_startup,
+                has_anti_affinity=main_sub_chart.has_anti_affinity,
+                has_topology_spread=main_sub_chart.has_topology_spread,
+                has_topology=main_sub_chart.has_topology,
+                pdb_enabled=main_sub_chart.pdb_enabled,
+                pdb_template_exists=False,
+                pdb_min_available=main_sub_chart.pdb_min_available,
+                pdb_max_unavailable=main_sub_chart.pdb_max_unavailable,
+                replicas=replicas if replicas is not None else main_sub_chart.replicas,
+                priority_class=main_sub_chart.priority_class,
+                parent_chart=main_sub_chart.parent_chart,
+            )
+
+        # No overrides — inherit everything from Main variant
+        return main_sub_chart.model_copy(
+            update={"values_file": str(overlay_file)},
+        )
+
+    @staticmethod
+    def _has_no_resources(chart_info: ChartInfo) -> bool:
+        """Check if a ChartInfo has no resource definitions at all."""
+        return (
+            chart_info.cpu_request == 0
+            and chart_info.cpu_limit == 0
+            and chart_info.memory_request == 0
+            and chart_info.memory_limit == 0
+        )
 
     def _run_helm(self, args: tuple[str, ...], timeout: int = 60) -> str:
         """Run helm command and return output."""
@@ -585,6 +751,23 @@ class ChartsController(BaseController):
             replicas = self._chart_parser._get_replicas(values)
             priority_class = self._chart_parser._get_priority_class(values)
 
+            # Cluster-side umbrella detection via values heuristic
+            sub_chart_aliases = self._detect_cluster_umbrella_sub_charts(values)
+            is_umbrella = len(sub_chart_aliases) > 0
+            sub_chart_count = len(sub_chart_aliases)
+
+            if is_umbrella:
+                cpu_request, cpu_limit, memory_request, memory_limit, replicas = (
+                    self._chart_parser._aggregate_sub_chart_resources(
+                        values, sub_chart_aliases,
+                        cpu_request, cpu_limit,
+                        memory_request, memory_limit, replicas,
+                    )
+                )
+                qos_class = self._chart_parser._determine_qos(
+                    cpu_request, cpu_limit, memory_request, memory_limit,
+                )
+
             return ChartInfo(
                 name=release,
                 team=team,
@@ -608,10 +791,65 @@ class ChartsController(BaseController):
                 replicas=replicas,
                 priority_class=priority_class,
                 deployed_values_content=None,
+                is_umbrella=is_umbrella,
+                sub_chart_count=sub_chart_count,
             )
         except (ValueError, KeyError, TypeError):
             logger.exception(f"Error analyzing live chart {release}")
             return None
+
+    @staticmethod
+    def _detect_cluster_umbrella_sub_charts(
+        values: dict[str, Any],
+    ) -> list[str]:
+        """Detect umbrella sub-charts from cluster values using heuristics.
+
+        Without Chart.yaml on the cluster side we identify sub-charts by
+        scanning top-level keys whose values are dicts containing **both**
+        resource definitions (``resources.requests``/``limits``) **and** a
+        replica count (``replicaCount`` or ``replicas``).
+
+        The strict AND requirement reduces false positives compared to the
+        local-path detector which has filesystem confirmation.
+        """
+        _EXCLUDED_KEYS: frozenset[str] = frozenset({
+            "global", "image", "imagePullSecrets", "nameOverride",
+            "fullnameOverride", "serviceAccount", "podAnnotations",
+            "podSecurityContext", "securityContext", "service", "ingress",
+            "internalIngress", "resources", "autoscaling", "nodeSelector",
+            "tolerations", "affinity", "env", "extraEnv", "volumes",
+            "volumeMounts", "configMap", "secret", "persistence", "rbac",
+            "networkPolicy", "topologySpreadConstraints", "strategy",
+            "livenessProbe", "readinessProbe", "startupProbe", "probes",
+            "pdb", "priorityClassName", "annotations", "labels",
+            "replicaCount", "replicas", "local", "parameterStore",
+            "middleware", "tags", "nsq", "huawei",
+        })
+
+        sub_charts: list[str] = []
+        for key, val in values.items():
+            if key in _EXCLUDED_KEYS:
+                continue
+            if not isinstance(val, dict):
+                continue
+
+            has_resources = False
+            res = val.get("resources")
+            if isinstance(res, dict):
+                if "requests" in res or "limits" in res:
+                    has_resources = True
+                default = res.get("default")
+                if isinstance(default, dict) and (
+                    "requests" in default or "limits" in default
+                ):
+                    has_resources = True
+
+            has_replicas = "replicaCount" in val or "replicas" in val
+
+            if has_resources and has_replicas:
+                sub_charts.append(key)
+
+        return sub_charts
 
     async def analyze_all_charts_cluster_async(
         self,
@@ -667,19 +905,31 @@ class ChartsController(BaseController):
 
             async def fetch_and_analyze(
                 release: dict[str, str],
-            ) -> ChartInfo | None:
+            ) -> list[ChartInfo]:
                 name = release["name"]
                 namespace = release["namespace"]
                 values = await self.get_live_chart_values(name, namespace)
                 raw_values_output = self._consume_live_values_output(name, namespace)
                 chart = self.analyze_live_chart(name, namespace, values)
+                if chart is None:
+                    return []
                 if (
-                    chart is not None
-                    and raw_values_output is not None
+                    raw_values_output is not None
                     and raw_values_output.strip()
                 ):
                     chart.deployed_values_content = raw_values_output
-                return chart
+
+                result = [chart]
+                # Expand umbrella sub-charts into separate rows
+                if chart.is_umbrella:
+                    sub_aliases = self._detect_cluster_umbrella_sub_charts(values)
+                    if sub_aliases:
+                        result.extend(
+                            self._chart_parser.expand_umbrella_sub_charts(
+                                chart, values, sub_aliases,
+                            )
+                        )
+                return result
 
             charts: list[ChartInfo] = []
             analysis_started_at = time.perf_counter()
@@ -695,7 +945,7 @@ class ChartsController(BaseController):
                     ),
                 )
                 semaphore = asyncio.Semaphore(max_streaming_concurrency)
-                analysis_results: asyncio.Queue[ChartInfo | None] = asyncio.Queue()
+                analysis_results: asyncio.Queue[list[ChartInfo]] = asyncio.Queue()
                 analysis_tasks: set[asyncio.Task[None]] = set()
                 seen_releases: set[tuple[str, str]] = set()
                 discovered_release_count = 0
@@ -706,11 +956,11 @@ class ChartsController(BaseController):
                 async def _analyze_and_publish(release: dict[str, str]) -> None:
                     try:
                         async with semaphore:
-                            chart = await fetch_and_analyze(release)
-                        await analysis_results.put(chart)
+                            result_charts = await fetch_and_analyze(release)
+                        await analysis_results.put(result_charts)
                     except Exception:
                         logger.exception("Error analyzing live release")
-                        await analysis_results.put(None)
+                        await analysis_results.put([])
 
                 def _schedule_release(release: dict[str, str]) -> None:
                     nonlocal discovered_release_count
@@ -772,8 +1022,8 @@ class ChartsController(BaseController):
 
                         completed += 1
                         total = max(discovered_release_count, completed)
-                        if isinstance(result, ChartInfo):
-                            charts.append(result)
+                        if result:
+                            charts.extend(result)
                             if on_analysis_partial is not None:
                                 with suppress(Exception):
                                     on_analysis_partial(charts, completed, total)
@@ -808,7 +1058,7 @@ class ChartsController(BaseController):
                 concurrency = self._resolve_cluster_analysis_concurrency(len(releases))
                 semaphore = asyncio.Semaphore(concurrency)
 
-                async def bounded_fetch(release: dict[str, str]) -> ChartInfo | None:
+                async def bounded_fetch(release: dict[str, str]) -> list[ChartInfo]:
                     async with semaphore:
                         return await fetch_and_analyze(release)
 
@@ -818,8 +1068,8 @@ class ChartsController(BaseController):
                 for completed, future in enumerate(asyncio.as_completed(tasks), start=1):
                     try:
                         result = await future
-                        if isinstance(result, ChartInfo):
-                            charts.append(result)
+                        if result:
+                            charts.extend(result)
                             if on_analysis_partial is not None:
                                 try:
                                     on_analysis_partial(charts, completed, total)

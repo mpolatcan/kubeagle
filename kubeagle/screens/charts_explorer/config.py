@@ -50,6 +50,7 @@ TAB_VIOLATIONS = "tab-violations"
 
 EXPLORER_TABLE_COLUMNS: list[tuple[str, int]] = [
     ("Chart", 25),
+    ("Parent Chart", 18),
     ("Namespace", 16),
     ("Team", 15),
     ("Values File Type", 12),
@@ -65,6 +66,7 @@ EXPLORER_TABLE_COLUMNS: list[tuple[str, int]] = [
 
 EXPLORER_HEADER_TOOLTIPS: dict[str, str] = {
     "Chart": "Helm chart name.",
+    "Parent Chart": "Umbrella parent chart name for sub-charts.",
     "Namespace": "Kubernetes namespace for cluster-backed Helm releases.",
     "Team": "Owning team mapped from CODEOWNERS/chart metadata.",
     "Values File Type": "Source kind for values (service/default/shared/other).",

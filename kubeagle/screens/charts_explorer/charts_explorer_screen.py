@@ -167,14 +167,15 @@ class _ChartsFilterState(TypedDict):
     visible_column_names: set[str]
     qos_filter_values: set[str]
     values_file_type_filter_values: set[str]
+    parent_chart_filter_values: set[str]
 
 
 class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
     """Unified modal for storing charts selection-list filters."""
 
     BINDINGS = [("escape", "cancel", "Cancel")]
-    _DIALOG_MIN_WIDTH = 108
-    _DIALOG_MAX_WIDTH = 148
+    _DIALOG_MIN_WIDTH = 136
+    _DIALOG_MAX_WIDTH = 180
     _DIALOG_MIN_HEIGHT = 28
     _DIALOG_MAX_HEIGHT = 42
 
@@ -190,6 +191,8 @@ class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
         qos_selected_values: set[str],
         values_file_type_options: tuple[tuple[str, str], ...],
         values_file_type_selected_values: set[str],
+        parent_chart_options: tuple[tuple[str, str], ...],
+        parent_chart_selected_values: set[str],
     ) -> None:
         super().__init__(classes="charts-filters-modal-screen selection-modal-screen")
 
@@ -240,6 +243,19 @@ class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
             selected_values_file_type_values
             if selected_values_file_type_values
             else set(self._values_file_type_values)
+        )
+
+        self._parent_chart_options = parent_chart_options
+        self._parent_chart_values = {value for _, value in parent_chart_options}
+        selected_parent_chart_values = {
+            value
+            for value in parent_chart_selected_values
+            if value in self._parent_chart_values
+        }
+        self._parent_chart_selected_values = (
+            selected_parent_chart_values
+            if selected_parent_chart_values
+            else set(self._parent_chart_values)
         )
 
     def compose(self) -> ComposeResult:
@@ -363,6 +379,33 @@ class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
                             compact=True,
                             classes="selection-modal-action-btn",
                         )
+                with CustomVertical(classes="charts-filters-modal-list-column"):
+                    with CustomVertical(classes="selection-modal-list-panel"):
+                        yield CustomStatic(
+                            "Parent Chart",
+                            id="charts-filters-modal-parent-chart-title",
+                            classes="charts-filters-modal-list-title selection-modal-list-title",
+                            markup=False,
+                        )
+                        yield CustomSelectionList[str](
+                            id="charts-filters-modal-parent-chart-list",
+                            classes="charts-filters-modal-list selection-modal-list",
+                        )
+                    with CustomHorizontal(
+                        classes="charts-filters-modal-list-actions",
+                    ):
+                        yield CustomButton(
+                            "All",
+                            id="charts-filters-modal-parent-chart-all",
+                            compact=True,
+                            classes="selection-modal-action-btn",
+                        )
+                        yield CustomButton(
+                            "Clear",
+                            id="charts-filters-modal-parent-chart-clear",
+                            compact=True,
+                            classes="selection-modal-action-btn",
+                        )
             with CustomHorizontal(
                 classes="charts-filters-modal-actions selection-modal-actions"
             ):
@@ -386,6 +429,7 @@ class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
         self._refresh_column_selection_options()
         self._refresh_qos_selection_options()
         self._refresh_values_file_type_selection_options()
+        self._refresh_parent_chart_selection_options()
         self._update_summary()
         self._sync_all_action_buttons()
         with contextlib.suppress(Exception):
@@ -428,6 +472,12 @@ class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
             self._values_file_type_selected_values = selected_values
             self._update_summary()
             self._sync_filter_action_buttons("values-file-type", self._values_file_type_selected_values, self._values_file_type_values)
+            return
+        if control_id == "charts-filters-modal-parent-chart-list-inner":
+            self._parent_chart_selected_values = selected_values
+            self._update_summary()
+            self._sync_filter_action_buttons("parent-chart", self._parent_chart_selected_values, self._parent_chart_values)
+            return
 
     def on_button_pressed(self, event: CustomButton.Pressed) -> None:
         button_id = event.button.id or ""
@@ -471,6 +521,16 @@ class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
             self._refresh_values_file_type_selection_options()
             self._sync_filter_action_buttons("values-file-type", self._values_file_type_selected_values, self._values_file_type_values)
             return
+        if button_id == "charts-filters-modal-parent-chart-all":
+            self._parent_chart_selected_values = set(self._parent_chart_values)
+            self._refresh_parent_chart_selection_options()
+            self._sync_filter_action_buttons("parent-chart", self._parent_chart_selected_values, self._parent_chart_values)
+            return
+        if button_id == "charts-filters-modal-parent-chart-clear":
+            self._parent_chart_selected_values.clear()
+            self._refresh_parent_chart_selection_options()
+            self._sync_filter_action_buttons("parent-chart", self._parent_chart_selected_values, self._parent_chart_values)
+            return
         if button_id == "charts-filters-modal-apply":
             self._apply()
             return
@@ -506,6 +566,14 @@ class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
             "charts-filters-modal-values-file-type-list",
             self._values_file_type_options,
             self._values_file_type_selected_values,
+        )
+        self._update_summary()
+
+    def _refresh_parent_chart_selection_options(self) -> None:
+        self._refresh_selection_options(
+            "charts-filters-modal-parent-chart-list",
+            self._parent_chart_options,
+            self._parent_chart_selected_values,
         )
         self._update_summary()
 
@@ -545,6 +613,7 @@ class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
         self._sync_filter_action_buttons("column", self._column_selected_values, self._column_values)
         self._sync_filter_action_buttons("qos", self._qos_selected_values, self._qos_values)
         self._sync_filter_action_buttons("values-file-type", self._values_file_type_selected_values, self._values_file_type_values)
+        self._sync_filter_action_buttons("parent-chart", self._parent_chart_selected_values, self._parent_chart_values)
 
     def _apply(self) -> None:
         self._column_selected_values.update(self._locked_column_values)
@@ -564,11 +633,16 @@ class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
         if selected_values_file_type_values == self._values_file_type_values:
             selected_values_file_type_values = set()
 
+        selected_parent_chart_values = set(self._parent_chart_selected_values)
+        if selected_parent_chart_values == self._parent_chart_values:
+            selected_parent_chart_values = set()
+
         state: _ChartsFilterState = {
             "team_filter_values": selected_team_values,
             "visible_column_names": set(self._column_selected_values),
             "qos_filter_values": selected_qos_values,
             "values_file_type_filter_values": selected_values_file_type_values,
+            "parent_chart_filter_values": selected_parent_chart_values,
         }
         self.dismiss(state)
 
@@ -582,6 +656,8 @@ class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
             qos_selected=len(self._qos_selected_values),
             values_file_type_total=len(self._values_file_type_values),
             values_file_type_selected=len(self._values_file_type_selected_values),
+            parent_chart_total=len(self._parent_chart_values),
+            parent_chart_selected=len(self._parent_chart_selected_values),
         )
 
     def _update_list_titles(
@@ -595,6 +671,8 @@ class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
         qos_selected: int,
         values_file_type_total: int,
         values_file_type_selected: int,
+        parent_chart_total: int,
+        parent_chart_selected: int,
     ) -> None:
         with contextlib.suppress(Exception):
             self.query_one(
@@ -639,6 +717,17 @@ class _ChartsFiltersModal(ModalScreen[_ChartsFilterState | None]):
                     label="Values File Type",
                     total=values_file_type_total,
                     selected=values_file_type_selected,
+                )
+            )
+        with contextlib.suppress(Exception):
+            self.query_one(
+                "#charts-filters-modal-parent-chart-title",
+                CustomStatic,
+            ).update(
+                self._format_title_count(
+                    label="Parent Chart",
+                    total=parent_chart_total,
+                    selected=parent_chart_selected,
                 )
             )
 
@@ -1083,6 +1172,8 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         self._qos_filter_values: set[str] = set()
         self._values_file_type_filter_options: tuple[tuple[str, str], ...] = ()
         self._values_file_type_filter_values: set[str] = set()
+        self._parent_chart_filter_options: tuple[tuple[str, str], ...] = ()
+        self._parent_chart_filter_values: set[str] = set()
         self._column_filter_options: tuple[tuple[str, str], ...] = tuple(
             (column_name, column_name) for column_name, _ in EXPLORER_TABLE_COLUMNS
         )
@@ -2553,7 +2644,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                         return
                     if completed >= total:
                         return
-                    if completed % self._partial_update_step(total) != 0:
+                    if completed > 1 and completed % self._partial_update_step(total) != 0:
                         return
                     now = time.monotonic()
                     if (
@@ -2636,7 +2727,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                         return
                     if completed >= total:
                         return
-                    if completed % self._partial_update_step(total) != 0:
+                    if completed > 1 and completed % self._partial_update_step(total) != 0:
                         return
                     now = time.monotonic()
                     if (
@@ -2909,6 +3000,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         prev_team_filter = set(self._team_filter_values)
         prev_qos_filter = set(self._qos_filter_values)
         prev_vft_filter = set(self._values_file_type_filter_values)
+        prev_pc_filter = set(self._parent_chart_filter_values)
         classify_fn = self._chart_values_file_type
 
         async def _do_full_sync() -> None:
@@ -2916,15 +3008,16 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                 return
 
             def _heavy() -> tuple[
-                list[str], list[str], list[str],
+                list[str], list[str], list[str], list[str],
             ]:
                 self._rebuild_chart_runtime_indexes()
                 teams = sorted({c.team for c in charts})
                 qos_vals = sorted({c.qos_class.value for c in charts})
                 vft_vals = sorted({classify_fn(c) for c in charts})
-                return teams, qos_vals, vft_vals
+                pc_vals = sorted({c.parent_chart if c.parent_chart else "-" for c in charts})
+                return teams, qos_vals, vft_vals, pc_vals
 
-            teams, qos_values, vft_values = await asyncio.to_thread(_heavy)
+            teams, qos_values, vft_values, pc_values = await asyncio.to_thread(_heavy)
 
             # Staleness check after thread work completes
             if self._sync_charts_state_seq != seq:
@@ -2956,6 +3049,14 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
             }
             if self._values_file_type_filter_values == valid_vft_values:
                 self._values_file_type_filter_values = set()
+
+            self._parent_chart_filter_options = tuple((pc, pc) for pc in pc_values)
+            valid_pc_values = {v for _, v in self._parent_chart_filter_options}
+            self._parent_chart_filter_values = {
+                v for v in prev_pc_filter if v in valid_pc_values
+            }
+            if self._parent_chart_filter_values == valid_pc_values:
+                self._parent_chart_filter_values = set()
 
             self._sync_current_team_from_filter()
 
@@ -3120,6 +3221,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
             frozenset(self._team_filter_values),
             frozenset(self._qos_filter_values),
             frozenset(self._values_file_type_filter_values),
+            frozenset(self._parent_chart_filter_values),
             tuple(self._iter_visible_column_names()),
             normalized_query,
             self._presenter.violation_revision,
@@ -3140,6 +3242,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         show_active_only = self.show_active_only
         qos_filter_values = set(self._qos_filter_values)
         vft_filter_values = set(self._values_file_type_filter_values)
+        pc_filter_values = set(self._parent_chart_filter_values)
         current_sort = self.current_sort
         sort_desc = self.sort_desc
         presenter = self._presenter
@@ -3162,11 +3265,12 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                     show_active_only,
                     active_charts,
                 )
-                # Combine search + QoS + values-file-type into one pass
+                # Combine search + QoS + values-file-type + parent-chart into one pass
                 has_search = bool(normalized_query)
                 has_qos = bool(qos_filter_values)
                 has_vft = bool(vft_filter_values)
-                if has_search or has_qos or has_vft:
+                has_pc = bool(pc_filter_values)
+                if has_search or has_qos or has_vft or has_pc:
                     combined: list[ChartInfo] = []
                     for chart in filtered:
                         if has_search and normalized_query not in search_haystack_fn(chart):
@@ -3175,6 +3279,10 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                             continue
                         if has_vft and vft_fn(chart) not in vft_filter_values:
                             continue
+                        if has_pc:
+                            parent = chart.parent_chart if chart.parent_chart else "-"
+                            if parent not in pc_filter_values:
+                                continue
                         combined.append(chart)
                     filtered = combined
                 sorted_charts = presenter.sort_charts(
@@ -3320,6 +3428,12 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                     if end < row_count:
                         # Yield so _on_idle measures only this chunk's rows
                         await asyncio.sleep(0)
+                    # Reset scroll after each chunk (and after yielding)
+                    # to counteract any auto-scroll triggered by idle
+                    # dimension updates.
+                    if inner is not None:
+                        inner.scroll_y = 0
+                        inner.scroll_target_y = 0
             elif row_count:
                 with table.batch_update():
                     table.add_rows(visible_rows)
@@ -3347,6 +3461,21 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                 self._set_selected_chart(self._row_chart_map[target_row])
             else:
                 self._clear_selected_chart()
+
+            # Force scroll to top after population completes.
+            # Schedule after refresh so it runs AFTER any pending
+            # _on_idle → _update_dimensions → layout cycles that
+            # may adjust scroll position.
+            if inner is not None:
+                inner.scroll_y = 0
+                inner.scroll_target_y = 0
+
+                def _reset_scroll() -> None:
+                    with contextlib.suppress(Exception):
+                        inner.scroll_y = 0
+                        inner.scroll_target_y = 0
+
+                inner.call_after_refresh(_reset_scroll)
 
         self.call_later(_do_populate)
 
@@ -3693,6 +3822,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
                 str(chart.values_file).lower(),
                 str(chart.qos_class.value).lower(),
                 values_type.lower(),
+                str(chart.parent_chart or "").lower(),
             )
         )
         self._chart_search_index[chart_id] = haystack
@@ -3781,6 +3911,8 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
             qos_selected_values=self._qos_filter_values,
             values_file_type_options=self._values_file_type_filter_options,
             values_file_type_selected_values=self._values_file_type_filter_values,
+            parent_chart_options=self._parent_chart_filter_options,
+            parent_chart_selected_values=self._parent_chart_filter_values,
         )
         self.app.push_screen(modal, self._on_filters_modal_dismissed)
 
@@ -3830,6 +3962,18 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
         if selected_values_file_type_values == valid_values_file_type_values:
             selected_values_file_type_values = set()
         self._values_file_type_filter_values = selected_values_file_type_values
+
+        valid_parent_chart_values = {
+            value for _, value in self._parent_chart_filter_options
+        }
+        selected_parent_chart_values = {
+            value
+            for value in result["parent_chart_filter_values"]
+            if value in valid_parent_chart_values
+        }
+        if selected_parent_chart_values == valid_parent_chart_values:
+            selected_parent_chart_values = set()
+        self._parent_chart_filter_values = selected_parent_chart_values
 
         self._sync_view_tabs()
         self._apply_filters_and_populate()
@@ -3987,6 +4131,7 @@ class ChartsExplorerScreen(MainNavigationTabsMixin, BaseScreen):
             self._team_filter_values = set()
             self._qos_filter_values = set()
             self._values_file_type_filter_values = set()
+            self._parent_chart_filter_values = set()
             self._visible_column_names = {
                 column_name
                 for column_name, _ in EXPLORER_TABLE_COLUMNS

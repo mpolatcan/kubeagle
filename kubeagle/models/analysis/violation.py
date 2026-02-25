@@ -10,6 +10,7 @@ class ViolationResult(BaseModel):
 
     id: str
     chart_name: str
+    parent_chart: str | None = None
     chart_path: str | None = None
     team: str | None = None
     rule_name: str
