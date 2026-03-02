@@ -95,18 +95,18 @@ def _make_chart(
 def _make_violation(
     chart_name: str = "test-chart",
     sev: Severity = Severity.WARNING,
-    vid: str = "RES005",
+    vid: str = "RES006",
 ) -> ViolationResult:
     return ViolationResult(
         id=vid,
         chart_name=chart_name,
-        rule_name="High CPU Limit/Request Ratio",
+        rule_name="High Memory Limit/Request Ratio",
         rule_id=vid,
         category="resources",
         severity=sev,
-        description="CPU limit is 5x the request",
-        current_value="500m",
-        recommended_value="200m",
+        description="Memory limit is 4x the request",
+        current_value="128Mi",
+        recommended_value="341Mi",
         fix_available=True,
     )
 
@@ -218,7 +218,7 @@ def full_report_data() -> ReportData:
                      memory_request=0.0, memory_limit=0.0),
     ]
     violations = [
-        _make_violation("frontend", Severity.WARNING, "RES005"),
+        _make_violation("frontend", Severity.WARNING, "RES006"),
         _make_violation("worker", Severity.ERROR, "PRB001"),
     ]
     pdbs = [
@@ -506,7 +506,7 @@ class TestGenerateMarkdownFull:
     def test_full_report_violations_section(self, gen: TUIReportGenerator) -> None:
         report = gen.generate_markdown_report("full")
         assert "### 2.5 Violations Summary" in report
-        assert "RES005" in report
+        assert "RES006" in report
         assert "PRB001" in report
 
     def test_full_report_pdb_section(self, gen: TUIReportGenerator) -> None:

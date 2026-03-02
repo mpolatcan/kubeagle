@@ -11,6 +11,10 @@ from ruamel.yaml.util import load_yaml_guess_indent
 
 _PATCH_NO_CHANGE = object()
 
+# Sentinel value used in patch dicts to signal that a key should be removed
+# from the YAML document rather than set to a new value.
+REMOVE_KEY = object()
+
 
 def apply_values_yaml_patch(content: str, patch: dict[str, Any]) -> str:
     """Apply a values patch while rewriting only directly touched key blocks."""
@@ -67,8 +71,13 @@ def apply_values_yaml_patch(content: str, patch: dict[str, Any]) -> str:
 
 def _deep_merge_roundtrip(base: dict[str, Any], override: dict[str, Any]) -> None:
     for key, value in override.items():
-        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+        if value is REMOVE_KEY:
+            base.pop(key, None)
+        elif key in base and isinstance(base[key], dict) and isinstance(value, dict):
             _deep_merge_roundtrip(base[key], value)
+            # Clean up dicts that became empty due to removals.
+            if not base[key]:
+                del base[key]
         else:
             base[key] = value
 
@@ -95,6 +104,13 @@ def _collect_map_replacements(
     additions: list[str] = []
     for key, patch_value in patch_parent.items():
         if key not in merged_parent:
+            # Key was removed from merged doc (via REMOVE_KEY or became empty).
+            # If it existed in the original, remove its lines.
+            if key in original_parent and _patch_has_removal(patch_value):
+                key_span = _map_key_span(original_parent, key)
+                if key_span is not None:
+                    start_line, end_line, _ = key_span
+                    replacements.append((start_line, end_line, []))
             continue
         if key not in original_parent:
             additions.append(key)
@@ -115,7 +131,7 @@ def _collect_map_replacements(
                 global_indent=global_indent,
                 is_top_level=False,
             )
-            if nested_additions:
+            if nested_additions or _patch_has_removal(patch_value):
                 replacements.append(
                     _replacement_for_existing_key(
                         original_parent=original_parent,
@@ -141,6 +157,15 @@ def _collect_map_replacements(
     if not is_top_level and additions:
         return replacements, additions
     return replacements, additions
+
+
+def _patch_has_removal(patch: Any) -> bool:
+    """Check if a patch value or subtree contains any REMOVE_KEY sentinels."""
+    if patch is REMOVE_KEY:
+        return True
+    if isinstance(patch, dict):
+        return any(_patch_has_removal(v) for v in patch.values())
+    return False
 
 
 def _replacement_for_existing_key(
@@ -258,12 +283,18 @@ def _prune_noop_patch(current: Any, patch: Any) -> Any:
             return patch
         pruned: dict[str, Any] = {}
         for key, value in patch.items():
+            if value is REMOVE_KEY:
+                if key in current:
+                    pruned[key] = REMOVE_KEY  # Key exists, removal is meaningful.
+                continue  # Key doesn't exist, removal is a no-op.
             cur_value = current.get(key, _PATCH_NO_CHANGE)
             next_value = _prune_noop_patch(cur_value, value)
             if next_value is _PATCH_NO_CHANGE:
                 continue
             pruned[key] = next_value
         return pruned if pruned else _PATCH_NO_CHANGE
+    if patch is REMOVE_KEY:
+        return REMOVE_KEY
     if _yaml_semantic_equal(current, patch):
         return _PATCH_NO_CHANGE
     return patch

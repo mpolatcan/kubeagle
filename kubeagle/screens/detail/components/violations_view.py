@@ -145,7 +145,7 @@ _RATIO_TARGET_LABELS: dict[str, str] = {
     RATIO_TARGET_REQUEST: "Fix Request",
 }
 
-_RATIO_RULE_IDS: set[str] = {"RES005", "RES006"}
+_RATIO_RULE_IDS: set[str] = {"RES006"}
 _PROBE_RULE_IDS: set[str] = {"PRB001", "PRB002", "PRB003"}
 _PROBE_INT_FIELDS: tuple[str, ...] = (
     "initialDelaySeconds",
@@ -186,8 +186,9 @@ _FIX_DEFAULT_SETTINGS: dict[str, str] = {
 }
 
 _DESCRIPTION_FALLBACK_BY_RULE: dict[str, str] = {
-    "RES005": (
-        "CPU limit/request ratio is higher than recommended and may cause inefficient scheduling."
+    "RES002": (
+        "CPU limits cause unnecessary throttling and should be removed. "
+        "Request will be set to 10% of the current limit."
     ),
     "RES006": (
         "Memory limit/request ratio is higher than recommended and may cause inefficient reservation."
@@ -266,8 +267,39 @@ def _full_fix_template_diff_text(
 def _full_fix_values_yaml_text(values_patch: dict[str, Any] | None) -> str:
     if not values_patch:
         return "{}\n"
-    dumped = yaml.safe_dump(values_patch, sort_keys=False)
+    dumped = yaml.safe_dump(_sanitize_patch_for_display(values_patch), sort_keys=False)
     return dumped if dumped.endswith("\n") else f"{dumped}\n"
+
+
+def _sanitize_patch_for_display(payload: Any) -> Any:
+    """Replace REMOVE_KEY sentinels with a display-safe string for YAML serialization."""
+    from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
+    if payload is REMOVE_KEY:
+        return "REMOVE"
+    if isinstance(payload, dict):
+        return {k: _sanitize_patch_for_display(v) for k, v in payload.items()}
+    if isinstance(payload, list):
+        return [_sanitize_patch_for_display(item) for item in payload]
+    return payload
+
+
+def _deepcopy_preserve_sentinels(payload: Any) -> Any:
+    """Deep-copy a patch dict while preserving ``REMOVE_KEY`` sentinel identity.
+
+    ``copy.deepcopy`` creates new ``object()`` instances for sentinels,
+    which breaks the ``value is REMOVE_KEY`` identity checks used by
+    ``apply_values_yaml_patch``.
+    """
+    from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
+    if payload is REMOVE_KEY:
+        return REMOVE_KEY
+    if isinstance(payload, dict):
+        return {k: _deepcopy_preserve_sentinels(v) for k, v in payload.items()}
+    if isinstance(payload, list):
+        return [_deepcopy_preserve_sentinels(item) for item in payload]
+    return copy.deepcopy(payload)
 
 
 def _compact_ai_full_fix_status(
@@ -507,7 +539,7 @@ def _apply_default_fix_settings(
             settings[key] = str(value).strip()
 
     rule_id = (violation.rule_id or "").upper()
-    payload = cast(dict[str, Any], copy.deepcopy(fix_payload))
+    payload = cast(dict[str, Any], _deepcopy_preserve_sentinels(fix_payload))
 
     cpu_request = _string_setting(settings.get("cpu_request"), _FIX_DEFAULT_SETTINGS["cpu_request"])
     cpu_limit = _string_setting(settings.get("cpu_limit"), _FIX_DEFAULT_SETTINGS["cpu_limit"])
@@ -558,7 +590,8 @@ def _apply_default_fix_settings(
     safe_chart_name = (chart_name or violation.chart_name or "app").strip() or "app"
 
     if rule_id in {"RES002"}:
-        payload.setdefault("resources", {}).setdefault("limits", {})["cpu"] = cpu_limit
+        # RES002 removes the CPU limit — do NOT overwrite the REMOVE_KEY sentinel.
+        pass
     elif rule_id in {"RES003"}:
         payload.setdefault("resources", {}).setdefault("limits", {})["memory"] = memory_limit
     elif rule_id == "RES004":
@@ -703,14 +736,6 @@ def _fix_guidance_lines(violation: ViolationResult) -> tuple[str, ...]:
 def _ratio_fix_guidance_lines(violation: ViolationResult) -> tuple[str, ...]:
     """Return remediation guidance lines for ratio-based violations."""
     rule_id = (violation.rule_id or "").upper()
-    if rule_id == "RES005":
-        return (
-            "### How To Fix",
-            "- **Fix target:** Choose whether to adjust `request` or `limit` based on what is already correct.",
-            "- **Burstable target:** Keep CPU limit around `1.5x` to `2.0x` of CPU request.",
-            "- **Guaranteed target:** Set CPU request and CPU limit equal (`req = limit`).",
-            "- Use **Guaranteed** for steady workloads; keep **Burstable** if short CPU spikes are expected.",
-        )
     if rule_id == "RES006":
         return (
             "### How To Fix",
@@ -3055,7 +3080,7 @@ class _ApplyAllFixesPreviewModal(ModalScreen[_ApplyAllFixesModalResult | None]):
                     markdown = self._build_preview_markdown(
                         violation=violation,
                         fix_yaml=yaml.dump(
-                            fix_payload,
+                            _sanitize_patch_for_display(fix_payload),
                             default_flow_style=False,
                             sort_keys=False,
                         ),
@@ -3260,8 +3285,12 @@ class _ApplyAllFixesPreviewModal(ModalScreen[_ApplyAllFixesModalResult | None]):
 
     @staticmethod
     def _deep_merge_preview_dict(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+        from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
         for key, value in override.items():
-            if (
+            if value is REMOVE_KEY:
+                base.pop(key, None)
+            elif (
                 key in base
                 and isinstance(base[key], dict)
                 and isinstance(value, dict)
@@ -5205,7 +5234,7 @@ class ViolationsView(CustomVertical):
                     modal_actions = (("close", "Close", None),)
                 else:
                     fix_yaml = yaml.dump(
-                        fix_payload,
+                        _sanitize_patch_for_display(fix_payload),
                         default_flow_style=False,
                         sort_keys=False,
                     )
@@ -6062,7 +6091,18 @@ class ViolationsView(CustomVertical):
                 current_values = values_path.read_text(encoding="utf-8")
                 staged_values = staged_values_path.read_text(encoding="utf-8")
                 values_preview_text = staged_values if staged_values.endswith("\n") else f"{staged_values}\n"
-                values_patch_text = values_preview_text
+                # Compute a proper overlay patch (with REMOVE_KEY for deleted keys)
+                # so that the fallback apply path correctly removes deleted keys.
+                try:
+                    from kubeagle.optimizer.full_ai_fixer import _mapping_overlay_patch
+                    import yaml as _yaml
+                    _orig_parsed = _yaml.safe_load(current_values) or {}
+                    _staged_parsed = _yaml.safe_load(staged_values) or {}
+                    _overlay = _mapping_overlay_patch(_orig_parsed, _staged_parsed)
+                    _patch_text = _full_fix_values_yaml_text(_overlay)
+                    values_patch_text = _patch_text if _patch_text.strip() not in {"", "{}"} else values_preview_text
+                except Exception:
+                    values_patch_text = values_preview_text
                 values_diff_lines = list(
                     difflib.unified_diff(
                         current_values.splitlines(),
@@ -6879,13 +6919,14 @@ class ViolationsView(CustomVertical):
                 )
                 skipped_reasons.append(f"{chart_name}: {reason}")
                 continue
+            payload_artifact_key = str(payload.get("artifact_key", "")).strip()
             can_apply, note, values_patch, template_patches, verification = await self._verify_editor_bundle(
                 chart=chart,
                 violations=violations,
                 values_patch_text=str(payload.get("values_patch_text", "{}\n")),
                 template_diff_text=str(payload.get("template_diff_text", "")),
                 template_patches_json=str(payload.get("template_patches_json", "[]")),
-                artifact_key="",
+                artifact_key=payload_artifact_key,
             )
             if not can_apply:
                 skipped += 1
@@ -6903,7 +6944,7 @@ class ViolationsView(CustomVertical):
                 values_patch=values_patch,
                 template_patches=template_patches,
                 verification=verification,
-                artifact_key="",
+                artifact_key=payload_artifact_key,
             )
             if ok:
                 success += 1

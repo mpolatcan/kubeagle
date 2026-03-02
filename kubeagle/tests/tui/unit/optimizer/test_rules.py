@@ -18,13 +18,12 @@ from kubeagle.optimizer.rules import (
     RULES,
     RULES_BY_ID,
     _check_blocking_pdb,
-    _check_high_cpu_limit_request_ratio,
+    _check_cpu_limit_set,
     _check_high_memory_limit_request_ratio,
     _check_missing_liveness_probe,
     _check_missing_readiness_probe,
     _check_missing_startup_probe,
     _check_missing_topology_spread,
-    _check_no_cpu_limits,
     _check_no_memory_limits,
     _check_no_memory_request,
     _check_no_pdb,
@@ -157,9 +156,9 @@ class TestRulesMemoryParsing:
 class TestRulesLookup:
     """Tests for RULES list and lookup functions."""
 
-    def test_rules_list_has_17_entries(self) -> None:
-        """RULES list should have 17 entries (8 resource + 3 probes + 5 availability + 1 security)."""
-        assert len(RULES) == 17
+    def test_rules_list_has_16_entries(self) -> None:
+        """RULES list should have 16 entries (7 resource + 3 probes + 5 availability + 1 security)."""
+        assert len(RULES) == 16
 
     def test_each_rule_has_id(self) -> None:
         """Every rule should have a non-empty id."""
@@ -197,9 +196,9 @@ class TestRulesLookup:
         assert len(RULES_BY_ID) == len(RULES)
 
     def test_resource_rules_count(self) -> None:
-        """Should have 8 resource rules."""
+        """Should have 7 resource rules."""
         count = sum(1 for r in RULES if r.category == "resources")
-        assert count == 8
+        assert count == 7
 
     def test_probe_rules_count(self) -> None:
         """Should have 3 probe rules."""
@@ -225,12 +224,19 @@ class TestRulesLookup:
 class TestResourceRules:
     """Tests for individual resource rule check functions."""
 
-    def test_res002_no_cpu_limits(self) -> None:
-        """RES002 should detect missing CPU limits."""
-        chart = {"resources": {"limits": {}, "requests": {"cpu": "100m"}}}
-        violations = _check_no_cpu_limits(chart)
+    def test_res002_cpu_limit_set(self) -> None:
+        """RES002 should detect CPU limits as anti-pattern."""
+        chart = {"resources": {"limits": {"cpu": "500m"}, "requests": {"cpu": "100m"}}}
+        violations = _check_cpu_limit_set(chart)
         assert len(violations) == 1
         assert violations[0].rule_id == "RES002"
+        assert "anti-pattern" in violations[0].name.lower()
+
+    def test_res002_no_cpu_limit_no_violation(self) -> None:
+        """RES002 should not flag charts without CPU limits."""
+        chart = {"resources": {"limits": {}, "requests": {"cpu": "100m"}}}
+        violations = _check_cpu_limit_set(chart)
+        assert violations == []
 
     def test_res003_no_memory_limits(self) -> None:
         """RES003 should detect missing memory limits."""
@@ -257,42 +263,6 @@ class TestResourceRules:
         assert len(violations) == 1
         assert violations[0].rule_id == "RES004"
         assert violations[0].severity == "warning"
-
-    def test_res005_high_cpu_ratio(self) -> None:
-        """RES005 should detect high CPU limit/request ratio (>=2x)."""
-        chart = {
-            "resources": {
-                "limits": {"cpu": "1000m"},
-                "requests": {"cpu": "100m"},
-            }
-        }
-        violations = _check_high_cpu_limit_request_ratio(chart)
-        assert len(violations) == 1
-        assert violations[0].rule_id == "RES005"
-
-    def test_res005_cpu_ratio_equal_threshold_is_violation(self) -> None:
-        """RES005 should flag charts at the ratio threshold."""
-        chart = {
-            "resources": {
-                "limits": {"cpu": "200m"},
-                "requests": {"cpu": "100m"},
-            }
-        }
-        violations = _check_high_cpu_limit_request_ratio(chart)
-        assert len(violations) == 1
-        assert violations[0].rule_id == "RES005"
-
-    def test_res005_best_effort_qos_is_not_ratio_violation(self) -> None:
-        """RES005 should not flag workloads that are currently BestEffort."""
-        chart = {
-            "qos_class": "BestEffort",
-            "resources": {
-                "limits": {"cpu": "200m"},
-                "requests": {"cpu": "100m"},
-            },
-        }
-        violations = _check_high_cpu_limit_request_ratio(chart)
-        assert violations == []
 
     def test_res006_high_memory_ratio(self) -> None:
         """RES006 should detect high memory limit/request ratio (>=2x)."""
@@ -521,13 +491,13 @@ class TestRuntimeThresholdConfiguration:
         """Runtime configuration should change ratio rule behavior."""
         chart = {
             "resources": {
-                "requests": {"cpu": "100m"},
-                "limits": {"cpu": "250m"},
+                "requests": {"memory": "100Mi"},
+                "limits": {"memory": "250Mi"},
             }
         }
         configure_rule_thresholds(limit_request_ratio_threshold=3.0)
         try:
-            violations = _check_high_cpu_limit_request_ratio(chart)
+            violations = _check_high_memory_limit_request_ratio(chart)
             assert len(violations) == 0
         finally:
             configure_rule_thresholds(
@@ -620,11 +590,12 @@ class TestRulesNoViolation:
         }
 
     def test_no_resource_violations(self, well_configured_chart: dict) -> None:
-        """Well-configured chart should have no resource violations."""
-        assert _check_no_cpu_limits(well_configured_chart) == []
+        """Well-configured chart (without CPU limit) should have no resource violations."""
+        # Remove CPU limit since it's now an anti-pattern.
+        well_configured_chart["resources"]["limits"].pop("cpu", None)
+        assert _check_cpu_limit_set(well_configured_chart) == []
         assert _check_no_memory_limits(well_configured_chart) == []
         assert _check_no_resource_requests(well_configured_chart) == []
-        assert _check_high_cpu_limit_request_ratio(well_configured_chart) == []
         assert _check_high_memory_limit_request_ratio(well_configured_chart) == []
         assert _check_very_low_cpu_request(well_configured_chart) == []
         assert _check_very_low_memory_request(well_configured_chart) == []
@@ -650,7 +621,9 @@ class TestRulesNoViolation:
     def test_all_rules_pass_on_well_configured(
         self, well_configured_chart: dict
     ) -> None:
-        """Running all rules against a well-configured chart should yield zero violations."""
+        """Running all rules against a well-configured chart (no CPU limit) should yield zero violations."""
+        # Remove CPU limit since it's now an anti-pattern.
+        well_configured_chart["resources"]["limits"].pop("cpu", None)
         all_violations = []
         for rule in RULES:
             all_violations.extend(rule.check(well_configured_chart))
@@ -667,20 +640,20 @@ class TestRuleViolationAttributes:
 
     def test_violation_has_severity(self) -> None:
         """Violation objects should have severity field."""
-        chart = {"resources": {"limits": {}, "requests": {"cpu": "100m"}}}
-        violations = _check_no_cpu_limits(chart)
+        chart = {"resources": {"limits": {"cpu": "500m"}, "requests": {"cpu": "100m"}}}
+        violations = _check_cpu_limit_set(chart)
         assert violations[0].severity in ("error", "warning", "info")
 
     def test_violation_has_category(self) -> None:
         """Violation objects should have category field."""
-        chart = {"resources": {"limits": {}, "requests": {"cpu": "100m"}}}
-        violations = _check_no_cpu_limits(chart)
+        chart = {"resources": {"limits": {"cpu": "500m"}, "requests": {"cpu": "100m"}}}
+        violations = _check_cpu_limit_set(chart)
         assert violations[0].category == "resources"
 
     def test_violation_has_fix_preview(self) -> None:
         """Violation objects should have fix_preview field."""
-        chart = {"resources": {"limits": {}, "requests": {"cpu": "100m"}}}
-        violations = _check_no_cpu_limits(chart)
+        chart = {"resources": {"limits": {"cpu": "500m"}, "requests": {"cpu": "100m"}}}
+        violations = _check_cpu_limit_set(chart)
         assert violations[0].fix_preview is not None
         assert isinstance(violations[0].fix_preview, dict)
 

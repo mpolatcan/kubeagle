@@ -584,10 +584,9 @@ class TestRulesCollection:
         rule_ids = [rule.id for rule in RULES]
 
         expected_rules = [
-            "RES002",  # No CPU Limits
+            "RES002",  # CPU Limit Set (Anti-Pattern)
             "RES003",  # No Memory Limits
             "RES004",  # No Resource Requests
-            "RES005",  # High CPU Limit/Request Ratio
             "RES006",  # High Memory Limit/Request Ratio
             "RES007",  # Very Low CPU Request
             "RES008",  # No Memory Request

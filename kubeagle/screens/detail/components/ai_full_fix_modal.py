@@ -862,8 +862,13 @@ class AIFullFixBulkModal(ModalScreen[AIFullFixBulkModalResult | str | None]):
         self._apply_dynamic_layout()
         self._sync_action_buttons_state()
         self._sync_loading_overlays()
+        self.set_interval(1.0, self._tick_elapsed)
         # Defer heavy work so the modal shell renders immediately.
         self.call_later(self._deferred_on_mount)
+
+    def _tick_elapsed(self) -> None:
+        """Called every second to keep the elapsed time display current."""
+        self._sync_bulk_progress()
 
     async def _deferred_on_mount(self) -> None:
         """Run expensive mount-time setup off the initial layout path."""

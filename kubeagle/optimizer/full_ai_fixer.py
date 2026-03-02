@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import difflib
+import logging
 import shutil
 import tempfile
 from collections.abc import Callable
@@ -12,6 +13,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 from kubeagle.models.analysis.violation import ViolationResult
 from kubeagle.optimizer.llm_cli_runner import (
@@ -51,7 +54,8 @@ _RULE_CANONICAL_VALUES_GUIDANCE: dict[str, str] = {
     ),
     "RES007": (
         "Set `resources.requests.cpu` to at least 100m. "
-        "Apply before any limit rules so limits can reference the updated request."
+        "IMPORTANT: If RES002 also applies (CPU limit exists), skip RES007 entirely — "
+        "RES002 already handles the cpu request."
     ),
     "RES008": (
         "Set `resources.limits.cpu` to a reasonable baseline (e.g. 100m). "
@@ -63,17 +67,17 @@ _RULE_CANONICAL_VALUES_GUIDANCE: dict[str, str] = {
     ),
     # Phase 2 – limit-setting rules (apply AFTER request rules)
     "RES002": (
-        "Set `resources.limits.memory`. Must be >= `resources.requests.memory`. "
-        "Use the updated request value if it was changed by another rule."
+        "CPU limits are an anti-pattern that cause unnecessary throttling. "
+        "Remove `resources.limits.cpu` entirely from the values file. "
+        "For the CPU request: compute a baseline by taking 10% of the current CPU limit, "
+        "then use 100m if that baseline is below 100m. "
+        "If the existing CPU request is already equal to or higher than that baseline, "
+        "do NOT change the CPU request — only remove the limit. "
+        "If the existing CPU request is lower than the baseline, set it to the baseline value."
     ),
     "RES003": (
-        "Set `resources.limits.cpu`. Must be >= `resources.requests.cpu`. "
+        "Set `resources.limits.memory`. Must be >= `resources.requests.memory`. "
         "Use the updated request value if it was changed by another rule."
-    ),
-    "RES005": (
-        "Adjust CPU request/limit ratio: set `resources.requests.cpu` to about 85% of "
-        "`resources.limits.cpu`. If another rule increased the request, ensure the limit "
-        "is still >= the new request (limit = max(current_limit, request * 1.5))."
     ),
     "RES006": (
         "Adjust memory request/limit ratio: set `resources.requests.memory` to about 85% of "
@@ -132,9 +136,12 @@ DEFAULT_FULL_FIX_SYSTEM_PROMPT_TEMPLATE = (
     "- Focus only on wiring and fixing changes; do not include verification steps or verification commentary.\n"
     "- Do not make no-op or unrelated edits; change only what is required for the listed violations.\n"
     "- Treat seed YAML as guidance only; prefer listed violations and existing chart wiring patterns when they conflict.\n"
-    "- RULE ORDERING: Apply request-setting rules (RES004, RES007, RES008, RES009) BEFORE "
-    "limit-setting rules (RES002, RES003, RES005, RES006). Limits must always be >= requests; "
-    "if a request was raised by one rule, adjust the limit to stay above it.\n"
+    "- RULE ORDERING: Apply request-setting rules (RES004, RES008, RES009) BEFORE "
+    "limit-setting rules (RES002, RES003, RES006). For RES002, CPU limits are an anti-pattern: "
+    "always remove the CPU limit. For the CPU request: compute a baseline by taking 10% of the "
+    "CPU limit (minimum 100m). If the existing CPU request is already equal to or higher than "
+    "that baseline, do NOT touch the CPU request — only remove the limit. "
+    "If RES002 applies, do NOT also apply RES007 — RES002 already handles CPU request.\n"
     "Canonical key guidance for selected rules:\n"
     f"{FULL_FIX_PROMPT_TOKEN_CANONICAL_GUIDANCE}\n"
     f"{FULL_FIX_PROMPT_TOKEN_RETRY_BLOCK}\n"
@@ -424,6 +431,26 @@ def _generate_ai_full_fix_direct_edit(
                     f"{provider.value}: retained failed workspace for debugging at {stage_root}"
                 )
                 break
+            # Enforce deterministic resource values on the staged values file.
+            # The AI may compute its own numbers (e.g. 10% of a CPU limit)
+            # without respecting floors, or may skip the values file entirely
+            # and only touch templates.  Always overlay the seed on top of
+            # whatever the AI produced so mandatory changes (e.g. removing the
+            # CPU limit for RES002) are guaranteed to land.
+            if seed_fix_payload:
+                _enforce_seed_values(
+                    staged_chart_dir / rel_values_path,
+                    seed_fix_payload,
+                )
+                # Re-detect changes after enforcement (a no-op diff is possible)
+                touched_paths, created_paths, deleted_paths = _detect_workspace_changes(
+                    original_chart_dir=chart_dir,
+                    staged_chart_dir=staged_chart_dir,
+                )
+                changed_rel_paths = sorted(
+                    [path for path in touched_paths if path in allowed_scope]
+                )
+
             if not changed_rel_paths:
                 _cleanup_stage_root(source_guard_root)
                 _cleanup_stage_root(stage_root)
@@ -546,6 +573,45 @@ def _allowed_template_files(chart_dir: Path) -> list[str]:
     ]
 
 
+def _enforce_seed_values(staged_values_path: Path, seed: dict[str, Any]) -> None:
+    """Apply deterministic seed fix on top of the AI-edited values file.
+
+    The AI fixer may compute its own resource numbers (e.g. raw 10% of a CPU
+    limit) without respecting floors or other constraints.  The seed payload
+    from the deterministic fixer already contains the correct, validated values.
+    Overlaying it ensures constraints like the 100m CPU request floor for
+    RES002 are always honoured.
+
+    IMPORTANT: The original seed (with REMOVE_KEY sentinels) must be passed
+    directly to apply_values_yaml_patch — NOT the sanitized version.  The
+    patcher checks ``value is REMOVE_KEY`` to delete keys; the sanitized
+    string ``"REMOVE"`` would be written as a literal value instead.
+    """
+    from kubeagle.optimizer.yaml_patcher import apply_values_yaml_patch
+
+    if not isinstance(seed, dict) or not seed:
+        return
+    try:
+        content = staged_values_path.read_text(encoding="utf-8")
+        patched = apply_values_yaml_patch(content, seed)
+        staged_values_path.write_text(patched, encoding="utf-8")
+    except Exception:
+        logger.debug("Seed enforcement failed on %s", staged_values_path, exc_info=True)
+
+
+def _sanitize_seed_payload(payload: Any) -> Any:
+    """Replace REMOVE_KEY sentinels with a YAML-safe string before serialization."""
+    from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
+    if payload is REMOVE_KEY:
+        return "REMOVE"
+    if isinstance(payload, dict):
+        return {k: _sanitize_seed_payload(v) for k, v in payload.items()}
+    if isinstance(payload, list):
+        return [_sanitize_seed_payload(item) for item in payload]
+    return payload
+
+
 def _build_direct_edit_prompt(
     *,
     chart_dir: Path,
@@ -576,7 +642,9 @@ def _build_direct_edit_prompt(
             f"- {retry_error.strip()}\n"
             "Apply constrained edits only and avoid any out-of-scope file changes.\n"
         )
-    seed_yaml = yaml.safe_dump(seed_fix_payload or {}, sort_keys=False).rstrip() or "{}"
+    seed_yaml = yaml.safe_dump(
+        _sanitize_seed_payload(seed_fix_payload or {}), sort_keys=False,
+    ).rstrip() or "{}"
     base_prompt = DEFAULT_FULL_FIX_SYSTEM_PROMPT_TEMPLATE.replace(
         FULL_FIX_PROMPT_TOKEN_CANONICAL_GUIDANCE,
         _canonical_values_guidance_block(violations),
@@ -584,7 +652,7 @@ def _build_direct_edit_prompt(
     configured = str(system_prompt_override or "").strip()
     if configured and is_full_fix_prompt_template(configured):
         template = configured
-        return (
+        rendered = (
             template.replace(FULL_FIX_PROMPT_TOKEN_VIOLATIONS, violation_lines)
             .replace(FULL_FIX_PROMPT_TOKEN_SEED_YAML, seed_yaml)
             .replace(FULL_FIX_PROMPT_TOKEN_ALLOWED_FILES, allowed_list)
@@ -592,6 +660,17 @@ def _build_direct_edit_prompt(
             .replace(FULL_FIX_PROMPT_TOKEN_RETRY_BLOCK, retry_block.strip())
             .strip()
         )
+        # If the saved template had {{CANONICAL_GUIDANCE}} pre-expanded
+        # (token no longer present), the replace above was a no-op.
+        # Append per-violation guidance so new/updated rules always reach the AI.
+        if FULL_FIX_PROMPT_TOKEN_CANONICAL_GUIDANCE not in configured:
+            guidance = _canonical_values_guidance_block(violations)
+            if guidance:
+                rendered += (
+                    "\n\nAdditional rule guidance for this run:\n"
+                    + guidance
+                )
+        return rendered
     rendered_base_prompt = (
         base_prompt.replace(FULL_FIX_PROMPT_TOKEN_VIOLATIONS, violation_lines)
         .replace(FULL_FIX_PROMPT_TOKEN_SEED_YAML, seed_yaml)
@@ -879,6 +958,8 @@ def _mapping_overlay_patch(
     before: dict[str, Any],
     after: dict[str, Any],
 ) -> dict[str, Any]:
+    from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
     patch: dict[str, Any] = {}
     for key, after_value in after.items():
         if key not in before:
@@ -892,6 +973,10 @@ def _mapping_overlay_patch(
             continue
         if before_value != after_value:
             patch[key] = after_value
+    # Detect keys that were deleted by the AI (present in original, absent in staged).
+    for key in before:
+        if key not in after:
+            patch[key] = REMOVE_KEY
     return patch
 
 

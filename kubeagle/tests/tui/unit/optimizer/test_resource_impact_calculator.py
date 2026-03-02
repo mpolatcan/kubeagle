@@ -63,7 +63,7 @@ def _make_chart(
 
 
 def _make_violation(
-    rule_id: str = "RES005",
+    rule_id: str = "RES006",
     chart_name: str = "test-chart",
     parent_chart: str | None = None,
 ) -> MagicMock:
@@ -126,18 +126,21 @@ class TestResourceImpactCalculatorNoViolations:
 
 
 class TestResourceImpactCalculatorWithViolations:
-    def test_res005_increases_cpu_request(self) -> None:
-        """RES005 (high CPU ratio) should increase request, never decrease limit."""
-        chart = _make_chart(cpu_request=100.0, cpu_limit=1000.0, replicas=1)
-        violation = _make_violation("RES005", "test-chart")
+    def test_res006_increases_memory_request(self) -> None:
+        """RES006 (high memory ratio) should increase request, never decrease limit."""
+        chart = _make_chart(
+            memory_request=128 * 1024**2, memory_limit=1024 * 1024**2,
+            replicas=1,
+        )
+        violation = _make_violation("RES006", "test-chart")
         calc = ResourceImpactCalculator()
 
         result = calc.compute_impact([chart], [violation])
 
-        # After: request increased to limit/1.5, limit unchanged
-        assert result.after.cpu_request_total > result.before.cpu_request_total
-        assert result.after.cpu_limit_total == result.before.cpu_limit_total
-        assert result.delta.cpu_limit_diff == 0
+        # After: memory request increased to limit/1.5, limit unchanged
+        assert result.after.memory_request_total > result.before.memory_request_total
+        assert result.after.memory_limit_total == result.before.memory_limit_total
+        assert result.delta.memory_limit_diff == 0
 
     def test_res004_adds_requests(self) -> None:
         """RES004 (no requests) should add CPU+memory requests."""
@@ -170,16 +173,17 @@ class TestResourceImpactCalculatorWithViolations:
         )
         assert result.delta.replicas_diff == 1
 
-    def test_res002_adds_cpu_limit(self) -> None:
-        """RES002 (no CPU limit) should add CPU limit."""
-        chart = _make_chart(cpu_request=200.0, cpu_limit=0.0, replicas=1)
+    def test_res002_removes_cpu_limit_and_preserves_adequate_request(self) -> None:
+        """RES002: when existing request >= target, only remove limit."""
+        chart = _make_chart(cpu_request=200.0, cpu_limit=1000.0, replicas=1)
         violation = _make_violation("RES002", "test-chart")
         calc = ResourceImpactCalculator()
 
         result = calc.compute_impact([chart], [violation])
 
-        # After should have a CPU limit set
-        assert result.after.cpu_limit_total > 0
+        # After: CPU limit removed (0), request stays at 200m (>= target 100m)
+        assert result.after.cpu_limit_total == 0
+        assert result.after.cpu_request_total == pytest.approx(200.0)
 
     def test_res007_bumps_low_cpu(self) -> None:
         """RES007 (very low CPU) should bump to 100m."""
@@ -266,14 +270,17 @@ class TestNodeEstimation:
 class TestResourceDelta:
     def test_percentage_calculation(self) -> None:
         calc = ResourceImpactCalculator()
-        chart = _make_chart(cpu_request=100.0, cpu_limit=1000.0, replicas=1)
-        violation = _make_violation("RES005", "test-chart")
+        chart = _make_chart(
+            memory_request=128 * 1024**2, memory_limit=1024 * 1024**2,
+            replicas=1,
+        )
+        violation = _make_violation("RES006", "test-chart")
 
         result = calc.compute_impact([chart], [violation])
 
-        # RES005 increases request, limit stays unchanged
-        assert result.delta.cpu_request_pct > 0
-        assert result.delta.cpu_limit_pct == 0
+        # RES006 increases memory request, limit stays unchanged
+        assert result.delta.memory_request_pct > 0
+        assert result.delta.memory_limit_pct == 0
 
     def test_zero_baseline_no_divide_by_zero(self) -> None:
         """When before is zero, percentage should handle gracefully."""
@@ -299,7 +306,7 @@ class TestRuleIdConstants:
 
     def test_replica_rule_ids(self) -> None:
         assert "AVL005" in REPLICA_RULE_IDS
-        assert "RES005" not in REPLICA_RULE_IDS
+        assert "RES006" not in REPLICA_RULE_IDS
 
     def test_impact_rule_ids_is_union(self) -> None:
         assert IMPACT_RULE_IDS == RESOURCE_RULE_IDS | REPLICA_RULE_IDS
@@ -308,12 +315,15 @@ class TestRuleIdConstants:
 class TestWithOptimizerController:
     def test_uses_controller_fix_when_available(self) -> None:
         """When optimizer controller returns a fix, it should be used."""
-        chart = _make_chart(cpu_request=100.0, cpu_limit=1000.0, replicas=1)
-        violation = _make_violation("RES005", "test-chart")
+        chart = _make_chart(
+            memory_request=128 * 1024**2, memory_limit=512 * 1024**2,
+            replicas=1,
+        )
+        violation = _make_violation("RES006", "test-chart")
 
         controller = MagicMock()
         controller.generate_fix.return_value = {
-            "resources": {"limits": {"cpu": "150m"}}
+            "resources": {"requests": {"memory": "341Mi"}}
         }
 
         calc = ResourceImpactCalculator()
@@ -321,14 +331,17 @@ class TestWithOptimizerController:
             [chart], [violation], optimizer_controller=controller
         )
 
-        # CPU limit should be 150m (from controller fix)
-        assert result.after.cpu_limit_total == pytest.approx(150.0)
+        # Memory request should be 341Mi (from controller fix)
+        assert result.after.memory_request_total == pytest.approx(341 * 1024**2)
         controller.generate_fix.assert_called_once()
 
     def test_falls_back_when_controller_returns_none(self) -> None:
         """When controller returns None, should use default fix."""
-        chart = _make_chart(cpu_request=100.0, cpu_limit=1000.0, replicas=1)
-        violation = _make_violation("RES005", "test-chart")
+        chart = _make_chart(
+            memory_request=128 * 1024**2, memory_limit=1024 * 1024**2,
+            replicas=1,
+        )
+        violation = _make_violation("RES006", "test-chart")
 
         controller = MagicMock()
         controller.generate_fix.return_value = None
@@ -338,14 +351,17 @@ class TestWithOptimizerController:
             [chart], [violation], optimizer_controller=controller
         )
 
-        # Default fallback: request increased, limit unchanged
-        assert result.after.cpu_request_total > result.before.cpu_request_total
-        assert result.after.cpu_limit_total == result.before.cpu_limit_total
+        # Default fallback: memory request increased, limit unchanged
+        assert result.after.memory_request_total > result.before.memory_request_total
+        assert result.after.memory_limit_total == result.before.memory_limit_total
 
     def test_falls_back_when_controller_raises(self) -> None:
         """When controller raises, should use default fix."""
-        chart = _make_chart(cpu_request=100.0, cpu_limit=1000.0, replicas=1)
-        violation = _make_violation("RES005", "test-chart")
+        chart = _make_chart(
+            memory_request=128 * 1024**2, memory_limit=1024 * 1024**2,
+            replicas=1,
+        )
+        violation = _make_violation("RES006", "test-chart")
 
         controller = MagicMock()
         controller.generate_fix.side_effect = RuntimeError("fail")
@@ -355,8 +371,8 @@ class TestWithOptimizerController:
             [chart], [violation], optimizer_controller=controller
         )
 
-        assert result.after.cpu_request_total > result.before.cpu_request_total
-        assert result.after.cpu_limit_total == result.before.cpu_limit_total
+        assert result.after.memory_request_total > result.before.memory_request_total
+        assert result.after.memory_limit_total == result.before.memory_limit_total
 
 
 class TestNonResourceViolationsIgnored:
@@ -490,9 +506,12 @@ class TestSpotPricing:
         )
 
     def test_node_estimation_with_request_increase(self) -> None:
-        """RES005 increases requests (right-sizing) which may need more nodes."""
-        chart = _make_chart(cpu_request=100.0, cpu_limit=1000.0, replicas=10)
-        violation = _make_violation("RES005", "test-chart")
+        """RES006 increases requests (right-sizing) which may need more nodes."""
+        chart = _make_chart(
+            memory_request=128 * 1024**2, memory_limit=1024 * 1024**2,
+            replicas=10,
+        )
+        violation = _make_violation("RES006", "test-chart")
         calc = ResourceImpactCalculator()
         result = calc.compute_impact(
             [chart], [violation],
@@ -700,9 +719,10 @@ class TestWorkloadReplicaMap:
         """After-optimization snapshot should also use cluster replicas as base."""
         chart = _make_cluster_chart(
             name="api-service", namespace="prod",
-            replicas=1, cpu_request=100.0, cpu_limit=1000.0,
+            replicas=1,
+            memory_request=128 * 1024**2, memory_limit=1024 * 1024**2,
         )
-        violation = _make_violation("RES005", "api-service")
+        violation = _make_violation("RES006", "api-service")
         replica_map = {("api-service", "prod"): 4}
         calc = ResourceImpactCalculator()
 
@@ -710,12 +730,12 @@ class TestWorkloadReplicaMap:
             [chart], [violation], workload_replica_map=replica_map,
         )
 
-        # Before: 4 replicas * 100m = 400m
+        # Before: 4 replicas * 128Mi
         assert result.before.total_replicas == 4
-        assert result.before.cpu_request_total == pytest.approx(100.0 * 4)
+        assert result.before.memory_request_total == pytest.approx(128 * 1024**2 * 4)
         # After: 4 replicas * increased_request
         assert result.after.total_replicas == 4
-        assert result.after.cpu_request_total > result.before.cpu_request_total
+        assert result.after.memory_request_total > result.before.memory_request_total
 
     def test_no_namespace_chart_no_matching_release(self) -> None:
         """Repo-mode chart without matching releases falls back to values replicas."""
@@ -987,15 +1007,15 @@ class TestUmbrellaSubCharts:
         """Violations for same-named sub-charts should be routed by parent_chart."""
         redis_contact = _make_umbrella_sub_chart(
             name="redis", parent_chart="contact-service",
-            cpu_request=100.0, cpu_limit=1000.0, replicas=1,
+            memory_request=128 * 1024**2, memory_limit=1024 * 1024**2, replicas=1,
         )
         redis_user = _make_umbrella_sub_chart(
             name="redis", parent_chart="user-service",
-            cpu_request=200.0, cpu_limit=400.0, replicas=1,
+            memory_request=200 * 1024**2, memory_limit=400 * 1024**2, replicas=1,
         )
         # Only contact-service's redis has a violation
         violation = _make_violation(
-            "RES005", "redis", parent_chart="contact-service",
+            "RES006", "redis", parent_chart="contact-service",
         )
         calc = ResourceImpactCalculator()
 
@@ -1003,15 +1023,15 @@ class TestUmbrellaSubCharts:
             [redis_contact, redis_user], [violation],
         )
 
-        # contact-service redis: RES005 increases cpu request
+        # contact-service redis: RES006 increases memory request
         contact_before = result.before_charts[0]
         contact_after = result.after_charts[0]
-        assert contact_after.cpu_request_per_replica > contact_before.cpu_request_per_replica
+        assert contact_after.memory_request_per_replica > contact_before.memory_request_per_replica
 
         # user-service redis: no violations, should be unchanged
         user_before = result.before_charts[1]
         user_after = result.after_charts[1]
-        assert user_after.cpu_request_per_replica == user_before.cpu_request_per_replica
+        assert user_after.memory_request_per_replica == user_before.memory_request_per_replica
         assert user_after.cpu_limit_per_replica == user_before.cpu_limit_per_replica
 
     def test_parent_chart_propagated_to_snapshots(self) -> None:
@@ -1170,13 +1190,13 @@ class TestMinMaxReplicas:
         """Resource-only violations should not change min/max replicas."""
         chart = _make_chart(
             name="api", replicas=1,
-            cpu_request=100.0, cpu_limit=1000.0,
+            memory_request=128 * 1024**2, memory_limit=1024 * 1024**2,
         )
         replica_map = {
             ("api", "ns-1"): 3,
             ("api", "ns-2"): 1,
         }
-        violation = _make_violation("RES005", "api")
+        violation = _make_violation("RES006", "api")
         calc = ResourceImpactCalculator()
 
         result = calc.compute_impact(
@@ -1185,7 +1205,7 @@ class TestMinMaxReplicas:
 
         before = result.before_charts[0]
         after = result.after_charts[0]
-        # Min/max should be unchanged (RES005 only changes CPU, not replicas)
+        # Min/max should be unchanged (RES006 only changes memory, not replicas)
         assert after.min_replicas == before.min_replicas
         assert after.max_replicas == before.max_replicas
 

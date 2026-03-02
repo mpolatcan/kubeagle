@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from kubeagle.constants.optimizer import (
     CPU_BUMP_MIN_MILLICORES as DEFAULT_CPU_BUMP_MIN_MILLICORES,
+    CPU_LIMIT_TO_REQUEST_FRACTION as DEFAULT_CPU_LIMIT_TO_REQUEST_FRACTION,
     LIMIT_REQUEST_RATIO_THRESHOLD as DEFAULT_LIMIT_REQUEST_RATIO_THRESHOLD,
     LOW_CPU_THRESHOLD_MILLICORES as DEFAULT_LOW_CPU_THRESHOLD_MILLICORES,
     LOW_MEMORY_THRESHOLD_MI as DEFAULT_LOW_MEMORY_THRESHOLD_MI,
@@ -22,11 +23,12 @@ LOW_MEMORY_THRESHOLD_MI = DEFAULT_LOW_MEMORY_THRESHOLD_MI
 PDB_BLOCKING_THRESHOLD = DEFAULT_PDB_BLOCKING_THRESHOLD
 CPU_BUMP_MIN_MILLICORES = DEFAULT_CPU_BUMP_MIN_MILLICORES
 MEMORY_BUMP_MIN_MI = DEFAULT_MEMORY_BUMP_MIN_MI
+CPU_LIMIT_TO_REQUEST_FRACTION = DEFAULT_CPU_LIMIT_TO_REQUEST_FRACTION
 BURSTABLE_TARGET_RATIO = 1.5
 
 # Resource fields currently protected from optimizer modifications.
 # Updated at runtime via configure_rule_thresholds().
-FIXED_RESOURCE_FIELDS: set[str] = {"cpu_limit", "memory_limit"}
+FIXED_RESOURCE_FIELDS: set[str] = {"memory_limit"}
 
 
 def configure_rule_thresholds(
@@ -139,25 +141,69 @@ def _is_best_effort_qos(chart: dict) -> bool:
     return not has_any_resources
 
 
-def _check_no_cpu_limits(chart: dict) -> list[OptimizationViolation]:
-    """RES002 - Detect charts without CPU limits defined."""
+def _check_cpu_limit_set(chart: dict) -> list[OptimizationViolation]:
+    """RES002 - Detect charts with CPU limits defined (anti-pattern).
+
+    CPU limits cause unnecessary throttling even when the node has idle CPU.
+    If the existing CPU request is already >= max(100m, 10% of limit), only
+    the limit is removed.  Otherwise the request is bumped to that baseline
+    before removing the limit.
+    See: https://home.robusta.dev/blog/stop-using-cpu-limits
+    """
     if "cpu_limit" in FIXED_RESOURCE_FIELDS:
         return []
     resources = chart.get("resources", {})
     limits = resources.get("limits", {})
+    requests = resources.get("requests", {})
+    cpu_limit_str = limits.get("cpu")
 
-    if not limits.get("cpu"):
-        return [
-            OptimizationViolation(
-                rule_id="RES002",
-                name="No CPU Limits",
-                description="Container has no CPU limits defined, which can lead to resource starvation",
-                severity="warning",
-                category="resources",
-                fix_preview={"resources": {"limits": {"cpu": "500m"}}},
-                auto_fixable=True,
-            )
-        ]
+    if cpu_limit_str:
+        cpu_limit = _parse_cpu(cpu_limit_str)
+        if cpu_limit and cpu_limit > 0:
+            target_request = max(100, int(cpu_limit * CPU_LIMIT_TO_REQUEST_FRACTION))
+            current_request = _parse_cpu(requests.get("cpu"))
+
+            # If the existing request is already adequate, only remove the limit.
+            if current_request and current_request >= target_request:
+                return [
+                    OptimizationViolation(
+                        rule_id="RES002",
+                        name="CPU Limit Set (Anti-Pattern)",
+                        description=(
+                            f"CPU limit ({cpu_limit_str}) causes unnecessary throttling. "
+                            f"Removing limit (existing request {requests.get('cpu')} is adequate)"
+                        ),
+                        severity="warning",
+                        category="resources",
+                        fix_preview={
+                            "resources": {
+                                "limits": {"cpu": "REMOVE"},
+                            }
+                        },
+                        auto_fixable=True,
+                    )
+                ]
+
+            # Request is too low or missing — set to target and remove limit.
+            return [
+                OptimizationViolation(
+                    rule_id="RES002",
+                    name="CPU Limit Set (Anti-Pattern)",
+                    description=(
+                        f"CPU limit ({cpu_limit_str}) causes unnecessary throttling. "
+                        f"Setting request to {target_request}m and removing limit"
+                    ),
+                    severity="warning",
+                    category="resources",
+                    fix_preview={
+                        "resources": {
+                            "requests": {"cpu": f"{target_request}m"},
+                            "limits": {"cpu": "REMOVE"},
+                        }
+                    },
+                    auto_fixable=True,
+                )
+            ]
     return []
 
 
@@ -212,50 +258,6 @@ def _check_no_resource_requests(chart: dict) -> list[OptimizationViolation]:
     return []
 
 
-def _check_high_cpu_limit_request_ratio(chart: dict) -> list[OptimizationViolation]:
-    """RES005 - CPU limit/request ratio >= threshold.
-
-    The fix always increases the *request* to bring the ratio in line.
-    Limits are never decreased — they are assumed intentional.
-    """
-    if "cpu_request" in FIXED_RESOURCE_FIELDS:
-        return []
-    if _is_best_effort_qos(chart):
-        return []
-
-    resources = chart.get("resources", {})
-    limits = resources.get("limits", {})
-    requests = resources.get("requests", {})
-
-    cpu_limit = _parse_cpu(limits.get("cpu"))
-    cpu_request = _parse_cpu(requests.get("cpu"))
-
-    if cpu_limit and cpu_request and cpu_request > 0:
-        ratio = cpu_limit / cpu_request
-        if ratio >= LIMIT_REQUEST_RATIO_THRESHOLD:
-            target_request = int(cpu_limit / BURSTABLE_TARGET_RATIO)
-            return [
-                OptimizationViolation(
-                    rule_id="RES005",
-                    name="High CPU Limit/Request Ratio",
-                    description=(
-                        f"CPU limit ({limits.get('cpu')}) is {ratio:.1f}x the request "
-                        f"({requests.get('cpu')}), increasing request to bring "
-                        f"ratio to {BURSTABLE_TARGET_RATIO:.1f}x"
-                    ),
-                    severity="warning",
-                    category="resources",
-                    fix_preview={
-                        "resources": {
-                            "requests": {"cpu": f"{target_request}m"}
-                        }
-                    },
-                    auto_fixable=True,
-                )
-            ]
-    return []
-
-
 def _check_high_memory_limit_request_ratio(chart: dict) -> list[OptimizationViolation]:
     """RES006 - Memory limit/request ratio >= threshold.
 
@@ -305,9 +307,9 @@ def _check_high_memory_limit_request_ratio(chart: dict) -> list[OptimizationViol
 def _check_very_low_cpu_request(chart: dict) -> list[OptimizationViolation]:
     """RES007 - CPU request < 10m may cause throttling.
 
-    Only fires when the CPU *limit* is also low (or missing).  When the limit
-    is reasonable but the request is low, RES005 handles it by increasing the
-    request instead, so we avoid the bump-then-reduce-limit sequence.
+    Only fires when no CPU limit is set.  When a CPU limit exists,
+    RES002 already computes the correct request (10% of limit, floor 100m)
+    so this rule defers to avoid overwriting with a lower baseline.
     """
     resources = chart.get("resources", {})
     requests = resources.get("requests", {})
@@ -315,23 +317,23 @@ def _check_very_low_cpu_request(chart: dict) -> list[OptimizationViolation]:
     cpu_request = _parse_cpu(requests.get("cpu"))
     cpu_limit = _parse_cpu(limits.get("cpu"))
 
+    # Defer to RES002 when a CPU limit exists — it sets request to
+    # max(100m, 10% of limit) which is always >= this rule's baseline.
+    if cpu_limit and cpu_limit > 0:
+        return []
+
     if cpu_request and cpu_request < LOW_CPU_THRESHOLD_MILLICORES:
-        # Only bump when the limit is also low (or absent).  If the limit is
-        # already at or above the bump target the ratio rule (RES005) handles
-        # it by increasing the request without touching the limit.
-        limit_is_also_low = cpu_limit is None or cpu_limit < CPU_BUMP_MIN_MILLICORES
-        if limit_is_also_low:
-            return [
-                OptimizationViolation(
-                    rule_id="RES007",
-                    name="Very Low CPU Request",
-                    description=f"CPU request ({requests.get('cpu')}) is below {LOW_CPU_THRESHOLD_MILLICORES}m, which may cause CPU throttling",
-                    severity="warning",
-                    category="resources",
-                    fix_preview={"resources": {"requests": {"cpu": "100m"}}},
-                    auto_fixable=True,
-                )
-            ]
+        return [
+            OptimizationViolation(
+                rule_id="RES007",
+                name="Very Low CPU Request",
+                description=f"CPU request ({requests.get('cpu')}) is below {LOW_CPU_THRESHOLD_MILLICORES}m, which may cause CPU throttling",
+                severity="warning",
+                category="resources",
+                fix_preview={"resources": {"requests": {"cpu": "100m"}}},
+                auto_fixable=True,
+            )
+        ]
     return []
 
 
@@ -737,11 +739,11 @@ RULES: list[OptimizationRule] = [
     # Resources rules
     OptimizationRule(
         id="RES002",
-        name="No CPU Limits",
-        description="Container has no CPU limits defined",
+        name="CPU Limit Set (Anti-Pattern)",
+        description="CPU limits cause unnecessary throttling and should be removed",
         severity="warning",
         category="resources",
-        check=_check_no_cpu_limits,
+        check=_check_cpu_limit_set,
         auto_fixable=True,
     ),
     OptimizationRule(
@@ -760,15 +762,6 @@ RULES: list[OptimizationRule] = [
         severity="error",
         category="resources",
         check=_check_no_resource_requests,
-        auto_fixable=True,
-    ),
-    OptimizationRule(
-        id="RES005",
-        name="High CPU Limit/Request Ratio",
-        description="CPU limit is too high compared to request",
-        severity="warning",
-        category="resources",
-        check=_check_high_cpu_limit_request_ratio,
         auto_fixable=True,
     ),
     OptimizationRule(

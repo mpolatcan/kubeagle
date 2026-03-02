@@ -35,15 +35,15 @@ class TestOptimizationViolation:
     def test_optimization_violation_creation(self) -> None:
         """Test OptimizationViolation creation."""
         violation = OptimizationViolation(
-            rule_id="RES005",
-            name="High CPU Limit/Request Ratio",
-            description="CPU limit is 5x the request",
+            rule_id="RES006",
+            name="High Memory Limit/Request Ratio",
+            description="Memory limit is 4x the request",
             category="resources",
             severity="warning",
-            fix_preview={"resources": {"limits": {"cpu": "200m"}}},
+            fix_preview={"resources": {"requests": {"memory": "341Mi"}}},
             auto_fixable=True,
         )
 
-        assert violation.rule_id == "RES005"
+        assert violation.rule_id == "RES006"
         assert violation.category == "resources"
         assert violation.auto_fixable is True

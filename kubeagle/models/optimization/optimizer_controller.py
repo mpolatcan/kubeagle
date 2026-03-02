@@ -260,15 +260,12 @@ class UnifiedOptimizerController(BaseModel):
             )
         if rid == "RES004":
             return "No requests"
-        if rid == "RES005":
-            if cpu_limit > 0 and cpu_request > 0:
-                ratio = cpu_limit / cpu_request
-                return (
-                    f"CPU: {self._format_cpu_millicores(cpu_request)} req / "
-                    f"{self._format_cpu_millicores(cpu_limit)} lim "
-                    f"({ratio:.1f}x, {qos_label})"
-                )
-            return f"CPU: {self._format_cpu_millicores(cpu_request)}"
+        if rid == "RES002":
+            return (
+                f"CPU limit: {self._format_cpu_millicores(cpu_limit)}"
+                if cpu_limit > 0
+                else "No CPU limit"
+            )
         if rid == "RES007":
             return (
                 f"CPU: {self._format_cpu_millicores(cpu_request)} req / "
@@ -318,8 +315,13 @@ class UnifiedOptimizerController(BaseModel):
 
     def _derive_recommended_value(self, violation: RuleViolation) -> str:
         """Derive recommended value from the rule's fix_preview dict."""
-        if violation.rule_id == "RES005":
-            return "CPU 1.5-2x req (Burstable) or req=limit (Guaranteed)"
+        if violation.rule_id == "RES002":
+            # Check fix_preview to see if the request was changed or left alone
+            fix_preview = violation.fix_preview or {}
+            requests_patch = fix_preview.get("resources", {}).get("requests", {})
+            if requests_patch.get("cpu"):
+                return f"Remove CPU limit, set request to {requests_patch['cpu']}"
+            return "Remove CPU limit (keep existing request)"
         if violation.rule_id == "RES006":
             return "Mem 1.5-2x req (Burstable) or req=limit (Guaranteed)"
         if not violation.fix_preview:
@@ -675,7 +677,7 @@ class UnifiedOptimizerController(BaseModel):
         Args:
             chart: The ChartInfo containing the violation.
             violation: The violation to generate a fix for.
-            ratio_strategy: Optional ratio strategy for RES005/RES006 fixes.
+            ratio_strategy: Optional ratio strategy for RES006 fixes.
             ratio_target: Optional ratio fix target (`limit` or `request`).
             probe_settings: Optional probe override settings for PRB rules.
 

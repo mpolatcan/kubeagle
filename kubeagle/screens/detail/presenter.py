@@ -188,16 +188,15 @@ pdb:
     cpu: 100m
     memory: 128Mi""",
     },
-    "RES005": {
-        "id": "charts-high-cpu-ratio",
+    "RES002": {
+        "id": "charts-cpu-limit-anti-pattern",
         "category": "resource",
-        "title_tpl": "High CPU Limit/Request Ratio: {count} charts ({pct:.1f}%)",
-        "recommended_action": "Reduce CPU limit to <=2x the request",
+        "title_tpl": "CPU Limit Set (Anti-Pattern): {count} charts ({pct:.1f}%)",
+        "recommended_action": "Remove CPU limit and set request to 10% of old limit",
         "yaml_example": """resources:
   requests:
-    cpu: 100m
-  limits:
-    cpu: 200m  # Keep ratio <= 2x""",
+    cpu: 50m  # 10% of old 500m limit
+  # No CPU limit - limits cause unnecessary throttling""",
     },
     "RES006": {
         "id": "charts-high-memory-ratio",

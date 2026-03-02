@@ -83,12 +83,12 @@ class TestUnifiedOptimizerControllerResourceFormatting:
         controller = UnifiedOptimizerController()
         chart = _make_chart()
         chart.qos_class = QoSClass.BEST_EFFORT
-        violation = _make_rule_violation("RES005")
+        violation = _make_rule_violation("RES006")
         rendered_rule_input = {
             "qos_class": "Burstable",
             "resources": {
-                "requests": {"cpu": "100m"},
-                "limits": {"cpu": "400m"},
+                "requests": {"memory": "128Mi"},
+                "limits": {"memory": "512Mi"},
             },
         }
 
@@ -98,7 +98,7 @@ class TestUnifiedOptimizerControllerResourceFormatting:
             rendered_rule_input=rendered_rule_input,
         )
 
-        assert current_value == "CPU: 100m req / 400m lim (4.0x, Burstable)"
+        assert current_value == "Mem: 128Mi req / 512Mi lim (4.0x, Burstable)"
 
     def test_rendered_missing_cpu_limit_shows_missing_value(self) -> None:
         """RES002 should not fallback to chart-level limits when rendered limit is missing."""

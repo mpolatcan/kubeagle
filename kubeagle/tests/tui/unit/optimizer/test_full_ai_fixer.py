@@ -57,7 +57,7 @@ def test_default_full_fix_template_exposes_rule_guidance_lines() -> None:
     assert FULL_FIX_PROMPT_TOKEN_SEED_YAML in template
     assert FULL_FIX_PROMPT_TOKEN_ALLOWED_FILES in template
     assert "- PRB001: Use `livenessProbe` under workload container config." in template
-    assert "- RES005:" in template
+    assert "- RES002:" in template
     assert "- RES006:" in template
     assert "- RES007:" in template
     # Verify rule ordering constraint is present
@@ -447,3 +447,104 @@ def test_generate_ai_full_fix_direct_edit_honors_preferred_provider_without_cros
     assert result.status == "error"
     assert result.response is None
     assert direct_calls == ["claude"]
+
+
+def test_enforce_seed_values_removes_key_with_sentinel(tmp_path: Path) -> None:
+    """_enforce_seed_values must honour REMOVE_KEY sentinels (not write literal 'REMOVE')."""
+    from kubeagle.optimizer.full_ai_fixer import _enforce_seed_values
+    from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
+    values_file = tmp_path / "values.yaml"
+    values_file.write_text(
+        "resources:\n"
+        "  requests:\n"
+        "    cpu: 200m\n"
+        "  limits:\n"
+        "    cpu: 500m\n"
+        "    memory: 512Mi\n",
+        encoding="utf-8",
+    )
+
+    # RES002 adequate-request seed: only remove CPU limit, don't touch request
+    seed = {"resources": {"limits": {"cpu": REMOVE_KEY}}}
+    _enforce_seed_values(values_file, seed)
+
+    import yaml
+
+    result = yaml.safe_load(values_file.read_text(encoding="utf-8"))
+    # CPU limit must be gone — not set to "REMOVE"
+    limits = result.get("resources", {}).get("limits", {})
+    assert "cpu" not in limits
+    # Memory limit must be preserved
+    assert limits.get("memory") == "512Mi"
+    # CPU request must be untouched
+    assert result["resources"]["requests"]["cpu"] == "200m"
+
+
+def test_enforce_seed_values_sets_request_and_removes_limit(tmp_path: Path) -> None:
+    """_enforce_seed_values with low request: sets request and removes limit."""
+    from kubeagle.optimizer.full_ai_fixer import _enforce_seed_values
+    from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
+    values_file = tmp_path / "values.yaml"
+    # AI wrote bad value (10m) — seed should override to 100m and remove limit
+    values_file.write_text(
+        "resources:\n"
+        "  requests:\n"
+        "    cpu: 10m\n"
+        "  limits:\n"
+        "    cpu: 500m\n",
+        encoding="utf-8",
+    )
+
+    seed = {
+        "resources": {
+            "requests": {"cpu": "100m"},
+            "limits": {"cpu": REMOVE_KEY},
+        }
+    }
+    _enforce_seed_values(values_file, seed)
+
+    import yaml
+
+    result = yaml.safe_load(values_file.read_text(encoding="utf-8"))
+    assert result["resources"]["requests"]["cpu"] == "100m"
+    assert "limits" not in result.get("resources", {})
+
+
+def test_mapping_overlay_patch_detects_deletions() -> None:
+    """_mapping_overlay_patch should emit REMOVE_KEY for keys deleted by AI."""
+    from kubeagle.optimizer.full_ai_fixer import _mapping_overlay_patch
+    from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
+    before = {
+        "resources": {
+            "requests": {"cpu": "100m", "memory": "128Mi"},
+            "limits": {"cpu": "500m", "memory": "256Mi"},
+        }
+    }
+    # AI removed limits.cpu but kept everything else
+    after = {
+        "resources": {
+            "requests": {"cpu": "100m", "memory": "128Mi"},
+            "limits": {"memory": "256Mi"},
+        }
+    }
+    patch = _mapping_overlay_patch(before, after)
+    # The patch should include REMOVE_KEY for the deleted cpu limit
+    assert patch["resources"]["limits"]["cpu"] is REMOVE_KEY
+    # No other changes
+    assert "requests" not in patch.get("resources", {})
+    assert "memory" not in patch.get("resources", {}).get("limits", {})
+
+
+def test_mapping_overlay_patch_detects_top_level_deletion() -> None:
+    """Top-level key removal should emit REMOVE_KEY."""
+    from kubeagle.optimizer.full_ai_fixer import _mapping_overlay_patch
+    from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
+    before = {"a": 1, "b": 2}
+    after = {"a": 1}
+    patch = _mapping_overlay_patch(before, after)
+    assert patch["b"] is REMOVE_KEY
+    assert "a" not in patch

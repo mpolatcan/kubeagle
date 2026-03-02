@@ -25,27 +25,82 @@ class TestFixGenerator:
         """Test FixGenerator initialization."""
         assert isinstance(generator, FixGenerator)
 
-    def test_generate_fix_res002(self, generator: FixGenerator) -> None:
-        """Test generating fix for RES002 (No CPU Limits)."""
+    def test_generate_fix_res002_adequate_request(self, generator: FixGenerator) -> None:
+        """RES002: when existing request >= target, only remove limit."""
+        from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
         violation = pytest.importorskip(
             "kubeagle.optimizer.rules"
         ).OptimizationViolation(
             rule_id="RES002",
-            name="No CPU Limits",
-            description="Chart has no CPU limits",
+            name="CPU Limit Set (Anti-Pattern)",
+            description="CPU limit causes unnecessary throttling",
             category="resources",
             severity="warning",
             fix_preview={},
             auto_fixable=True,
         )
-        chart_data = {"resources": {"requests": {"cpu": "100m"}}}
+        # Existing request 100m >= target max(100, 500*0.1=50) = 100m → only remove limit
+        # The fix pins the existing request value so _enforce_seed_values can
+        # restore it if the AI fixer overwrites it.
+        chart_data = {"resources": {"requests": {"cpu": "100m"}, "limits": {"cpu": "500m"}}}
 
         fix = generator.generate_fix(violation, chart_data)
 
         assert fix is not None
         assert "resources" in fix
-        assert "limits" in fix["resources"]
-        assert "cpu" in fix["resources"]["limits"]
+        assert fix["resources"]["requests"]["cpu"] == "100m"
+        assert fix["resources"]["limits"]["cpu"] is REMOVE_KEY
+
+    def test_generate_fix_res002_low_request(self, generator: FixGenerator) -> None:
+        """RES002: when existing request < target, set request and remove limit."""
+        from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
+        violation = pytest.importorskip(
+            "kubeagle.optimizer.rules"
+        ).OptimizationViolation(
+            rule_id="RES002",
+            name="CPU Limit Set (Anti-Pattern)",
+            description="CPU limit causes unnecessary throttling",
+            category="resources",
+            severity="warning",
+            fix_preview={},
+            auto_fixable=True,
+        )
+        # Existing request 50m < target max(100, 2000*0.1=200) = 200m → set request to 200m
+        chart_data = {"resources": {"requests": {"cpu": "50m"}, "limits": {"cpu": "2000m"}}}
+
+        fix = generator.generate_fix(violation, chart_data)
+
+        assert fix is not None
+        assert "resources" in fix
+        assert fix["resources"]["requests"]["cpu"] == "200m"
+        assert fix["resources"]["limits"]["cpu"] is REMOVE_KEY
+
+    def test_generate_fix_res002_no_limit_in_chart_data(self, generator: FixGenerator) -> None:
+        """RES002: when cpu_limit is absent from chart_data, still emit REMOVE_KEY."""
+        from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
+        violation = pytest.importorskip(
+            "kubeagle.optimizer.rules"
+        ).OptimizationViolation(
+            rule_id="RES002",
+            name="CPU Limit Set (Anti-Pattern)",
+            description="CPU limit causes unnecessary throttling",
+            category="resources",
+            severity="warning",
+            fix_preview={},
+            auto_fixable=True,
+        )
+        # No cpu limit in chart_data (e.g. detected via rendered mode)
+        chart_data = {"resources": {"requests": {"cpu": "100m"}}}
+
+        fix = generator.generate_fix(violation, chart_data)
+
+        assert fix is not None
+        assert fix["resources"]["limits"]["cpu"] is REMOVE_KEY
+        # Should not touch requests when limit is unknown
+        assert "requests" not in fix["resources"]
 
     def test_generate_fix_res003(self, generator: FixGenerator) -> None:
         """Test generating fix for RES003 (No Memory Limits)."""
@@ -95,28 +150,6 @@ class TestFixGenerator:
         assert "cpu" in fix["resources"]["limits"]
         assert "memory" in fix["resources"]["limits"]
 
-    def test_generate_fix_res005_increases_request_with_burstable_ratio(
-        self, generator: FixGenerator
-    ) -> None:
-        """RES005 always increases request (limit / 1.5) — never decreases limit."""
-        violation = pytest.importorskip(
-            "kubeagle.optimizer.rules"
-        ).OptimizationViolation(
-            rule_id="RES005",
-            name="High CPU Limit/Request Ratio",
-            description="CPU ratio is too high",
-            category="resources",
-            severity="warning",
-            fix_preview={},
-            auto_fixable=True,
-        )
-        chart_data = {"resources": {"requests": {"cpu": "100m"}, "limits": {"cpu": "300m"}}}
-
-        fix = generator.generate_fix(violation, chart_data)
-
-        assert fix is not None
-        assert fix["resources"]["requests"]["cpu"] == "200m"
-
     def test_generate_fix_res006_increases_request_with_burstable_ratio(
         self, generator: FixGenerator
     ) -> None:
@@ -138,32 +171,6 @@ class TestFixGenerator:
 
         assert fix is not None
         assert fix["resources"]["requests"]["memory"] == "341Mi"
-
-    def test_generate_fix_res005_burstable_2x_strategy(
-        self, generator: FixGenerator
-    ) -> None:
-        """RES005 should honor Burstable 2.0x strategy (limit / 2.0)."""
-        violation = pytest.importorskip(
-            "kubeagle.optimizer.rules"
-        ).OptimizationViolation(
-            rule_id="RES005",
-            name="High CPU Limit/Request Ratio",
-            description="CPU ratio is too high",
-            category="resources",
-            severity="warning",
-            fix_preview={},
-            auto_fixable=True,
-        )
-        chart_data = {"resources": {"requests": {"cpu": "100m"}, "limits": {"cpu": "400m"}}}
-
-        fix = generator.generate_fix(
-            violation,
-            chart_data,
-            ratio_strategy="burstable_2_0",
-        )
-
-        assert fix is not None
-        assert fix["resources"]["requests"]["cpu"] == "200m"
 
     def test_generate_fix_res006_guaranteed_strategy(
         self, generator: FixGenerator
@@ -190,33 +197,6 @@ class TestFixGenerator:
 
         assert fix is not None
         assert fix["resources"]["requests"]["memory"] == "512Mi"
-
-    def test_generate_fix_res005_preserves_limit(
-        self, generator: FixGenerator
-    ) -> None:
-        """RES005 should increase request from current limit, preserving limit."""
-        violation = pytest.importorskip(
-            "kubeagle.optimizer.rules"
-        ).OptimizationViolation(
-            rule_id="RES005",
-            name="High CPU Limit/Request Ratio",
-            description="CPU ratio is too high",
-            category="resources",
-            severity="warning",
-            fix_preview={},
-            auto_fixable=True,
-        )
-        chart_data = {"resources": {"requests": {"cpu": "100m"}, "limits": {"cpu": "300m"}}}
-
-        fix = generator.generate_fix(
-            violation,
-            chart_data,
-            ratio_strategy="burstable_1_5",
-        )
-
-        assert fix is not None
-        assert "limits" not in fix["resources"]
-        assert fix["resources"]["requests"]["cpu"] == "200m"
 
     def test_generate_fix_res006_target_request_guaranteed(
         self, generator: FixGenerator

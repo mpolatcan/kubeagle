@@ -16,19 +16,19 @@ class TestViolationResult:
     def test_violation_result_creation(self) -> None:
         """Test ViolationResult creation."""
         violation = ViolationResult(
-            id="RES005",
+            id="RES006",
             chart_name="my-chart",
-            rule_name="High CPU Limit/Request Ratio",
-            rule_id="RES005",
+            rule_name="High Memory Limit/Request Ratio",
+            rule_id="RES006",
             category="resources",
             severity=Severity.WARNING,
-            description="CPU limit is 5x the request",
-            current_value="500m",
-            recommended_value="200m",
+            description="Memory limit is 4x the request",
+            current_value="128Mi",
+            recommended_value="341Mi",
             fix_available=True,
         )
 
-        assert violation.id == "RES005"
+        assert violation.id == "RES006"
         assert violation.chart_name == "my-chart"
         assert violation.category == "resources"
         assert violation.severity == Severity.WARNING
@@ -75,27 +75,27 @@ class TestViolationResult:
     def test_violation_result_serialization(self) -> None:
         """Test ViolationResult can be serialized."""
         violation = ViolationResult(
-            id="RES005",
+            id="RES006",
             chart_name="my-chart",
-            rule_name="High CPU Limit/Request Ratio",
-            rule_id="RES005",
+            rule_name="High Memory Limit/Request Ratio",
+            rule_id="RES006",
             category="resources",
             severity=Severity.WARNING,
-            description="CPU limit is 5x the request",
-            current_value="500m",
-            recommended_value="200m",
+            description="Memory limit is 4x the request",
+            current_value="128Mi",
+            recommended_value="341Mi",
             fix_available=True,
         )
 
         data = violation.model_dump()
-        assert data["id"] == "RES005"
+        assert data["id"] == "RES006"
         assert data["severity"] == Severity.WARNING
 
     def test_violation_result_validation_error(self) -> None:
         """Test ViolationResult raises error for missing required fields."""
         with pytest.raises(ValidationError):
             ViolationResult(  # type: ignore[missing-argument]
-                id="RES005",
+                id="RES006",
                 chart_name="my-chart",
                 # Missing required fields
             )

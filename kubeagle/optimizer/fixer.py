@@ -5,10 +5,12 @@ from typing import Any
 
 from kubeagle.optimizer.rules import (
     BURSTABLE_TARGET_RATIO,
+    CPU_LIMIT_TO_REQUEST_FRACTION,
     OptimizationViolation,
     _parse_cpu,
     _parse_memory,
 )
+from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
 from kubeagle.optimizer.yaml_patcher import apply_values_yaml_patch
 
 logger = logging.getLogger(__name__)
@@ -38,7 +40,7 @@ class FixGenerator:
         Args:
             violation: The violation to fix
             chart_data: Current chart data (to compute smart defaults)
-            ratio_strategy: Optional ratio strategy for RES005/RES006 fixes.
+            ratio_strategy: Optional ratio strategy for RES006 fixes.
             ratio_target: Optional ratio fix target (`limit` or `request`).
             probe_settings: Optional probe override settings for PRB rules.
             fixed_resource_fields: Optional set of fields to protect from modification.
@@ -49,11 +51,36 @@ class FixGenerator:
         rule_id = violation.rule_id
 
         if rule_id == "RES002":
-            # No CPU Limits - use request if available, else default
+            # CPU Limit Set (Anti-Pattern) — remove limit; only touch request
+            # if it's below max(100m, 10% of limit).
             resources = self._get_resources(chart_data)
+            limits = resources.get("limits", {})
             requests = resources.get("requests", {})
-            cpu_request = requests.get("cpu", "100m")
-            return {"resources": {"limits": {"cpu": self._double_cpu(cpu_request)}}}
+            cpu_limit = _parse_cpu(limits.get("cpu"))
+            if cpu_limit and cpu_limit > 0:
+                target_request = max(100, int(cpu_limit * CPU_LIMIT_TO_REQUEST_FRACTION))
+                current_request = _parse_cpu(requests.get("cpu"))
+                if current_request and current_request >= target_request:
+                    # Existing request is adequate — only remove the limit.
+                    # Pin the existing request value in the seed so that
+                    # _enforce_seed_values will restore it if the AI fixer
+                    # overwrites it with a different number.
+                    return {
+                        "resources": {
+                            "requests": {"cpu": requests.get("cpu")},
+                            "limits": {"cpu": REMOVE_KEY},
+                        }
+                    }
+                return {
+                    "resources": {
+                        "requests": {"cpu": f"{target_request}m"},
+                        "limits": {"cpu": REMOVE_KEY},
+                    }
+                }
+            # CPU limit not found in chart_data (may come from rendered
+            # manifests or template defaults).  Still emit a REMOVE_KEY
+            # so the seed enforcement removes any limit the AI leaves.
+            return {"resources": {"limits": {"cpu": REMOVE_KEY}}}
 
         elif rule_id == "RES003":
             # No Memory Limits - use request if available, else default
@@ -78,27 +105,6 @@ class FixGenerator:
                     },
                 }
             }
-
-        elif rule_id == "RES005":
-            # High CPU Limit/Request Ratio — always increase request to bring
-            # ratio in line.  Limits are never decreased.
-            resources = self._get_resources(chart_data)
-            limits = resources.get("limits", {})
-            cpu_limit = _parse_cpu(limits.get("cpu"))
-            multiplier = self._resolve_ratio_multiplier(ratio_strategy)
-
-            if cpu_limit:
-                if multiplier is None:
-                    target_request = cpu_limit
-                else:
-                    target_request = cpu_limit / multiplier
-                return {
-                    "resources": {
-                        "requests": {
-                            "cpu": f"{self._safe_resource_int(target_request)}m"
-                        }
-                    }
-                }
 
         elif rule_id == "RES006":
             # High Memory Limit/Request Ratio — always increase request to

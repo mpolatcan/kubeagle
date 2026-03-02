@@ -36,13 +36,13 @@ def _make_violation(chart_name: str) -> ViolationResult:
         chart_name=chart_name,
         chart_path=f"/tmp/{chart_name}/values.yaml",
         team="team-a",
-        rule_name="No CPU Limits",
+        rule_name="CPU Limit Set (Anti-Pattern)",
         rule_id="RES002",
         category="resources",
         severity=Severity.WARNING,
-        description="Missing CPU limit",
-        current_value="No CPU limit",
-        recommended_value="resources.limits.cpu: 500m",
+        description="CPU limit causes unnecessary throttling",
+        current_value="500m",
+        recommended_value="Remove CPU limit, set request to 10% of limit",
         fix_available=True,
     )
 

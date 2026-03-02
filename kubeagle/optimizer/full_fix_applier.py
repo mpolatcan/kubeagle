@@ -402,7 +402,28 @@ def parse_values_patch_yaml(values_patch_text: str) -> dict[str, Any]:
         return {}
     if not isinstance(parsed, dict):
         raise ValueError("Values patch editor content must be a YAML mapping.")
-    return parsed
+    return _restore_remove_sentinels(parsed)
+
+
+def _restore_remove_sentinels(payload: Any) -> Any:
+    """Convert ``"REMOVE"`` strings back to ``REMOVE_KEY`` sentinels.
+
+    When a patch dict is serialised to YAML for display, ``REMOVE_KEY``
+    sentinels are replaced with the plain string ``"REMOVE"`` (see
+    ``_sanitize_patch_for_display``).  After the YAML text is parsed back
+    with ``yaml.safe_load``, the sentinel identity is lost.  This function
+    restores it so that ``apply_values_yaml_patch`` can correctly delete
+    the target keys instead of writing a literal ``"REMOVE"`` value.
+    """
+    from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
+
+    if isinstance(payload, str) and payload == "REMOVE":
+        return REMOVE_KEY
+    if isinstance(payload, dict):
+        return {k: _restore_remove_sentinels(v) for k, v in payload.items()}
+    if isinstance(payload, list):
+        return [_restore_remove_sentinels(item) for item in payload]
+    return payload
 
 
 def _restore_file_snapshots(snapshots: dict[Path, bytes]) -> None:

@@ -28,6 +28,7 @@ from kubeagle.models.optimization.resource_impact import (
 )
 import kubeagle.optimizer.rules as _optimizer_rules
 from kubeagle.optimizer.rules import _parse_cpu
+from kubeagle.optimizer.yaml_patcher import REMOVE_KEY
 from kubeagle.utils.resource_parser import memory_str_to_bytes
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,8 @@ logger = logging.getLogger(__name__)
 
 def fetch_workload_replica_map(
     context: str | None = None,
-    timeout: int = 30,
+    timeout: int = 60,
+    max_retries: int = 3,
 ) -> dict[tuple[str, str], int]:
     """Fetch actual desired replica counts from the cluster.
 
@@ -49,56 +51,85 @@ def fetch_workload_replica_map(
     (e.g. ``contact-service-redis``) and won't be summed into the parent
     chart's entry (``contact-service``).
 
+    Retries up to *max_retries* times with increasing timeouts to handle
+    transient K8s API stream errors on large clusters.
+
     Returns:
         Mapping of ``(workload_name, namespace) -> desired_replicas``.
     """
-    cmd = ["kubectl"]
+    cmd_base = ["kubectl"]
     if context:
-        cmd.extend(["--context", context])
-    cmd.extend([
-        "get", "deployments,statefulsets",
-        "-A", "-o", "json",
-        f"--request-timeout={timeout}s",
-    ])
+        cmd_base.extend(["--context", context])
 
-    try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout + 5,
-        )
-        if result.returncode != 0:
-            logger.warning("kubectl workload fetch failed: %s", (result.stderr or "").strip())
-            return {}
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
-        logger.warning("kubectl workload fetch error: %s", exc)
-        return {}
+    last_error = ""
+    for attempt in range(max_retries):
+        attempt_timeout = timeout + (attempt * 30)  # 60s, 90s, 120s
+        cmd = [
+            *cmd_base,
+            "get", "deployments,statefulsets",
+            "-A", "-o", "json",
+            f"--request-timeout={attempt_timeout}s",
+        ]
 
-    try:
-        data = json.loads(result.stdout)
-    except (json.JSONDecodeError, TypeError):
-        return {}
-
-    replica_map: dict[tuple[str, str], int] = {}
-    for item in data.get("items", []):
-        metadata = item.get("metadata", {})
-        spec = item.get("spec", {})
-        workload_name = metadata.get("name", "")
-        namespace = metadata.get("namespace", "")
-
-        if not workload_name or not namespace:
-            continue
-
-        desired = spec.get("replicas", 1)
         try:
-            desired = int(desired)
-        except (TypeError, ValueError):
-            desired = 1
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=attempt_timeout + 10,
+            )
+            if result.returncode != 0:
+                last_error = (result.stderr or "").strip()
+                # Retry on stream/connection errors
+                if "stream error" in last_error or "connection" in last_error.lower():
+                    logger.warning(
+                        "kubectl workload fetch failed (attempt %d/%d): %s",
+                        attempt + 1, max_retries, last_error,
+                    )
+                    continue
+                logger.warning("kubectl workload fetch failed: %s", last_error)
+                return {}
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "kubectl workload fetch timed out (attempt %d/%d, %ds)",
+                attempt + 1, max_retries, attempt_timeout,
+            )
+            last_error = f"timeout after {attempt_timeout}s"
+            continue
+        except (FileNotFoundError, OSError) as exc:
+            logger.warning("kubectl workload fetch error: %s", exc)
+            return {}
 
-        map_key = (workload_name, namespace)
-        # Sum in case of duplicate names (e.g. Deployment + StatefulSet
-        # with the same name, which is rare but possible).
-        replica_map[map_key] = replica_map.get(map_key, 0) + desired
+        try:
+            data = json.loads(result.stdout)
+        except (json.JSONDecodeError, TypeError):
+            return {}
 
-    return replica_map
+        replica_map: dict[tuple[str, str], int] = {}
+        for item in data.get("items", []):
+            metadata = item.get("metadata", {})
+            spec = item.get("spec", {})
+            workload_name = metadata.get("name", "")
+            namespace = metadata.get("namespace", "")
+
+            if not workload_name or not namespace:
+                continue
+
+            desired = spec.get("replicas", 1)
+            try:
+                desired = int(desired)
+            except (TypeError, ValueError):
+                desired = 1
+
+            map_key = (workload_name, namespace)
+            # Sum in case of duplicate names (e.g. Deployment + StatefulSet
+            # with the same name, which is rare but possible).
+            replica_map[map_key] = replica_map.get(map_key, 0) + desired
+
+        return replica_map
+
+    logger.warning(
+        "kubectl workload fetch failed after %d attempts: %s",
+        max_retries, last_error,
+    )
+    return {}
 
 
 def _deduplicate_charts_by_name(
@@ -132,7 +163,6 @@ RESOURCE_RULE_IDS: set[str] = {
     "RES002",
     "RES003",
     "RES004",
-    "RES005",
     "RES006",
     "RES007",
     "RES008",
@@ -146,7 +176,7 @@ REPLICA_RULE_IDS: set[str] = {"AVL005"}
 IMPACT_RULE_IDS: set[str] = RESOURCE_RULE_IDS | REPLICA_RULE_IDS
 
 # Application order: request-setting rules first, then limit-setting rules.
-# This ensures that limit rules (RES002, RES003, RES005, RES006) see the
+# This ensures that limit rules (RES002, RES003, RES006) see the
 # already-updated request values from (RES004, RES007, RES008, RES009).
 _RULE_PRIORITY: dict[str, int] = {
     # Phase 1 — set/bump requests
@@ -155,9 +185,8 @@ _RULE_PRIORITY: dict[str, int] = {
     "RES008": 1,  # Add missing memory request
     "RES009": 1,  # Bump low memory request
     # Phase 2 — set/adjust limits (relative to requests)
-    "RES002": 2,  # Add CPU limit (2× request)
+    "RES002": 2,  # Remove CPU limit (anti-pattern), set request to 10% of limit
     "RES003": 2,  # Add memory limit (2× request)
-    "RES005": 2,  # Reduce high CPU limit/request ratio
     "RES006": 2,  # Reduce high memory limit/request ratio
     # Phase 3 — replicas
     "AVL005": 3,  # Increase replica count
@@ -410,8 +439,7 @@ class ResourceImpactCalculator:
         after_max = max(1, int(max_rep * replica_ratio)) if replica_ratio > 1.0 else max_rep
 
         # Ensure limits are never less than requests (fixes can be applied
-        # in an order that makes them inconsistent, e.g. RES005 reduces
-        # the limit based on the old request, then RES007 bumps the request).
+        # in an order that makes them inconsistent).
         if cpu_lim > 0 and cpu_lim < cpu_req:
             cpu_lim = cpu_req * 1.5
         if mem_lim > 0 and mem_lim < mem_req:
@@ -498,9 +526,12 @@ class ResourceImpactCalculator:
             if parsed is not None:
                 cpu_req = parsed
         if "cpu" in limits and "cpu_limit" not in fixed:
-            parsed = _parse_cpu(limits["cpu"])
-            if parsed is not None:
-                cpu_lim = parsed
+            if limits["cpu"] is REMOVE_KEY:
+                cpu_lim = 0.0
+            else:
+                parsed = _parse_cpu(limits["cpu"])
+                if parsed is not None:
+                    cpu_lim = parsed
         if "memory" in requests and "memory_request" not in fixed:
             parsed_bytes = memory_str_to_bytes(str(requests["memory"]))
             if parsed_bytes > 0:
@@ -523,9 +554,13 @@ class ResourceImpactCalculator:
         """Apply default fix values when optimizer controller is not available."""
         fixed = _optimizer_rules.FIXED_RESOURCE_FIELDS
         if rule_id == "RES002":
-            # No CPU limit -> set to 2x request or 500m
-            if "cpu_limit" not in fixed:
-                cpu_lim = max(cpu_req * 2, 500.0) if cpu_req > 0 else 500.0
+            # CPU limit is anti-pattern -> remove limit; only bump request
+            # if it's below max(100m, 10% of limit).
+            if "cpu_limit" not in fixed and cpu_lim > 0:
+                target = max(cpu_lim * 0.1, 100.0)
+                if cpu_req < target:
+                    cpu_req = target
+                cpu_lim = 0.0
         elif rule_id == "RES003":
             # No memory limit -> set to 2x request or 512Mi
             if "memory_limit" not in fixed:
@@ -540,11 +575,6 @@ class ResourceImpactCalculator:
                 cpu_lim = 500.0
             if mem_lim == 0 and "memory_limit" not in fixed:
                 mem_lim = 512 * 1024**2
-        elif rule_id == "RES005":
-            # High CPU ratio — increase request to bring ratio to 1.5x.
-            # Limits are never decreased.
-            if cpu_lim > 0 and "cpu_request" not in fixed:
-                cpu_req = cpu_lim / 1.5
         elif rule_id == "RES006":
             # High memory ratio — increase request to bring ratio to 1.5x.
             # Limits are never decreased.
