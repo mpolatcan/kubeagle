@@ -478,6 +478,7 @@ class ClusterPresenter:
                     "cpu_allocatable": 0.0, "memory_allocatable": 0.0,
                     "cpu_requests": 0.0, "memory_requests": 0.0,
                     "cpu_limits": 0.0, "memory_limits": 0.0,
+                    "cpu_usage": 0.0, "memory_usage": 0.0,
                     "node_count": 0,
                 }
                 ng_totals[ng] = group
@@ -487,6 +488,8 @@ class ClusterPresenter:
             group["memory_requests"] += _safe_float(getattr(node, "memory_requests", 0.0))
             group["cpu_limits"] += _safe_float(getattr(node, "cpu_limits", 0.0))
             group["memory_limits"] += _safe_float(getattr(node, "memory_limits", 0.0))
+            group["cpu_usage"] += _safe_float(getattr(node, "cpu_usage", 0.0))
+            group["memory_usage"] += _safe_float(getattr(node, "memory_usage", 0.0))
             group["node_count"] += 1
 
             # --- high pod count ---
@@ -514,10 +517,14 @@ class ClusterPresenter:
                 "memory_requests": totals["memory_requests"],
                 "cpu_limits": totals["cpu_limits"],
                 "memory_limits": totals["memory_limits"],
+                "cpu_usage": totals["cpu_usage"],
+                "memory_usage": totals["memory_usage"],
                 "cpu_pct": (totals["cpu_requests"] / cpu_alloc * 100) if cpu_alloc > 0 else 0.0,
                 "memory_pct": (totals["memory_requests"] / mem_alloc * 100) if mem_alloc > 0 else 0.0,
                 "cpu_lim_pct": (totals["cpu_limits"] / cpu_alloc * 100) if cpu_alloc > 0 else 0.0,
                 "memory_lim_pct": (totals["memory_limits"] / mem_alloc * 100) if mem_alloc > 0 else 0.0,
+                "cpu_use_pct": (totals["cpu_usage"] / cpu_alloc * 100) if cpu_alloc > 0 else 0.0,
+                "memory_use_pct": (totals["memory_usage"] / mem_alloc * 100) if mem_alloc > 0 else 0.0,
                 "node_count": totals["node_count"],
             }
 
@@ -1178,6 +1185,18 @@ class ClusterPresenter:
                 )
             else:
                 pod_usage_display = f"- ({pod_count}/-)"
+            cpu_usage = self._safe_float(getattr(node, "cpu_usage", 0))
+            mem_usage = self._safe_float(getattr(node, "memory_usage", 0))
+            cpu_usage_display = _format_alloc_pair(
+                cpu_usage,
+                cpu_alloc,
+                value_formatter=_format_cpu_m,
+            )
+            mem_usage_display = _format_alloc_pair(
+                mem_usage,
+                mem_alloc,
+                value_formatter=_format_mem_gib,
+            )
             cpu_req_display = _format_alloc_pair(
                 cpu_req,
                 cpu_alloc,
@@ -1205,6 +1224,8 @@ class ClusterPresenter:
                 node_name,
                 ng_str,
                 pod_usage_display,
+                cpu_usage_display,
+                mem_usage_display,
                 cpu_req_display,
                 mem_req_display,
                 cpu_lim_display,
@@ -1388,16 +1409,22 @@ class ClusterPresenter:
             mem_req = self._safe_float(node.memory_requests)
             cpu_lim = self._safe_float(getattr(node, "cpu_limits", 0))
             mem_lim = self._safe_float(getattr(node, "memory_limits", 0))
+            cpu_use = self._safe_float(getattr(node, "cpu_usage", 0))
+            mem_use = self._safe_float(getattr(node, "memory_usage", 0))
             cpu_req_pct = (cpu_req / cpu_alloc * 100) if cpu_alloc > 0 else 0
             mem_req_pct = (mem_req / mem_alloc * 100) if mem_alloc > 0 else 0
             cpu_lim_pct = (cpu_lim / cpu_alloc * 100) if cpu_alloc > 0 else 0
             mem_lim_pct = (mem_lim / mem_alloc * 100) if mem_alloc > 0 else 0
+            cpu_use_pct = (cpu_use / cpu_alloc * 100) if cpu_alloc > 0 else 0
+            mem_use_pct = (mem_use / mem_alloc * 100) if mem_alloc > 0 else 0
             group_node_stats.setdefault(ng, []).append(
                 {
                     "cpu_req": cpu_req_pct,
                     "mem_req": mem_req_pct,
                     "cpu_lim": cpu_lim_pct,
                     "mem_lim": mem_lim_pct,
+                    "cpu_use": cpu_use_pct,
+                    "mem_use": mem_use_pct,
                 }
             )
 
@@ -1413,6 +1440,8 @@ class ClusterPresenter:
                 mem_req_vals = [s["mem_req"] for s in stats]
                 cpu_lim_vals = [s["cpu_lim"] for s in stats]
                 mem_lim_vals = [s["mem_lim"] for s in stats]
+                cpu_use_vals = [s["cpu_use"] for s in stats]
+                mem_use_vals = [s["mem_use"] for s in stats]
                 avg_cpu_req = sum(cpu_req_vals) / len(cpu_req_vals)
                 max_cpu_req = max(cpu_req_vals)
                 p95_cpu_req = self._percentile(cpu_req_vals, 95)
@@ -1425,6 +1454,12 @@ class ClusterPresenter:
                 avg_mem_lim = sum(mem_lim_vals) / len(mem_lim_vals)
                 max_mem_lim = max(mem_lim_vals)
                 p95_mem_lim = self._percentile(mem_lim_vals, 95)
+                avg_cpu_use = sum(cpu_use_vals) / len(cpu_use_vals)
+                max_cpu_use = max(cpu_use_vals)
+                p95_cpu_use = self._percentile(cpu_use_vals, 95)
+                avg_mem_use = sum(mem_use_vals) / len(mem_use_vals)
+                max_mem_use = max(mem_use_vals)
+                p95_mem_use = self._percentile(mem_use_vals, 95)
             else:
                 # Fallback to group-level aggregates
                 cpu_alloc = data.get("cpu_allocatable", 0)
@@ -1433,6 +1468,8 @@ class ClusterPresenter:
                 mem_req = data.get("memory_requests", 0)
                 cpu_lim = data.get("cpu_limits", 0)
                 mem_lim = data.get("memory_limits", 0)
+                cpu_use = data.get("cpu_usage", 0)
+                mem_use = data.get("memory_usage", 0)
                 avg_cpu_req = max_cpu_req = p95_cpu_req = (
                     (cpu_req / cpu_alloc * 100) if cpu_alloc > 0 else 0
                 )
@@ -1445,6 +1482,12 @@ class ClusterPresenter:
                 avg_mem_lim = max_mem_lim = p95_mem_lim = (
                     (mem_lim / mem_alloc * 100) if mem_alloc > 0 else 0
                 )
+                avg_cpu_use = max_cpu_use = p95_cpu_use = (
+                    (cpu_use / cpu_alloc * 100) if cpu_alloc > 0 else 0
+                )
+                avg_mem_use = max_mem_use = p95_mem_use = (
+                    (mem_use / mem_alloc * 100) if mem_alloc > 0 else 0
+                )
 
             if node_count <= 0:
                 if stats:
@@ -1455,6 +1498,16 @@ class ClusterPresenter:
             row: list[str] = [
                 name,
                 str(node_count),
+                "/".join((
+                    self._format_pct(avg_cpu_use),
+                    self._format_pct(max_cpu_use),
+                    self._format_pct(p95_cpu_use),
+                )),
+                "/".join((
+                    self._format_pct(avg_mem_use),
+                    self._format_pct(max_mem_use),
+                    self._format_pct(p95_mem_use),
+                )),
                 "/".join((
                     self._format_pct(avg_cpu_req),
                     self._format_pct(max_cpu_req),

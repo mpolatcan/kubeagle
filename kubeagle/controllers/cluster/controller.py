@@ -3219,6 +3219,23 @@ class ClusterController(BaseController):
                             "Pod-based node enrichment failed; returning node inventory only: %s",
                             exc,
                         )
+                # Enrich with real CPU/memory usage from kubectl top node
+                try:
+                    top_node_rows = await self._top_metrics_fetcher.fetch_top_nodes(
+                        request_timeout=self._TOP_METRICS_REQUEST_TIMEOUT,
+                    )
+                    if top_node_rows:
+                        top_usage = self._build_top_node_usage_lookup(top_node_rows)
+                        for node in nodes:
+                            usage = top_usage.get(node.name)
+                            if usage:
+                                node.cpu_usage = usage.get("cpu_mcores", 0.0)
+                                node.memory_usage = usage.get("memory_bytes", 0.0)
+                except Exception as exc:
+                    logger.warning(
+                        "Top node metrics unavailable; usage columns will show zero: %s",
+                        exc,
+                    )
                 self._nodes_cache = [node.model_copy(deep=False) for node in nodes]
                 if on_node_update is not None and not include_pod_resources:
                     partial_nodes: list[NodeInfo] = []

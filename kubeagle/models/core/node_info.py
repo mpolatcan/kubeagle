@@ -21,6 +21,9 @@ class NodeInfo(BaseModel):
     memory_limits: float  # In bytes
     pod_count: int
     pod_capacity: int
+    # Real usage from kubectl top node (metrics-server)
+    cpu_usage: float = 0.0  # In millicores
+    memory_usage: float = 0.0  # In bytes
     # Extended fields for controller methods
     kubelet_version: str = ""
     conditions: dict[str, str] = {}
